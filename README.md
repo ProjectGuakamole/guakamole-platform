@@ -1,4 +1,4 @@
-# Project-Guakamole
+# Guakamole - Platform
 
 ## El proyecto se escribirá en Castellano.
 
