@@ -1,3 +1,4 @@
 .env
 .DS_Store
 *.exe
+package-lock.json
