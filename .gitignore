@@ -1,7 +1,25 @@
 .env
+<<<<<<< HEAD
 .DS_Store
 *.exe
 package-lock.json
 *.logs
 
 .vscode/
+=======
+*.key
+*.pem
+
+node_modules/
+__pycache__/
+.venv/
+venv/
+
+.idea/
+.vscode/
+
+*.log
+.DS_Store
+*.exe
+package-lock.json
+>>>>>>> 8864a4a (.gitignore y .env.example modificado)
