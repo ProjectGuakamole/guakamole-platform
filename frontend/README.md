@@ -73,3 +73,24 @@ export default defineConfig([
 ])
 
 ```
+# Docker – Frontend
+
+## `Dockerfile`
+
+Define la construcción de la imagen del frontend mediante un **build multi-stage**.
+
+### Etapas
+
+| Etapa | Imagen base | Función |
+|---|---|---|
+| `builder` | `node:22-alpine` | Instala dependencias (`npm ci`) y compila el proyecto (`npm run build` → genera `dist/`) |
+| Final | `nginx:alpine` | Sirve los archivos estáticos de `dist/` con Nginx |
+
+### Comandos
+
+```bash
+# Construir la imagen
+docker build -t frontend .
+
+# Ejecutar el contenedor
+docker run -p 3000:80 frontend   
