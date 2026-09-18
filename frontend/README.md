@@ -73,3 +73,9 @@ export default defineConfig([
 ])
 
 ```
+## Build de producción
+
+```bash
+cd frontend
+docker build -t frontend .
+docker run -p 3000:80 frontend   
