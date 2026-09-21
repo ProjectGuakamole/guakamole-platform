@@ -13,3 +13,7 @@ __pycache__/
 .venv/
 venv/
 .idea/
+# Python tooling cache
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
