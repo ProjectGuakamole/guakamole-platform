@@ -225,12 +225,15 @@ El `downgrade()` no reduce `alembic_version.version_num` a `VARCHAR(32)`, porque
 podría truncar revision IDs descriptivas ya registradas y dejar Alembic en un
 estado inconsistente.
 
-## Task 5 — Roles y permisos IAM
+## Task 5 — Crear `tbl_state`
 
-- [ ] Definir modelos ORM de roles y asignaciones.
-- [ ] Mantener RBAC multi-rol por usuario.
-- [ ] Añadir migración incremental.
-- [ ] Añadir tests de constraints de autorización base.
+- [x] 5.1 Crear modelo ORM `State`.
+- [x] 5.2 Crear schemas `StateBase`, `StateCreate`, `StateUpdate`, `StateRead`.
+- [x] 5.3 Crear migración `0006_create_tbl_state`.
+- [x] 5.4 Añadir FK `id_country → sch_iam.tbl_country.id_country`.
+- [x] 5.5 Añadir índice `ix_tbl_state_id_country`.
+- [x] 5.6 Añadir tests metadata.
+- [x] 5.7 Ejecutar validación.
 
 ## Task 6 — Repositorios IAM internos
 

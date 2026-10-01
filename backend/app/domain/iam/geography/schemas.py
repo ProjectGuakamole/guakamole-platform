@@ -23,3 +23,29 @@ class CountryRead(CountryBase):
     model_config = ConfigDict(from_attributes=True)
 
     id_country: int
+
+
+class StateBase(BaseModel):
+    """Campos base del catálogo de estados o provincias."""
+
+    id_country: int
+    state_name: str = Field(..., max_length=100)
+
+
+class StateCreate(StateBase):
+    """Datos necesarios para crear un estado o provincia."""
+
+
+class StateUpdate(BaseModel):
+    """Datos opcionales para actualizar parcialmente un estado o provincia."""
+
+    id_country: int | None = None
+    state_name: str | None = Field(default=None, max_length=100)
+
+
+class StateRead(StateBase):
+    """Representación de lectura de un estado o provincia."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id_state: int
