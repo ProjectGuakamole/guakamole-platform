@@ -13,13 +13,9 @@
   },
   "dependencies": {
     "@chakra-ui/react": "^3.37.0",
-<<<<<<< HEAD
-    "@tanstack/react-query": "^5.104.0",
-=======
     "@emotion/react": "^11.14.0",
     "@tanstack/react-query": "^5.103.2",
     "next-themes": "^0.4.6",
->>>>>>> d32ee92b3ae9753e514125e7dd6b7f50dec5fc07
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-icons": "^5.7.0",
@@ -27,13 +23,10 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-<<<<<<< HEAD
+    "@tanstack/eslint-plugin-query": "^5.103.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
-=======
-    "@tanstack/eslint-plugin-query": "^5.103.2",
->>>>>>> d32ee92b3ae9753e514125e7dd6b7f50dec5fc07
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
