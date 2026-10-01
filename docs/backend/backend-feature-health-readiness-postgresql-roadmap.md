@@ -436,37 +436,44 @@ Makefile
 
 Subtasks:
 
-- [ ] 7.1 Crear `Makefile` en la raíz del repositorio.
-- [ ] 7.2 Añadir target de ayuda, por ejemplo `make help`.
-- [ ] 7.3 Añadir targets de calidad backend:
+- [x] 7.1 Crear `Makefile` en la raíz del repositorio.
+- [x] 7.2 Añadir target de ayuda, por ejemplo `make help`.
+- [x] 7.3 Añadir targets de calidad backend:
   - `make backend-lint`
   - `make backend-format-check`
   - `make backend-mypy`
   - `make backend-test`
   - `make backend-check`
-- [ ] 7.4 Añadir target para levantar servidor FastAPI local, por ejemplo `make backend-run`.
-- [ ] 7.5 Añadir targets Docker Compose seguros:
+- [x] 7.4 Añadir target para levantar servidor FastAPI local, por ejemplo `make backend-run`.
+- [x] 7.5 Añadir targets Docker Compose seguros:
   - `make docker-config`
   - `make docker-up`
   - `make docker-down`
   - `make docker-ps`
   - `make docker-logs`
-- [ ] 7.6 Añadir targets específicos para PostgreSQL si aplica:
+- [x] 7.6 Añadir targets específicos para PostgreSQL si aplica:
   - `make postgres-up`
   - `make postgres-logs`
   - `make postgres-down`
-- [ ] 7.7 Añadir target para probar health/readiness cuando existan endpoints:
+- [x] 7.7 Añadir target para probar health/readiness cuando existan endpoints:
   - `make health-check`
   - `make ready-check`
-- [ ] 7.8 Usar `.env.example` en comandos de validación de Compose cuando sea seguro.
-- [ ] 7.9 No introducir valores secretos ni depender de `.env` real en comandos documentales.
-- [ ] 7.10 Documentar en el propio `Makefile` los targets principales.
-- [ ] 7.11 Validar que los targets no modifican `frontend/` ni `.env`.
+- [x] 7.8 Usar `.env.example` en comandos de validación de Compose cuando sea seguro.
+- [x] 7.9 No introducir valores secretos ni depender de `.env` real en comandos documentales.
+- [x] 7.10 Documentar en el propio `Makefile` los targets principales.
+- [x] 7.11 Validar que los targets no modifican `frontend/` ni `.env`.
+- [x] 7.12 Añadir targets de instalación de dependencias:
+  - `make install`
+  - `make backend-install`
+  - `make setup`
 
 Validación:
 
 ```bash
 make help
+make backend-install
+make install
+make setup
 make backend-check
 make docker-config
 ```
@@ -481,12 +488,13 @@ make postgres-down
 
 Criterio para avanzar:
 
-- [ ] `Makefile` creado.
-- [ ] Targets de backend funcionan.
-- [ ] Targets Docker/Compose renderizan correctamente.
-- [ ] No se introducen secretos.
-- [ ] No se modifica `.env`.
-- [ ] No se modifica `frontend/`.
+- [x] `Makefile` creado.
+- [x] Targets de backend funcionan.
+- [x] Targets de instalación de dependencias backend funcionan.
+- [x] Targets Docker/Compose renderizan correctamente.
+- [x] No se introducen secretos.
+- [x] No se modifica `.env`.
+- [x] No se modifica `frontend/`.
 
 ---
 
