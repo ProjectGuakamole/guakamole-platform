@@ -16,6 +16,7 @@ if config.config_file_name is not None:
 def import_models() -> None:
     """Importa modelos ORM para registrarlos en Base.metadata."""
 
+    import_module("app.domain.iam.access.models")
     import_module("app.domain.iam.geography.models")
 
 

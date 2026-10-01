@@ -4,7 +4,7 @@ Branch esperada: `backend/feature/iam-orm-alembic`
 
 Schema PostgreSQL IAM: `sch_iam`
 
-Estado: Task 1 completada y preparada para revisión QA.
+Estado: Task 2 completada y preparada para revisión QA.
 
 ## Task 0 — Preparación ORM/Alembic/schema `sch_iam`
 
@@ -77,12 +77,14 @@ backend/app/domain/
 - [x] 1.5 Añadir tests metadata.
 - [x] 1.6 Ejecutar validación.
 
-## Task 2 — Modelado base de organizaciones
+## Task 2 — Crear `tbl_status`
 
-- [ ] Definir modelos ORM de organización sin endpoints.
-- [ ] Añadir migración incremental.
-- [ ] Añadir schemas Pydantic internos.
-- [ ] Añadir tests de aislamiento por schema y constraints.
+- [x] 2.1 Crear modelo ORM `Status`.
+- [x] 2.2 Crear schemas `StatusBase`, `StatusCreate`, `StatusUpdate`, `StatusRead`.
+- [x] 2.3 Crear migración `0003_create_tbl_status`.
+- [x] 2.4 Definir constraint `pk_tbl_status`.
+- [x] 2.5 Añadir tests metadata.
+- [x] 2.6 Ejecutar validación.
 
 ## Task 3 — Modelado base de usuarios
 
