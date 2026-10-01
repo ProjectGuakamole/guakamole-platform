@@ -399,16 +399,16 @@ docs/backend/backend-health-readiness-checks.md
 
 Subtasks:
 
-- [ ] 6.1 Documentar diferencia entre liveness y readiness.
-- [ ] 6.2 Documentar que Redis queda fuera del alcance.
-- [ ] 6.3 Documentar `GET /api/health`.
-- [ ] 6.4 Documentar `GET /api/ready` PostgreSQL-only.
-- [ ] 6.5 Documentar códigos HTTP.
-- [ ] 6.6 Documentar JSON OK/fallo.
-- [ ] 6.7 Documentar decisión de Docker Compose.
-- [ ] 6.8 Documentar seguridad: no secretos, no stacktraces, no URLs internas.
-- [ ] 6.9 Documentar tests ejecutados.
-- [ ] 6.10 Documentar deuda técnica si el probe DB real no queda completo.
+- [x] 6.1 Documentar diferencia entre liveness y readiness.
+- [x] 6.2 Documentar que Redis queda fuera del alcance.
+- [x] 6.3 Documentar `GET /api/health`.
+- [x] 6.4 Documentar `GET /api/ready` PostgreSQL-only.
+- [x] 6.5 Documentar códigos HTTP.
+- [x] 6.6 Documentar JSON OK/fallo.
+- [x] 6.7 Documentar decisión de Docker Compose.
+- [x] 6.8 Documentar seguridad: no secretos, no stacktraces, no URLs internas.
+- [x] 6.9 Documentar tests ejecutados.
+- [x] 6.10 Documentar deuda técnica si el probe DB real no queda completo.
 
 Validación:
 
@@ -418,9 +418,9 @@ git status --short
 
 Criterio para avanzar:
 
-- [ ] Documentación completa.
-- [ ] Sin cambios en `frontend/`.
-- [ ] Sin cambios en `.env`.
+- [x] Documentación completa.
+- [x] Sin cambios en `frontend/`.
+- [x] Sin cambios en `.env`.
 
 ---
 
