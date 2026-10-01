@@ -4,7 +4,7 @@ Branch esperada: `backend/feature/iam-orm-alembic`
 
 Schema PostgreSQL IAM: `sch_iam`
 
-Estado: Task 2 completada y preparada para revisión QA.
+Estado: Task 2 completada; Task 2b documental preparada para revisión QA.
 
 ## Task 0 — Preparación ORM/Alembic/schema `sch_iam`
 
@@ -18,6 +18,13 @@ Estado: Task 2 completada y preparada para revisión QA.
 - [x] 0.8 Ejecutar validación de backend y Docker Compose.
 - [x] 0.9 Parametrizar `sqlalchemy.url` mediante entorno para evitar credenciales hardcodeadas.
 - [x] 0.10 Hacer inmutable la migración inicial usando `sch_iam` literal en Alembic.
+- [x] 0.11 Añadir `DATABASE_URL` de desarrollo en `.env.example` y constantes de configuración en Alembic.
+- [x] 0.12 Centralizar selección de archivo de entorno mediante `ENV_FILE ?= .env.example` y targets DB Alembic.
+
+> Nota: los puntos 0.11 y 0.12 quedan registrados como completados dentro de la
+> preparación inicial, pero el detalle operativo completo se documenta en la
+> **Task 2b — Anexo configuración dinámica de entorno y Alembic DEV** para evitar
+> duplicidad y facilitar la revisión QA de los ajustes posteriores a Task 2.
 
 ### Estructura Task 0
 
@@ -66,6 +73,7 @@ backend/app/domain/
 - [x] Alembic reconoce metadata.
 - [x] Alembic obtiene la URL de base de datos desde `DATABASE_URL` y `alembic.ini` no almacena credenciales operativas.
 - [x] La migración inicial usa el literal `sch_iam` y no depende de `IAM_SCHEMA`.
+- [x] Docker Compose y targets DB usan `ENV_FILE` para alternar entre `.env.example` y `.env` sin duplicar configuración.
 - [x] Tests pasan.
 
 ## Task 1 — Modelado base de catálogos geográficos
@@ -85,6 +93,88 @@ backend/app/domain/
 - [x] 2.4 Definir constraint `pk_tbl_status`.
 - [x] 2.5 Añadir tests metadata.
 - [x] 2.6 Ejecutar validación.
+
+# Task 2b — Anexo configuración dinámica de entorno y Alembic DEV
+
+## Objetivo
+
+Registrar los ajustes de configuración dinámica de entorno, Alembic y comandos de
+desarrollo necesarios para continuar con las siguientes tasks IAM sin introducir
+nuevas tablas, migraciones ni funcionalidad de dominio.
+
+## Contexto
+
+Durante la validación posterior a Task 2 fue necesario preparar un flujo de
+desarrollo más cómodo para probar PostgreSQL, Alembic y pgAdmin en entornos DEV
+compartidos. Estos cambios permiten usar `.env.example` como configuración local
+por defecto y facilitan alternar en el futuro a `.env` mediante `ENV_FILE=.env`,
+sin cargar automáticamente `.env` desde Alembic ni guardar credenciales
+operativas en `alembic.ini`.
+
+## Cambios incluidos
+
+- [x] 2b.1 Añadir `DATABASE_URL` a `.env.example` para desarrollo local compartido.
+- [x] 2b.2 Alinear `POSTGRES_PASSWORD` de `.env.example` con `DATABASE_URL`.
+- [x] 2b.3 Añadir constantes de configuración en `backend/alembic/env.py`.
+- [x] 2b.4 Mantener Alembic leyendo `DATABASE_URL` desde entorno, sin credenciales en `alembic.ini`.
+- [x] 2b.5 Centralizar archivo de entorno en `Makefile` con `ENV_FILE ?= .env.example`.
+- [x] 2b.6 Actualizar Docker Compose targets para usar `$(ENV_FILE)`.
+- [x] 2b.7 Añadir targets DB/Alembic: `db-upgrade`, `db-current`, `db-history`, `db-downgrade`.
+- [x] 2b.8 Añadir tests de configuración para `.env.example`, Alembic y Makefile.
+- [x] 2b.9 Documentar uso DEV con `.env.example` y uso futuro con `.env` mediante `ENV_FILE=.env`.
+- [x] 2b.10 Registrar notas de pgAdmin/WSL y recreación de volumen tras cambios de credenciales.
+
+## Validación esperada
+
+```bash
+make help
+make backend-check
+make docker-config
+make docker-config ENV_FILE=.env.example
+make db-history
+```
+
+También debe poder usarse, cuando exista `.env` local privado:
+
+```bash
+make docker-up ENV_FILE=.env
+make db-upgrade ENV_FILE=.env
+```
+
+## Notas operativas DEV
+
+Para recrear la base de datos tras cambiar credenciales en el entorno de
+desarrollo:
+
+```bash
+make docker-down
+docker volume rm guakamole-platform_postgres_data
+make postgres-up
+```
+
+Para aplicar migraciones usando la configuración DEV compartida por defecto:
+
+```bash
+make db-upgrade
+```
+
+Para producción/local privado futuro con `.env`:
+
+```bash
+make db-upgrade ENV_FILE=.env
+```
+
+pgAdmin debe configurarse manualmente con los valores del entorno; no lee
+`.env.example` ni `.env` automáticamente. Si pgAdmin se ejecuta en Windows y
+PostgreSQL en WSL/Docker, puede ser necesario usar la IP de WSL como host en vez
+de `localhost`.
+
+## Seguridad
+
+- `.env` no se commitea.
+- `.env.example` es solo DEV compartido.
+- `alembic.ini` no contiene credenciales operativas.
+- No se añaden secretos reales.
 
 ## Task 3 — Modelado base de usuarios
 

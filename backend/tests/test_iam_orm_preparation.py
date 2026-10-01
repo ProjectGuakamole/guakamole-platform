@@ -72,11 +72,61 @@ def test_alembic_ini_does_not_store_operational_database_credentials() -> None:
     assert "driver://user:pass@localhost/dbname" in alembic_ini_content
 
 
+def test_env_example_exposes_development_database_url() -> None:
+    env_example_content = Path("../.env.example").read_text(encoding="utf-8")
+    expected_database_url = (
+        'DATABASE_URL="postgresql+psycopg://guakamole_user:postgre@localhost:5432/'
+        'guakamole_db"'
+    )
+
+    assert expected_database_url in env_example_content
+    assert "postgresql+psycopg://" in env_example_content
+
+
 def test_alembic_env_reads_database_url_from_environment() -> None:
     alembic_env_content = Path("alembic/env.py").read_text(encoding="utf-8")
 
     assert 'DATABASE_URL_ENV_VAR = "DATABASE_URL"' in alembic_env_content
+    assert 'SQLALCHEMY_URL_OPTION = "sqlalchemy.url"' in alembic_env_content
+    assert "MISSING_DATABASE_URL_ERROR" in alembic_env_content
     assert "os.environ.get(DATABASE_URL_ENV_VAR)" in alembic_env_content
-    assert 'config.set_main_option("sqlalchemy.url", get_required_database_url())' in (
-        alembic_env_content
+    expected_set_main_option = (
+        "config.set_main_option(SQLALCHEMY_URL_OPTION, get_required_database_url())"
     )
+
+    assert expected_set_main_option in alembic_env_content
+
+
+def test_makefile_centralizes_environment_file_selection() -> None:
+    makefile_content = Path("../Makefile").read_text(encoding="utf-8")
+
+    assert "ENV_FILE ?= .env.example" in makefile_content
+    assert "ENV_FILE_PATH :=" in makefile_content
+    assert "COMPOSE := docker compose --env-file $(ENV_FILE)" in makefile_content
+    assert "docker compose --env-file .env.example" not in makefile_content
+
+
+def test_makefile_exposes_alembic_database_targets_with_env_file() -> None:
+    makefile_content = Path("../Makefile").read_text(encoding="utf-8")
+    expected_targets = {
+        "db-upgrade:": "uv run alembic upgrade head",
+        "db-current:": "uv run alembic current",
+        "db-history:": "uv run alembic history",
+        "db-downgrade:": "uv run alembic downgrade -1",
+    }
+
+    for target, command in expected_targets.items():
+        assert target in makefile_content
+        assert command in makefile_content
+
+    assert makefile_content.count("set -a; . $(ENV_FILE_PATH); set +a;") >= len(
+        expected_targets
+    )
+
+
+def test_makefile_help_documents_env_file_usage() -> None:
+    makefile_content = Path("../Makefile").read_text(encoding="utf-8")
+
+    assert "ENV_FILE ?= .env.example" in makefile_content
+    assert "make docker-up ENV_FILE=.env" in makefile_content
+    assert "make db-upgrade ENV_FILE=.env" in makefile_content

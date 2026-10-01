@@ -25,6 +25,11 @@ import_models()
 target_metadata = Base.metadata
 
 DATABASE_URL_ENV_VAR = "DATABASE_URL"
+SQLALCHEMY_URL_OPTION = "sqlalchemy.url"
+MISSING_DATABASE_URL_ERROR = (
+    f"La variable de entorno {DATABASE_URL_ENV_VAR} debe estar definida "
+    "para ejecutar migraciones Alembic online."
+)
 
 
 def get_database_url() -> str | None:
@@ -38,17 +43,14 @@ def get_required_database_url() -> str:
 
     database_url = get_database_url()
     if database_url is None or database_url == "":
-        raise RuntimeError(
-            f"La variable de entorno {DATABASE_URL_ENV_VAR} debe estar definida "
-            "para ejecutar migraciones Alembic online."
-        )
+        raise RuntimeError(MISSING_DATABASE_URL_ERROR)
     return database_url
 
 
 def run_migrations_offline() -> None:
     """Ejecuta migraciones en modo offline."""
 
-    url = get_database_url() or config.get_main_option("sqlalchemy.url")
+    url = get_database_url() or config.get_main_option(SQLALCHEMY_URL_OPTION)
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -63,7 +65,7 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Ejecuta migraciones en modo online."""
 
-    config.set_main_option("sqlalchemy.url", get_required_database_url())
+    config.set_main_option(SQLALCHEMY_URL_OPTION, get_required_database_url())
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
