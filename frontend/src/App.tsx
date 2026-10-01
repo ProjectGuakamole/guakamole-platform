@@ -13,6 +13,8 @@ function App() {
       </Stack>
     </Container>
   );
+function App() {
+  return <div>App</div>
 }
 
 export default App;
