@@ -60,6 +60,15 @@ def test_initial_iam_migration_creates_schema_without_tables() -> None:
     assert "DROP SCHEMA public" not in migration_content
 
 
+def test_initial_iam_migration_extends_alembic_version_length() -> None:
+    migration_path = Path("alembic/versions/0001_create_schema_iam.py")
+    migration_content = migration_path.read_text(encoding="utf-8")
+
+    assert "ALTER TABLE alembic_version" in migration_content
+    assert "version_num" in migration_content
+    assert "VARCHAR(255)" in migration_content
+
+
 def test_alembic_ini_does_not_store_operational_database_credentials() -> None:
     alembic_ini_content = Path("alembic.ini").read_text(encoding="utf-8")
     previous_credentials = "guakamole" + ":" + "guakamole"

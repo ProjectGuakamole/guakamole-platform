@@ -194,6 +194,37 @@ de `localhost`.
 - [x] 4.5 Añadir tests metadata.
 - [x] 4.6 Ejecutar validación.
 
+# Task 4b — Anexo técnico Alembic version_num
+
+## Objetivo
+
+Resolver el límite por defecto de `alembic_version.version_num VARCHAR(32)` para permitir revision IDs descriptivas.
+
+## Contexto
+
+Durante `make db-upgrade`, la revisión `0005_create_tbl_organization_role` superó el límite de 32 caracteres.
+
+## Cambios incluidos
+
+- [x] 4b.1 Ampliar `alembic_version.version_num` a `VARCHAR(255)` desde `0001_create_schema_iam.py`.
+- [x] 4b.2 Añadir test que valida la corrección.
+- [x] 4b.3 Documentar que el downgrade no reduce la columna para evitar romper histórico Alembic.
+- [x] 4b.4 Validar `make backend-check`, `make docker-config`, `make db-history`.
+
+## Seguridad
+
+- No se crean tablas IAM nuevas.
+- No se crean migraciones nuevas.
+- No se añaden seeds.
+- No se modifican `.env`, `frontend/` ni `docker-compose.yml`.
+- No se añaden secretos reales.
+
+## Decisión de downgrade
+
+El `downgrade()` no reduce `alembic_version.version_num` a `VARCHAR(32)`, porque
+podría truncar revision IDs descriptivas ya registradas y dejar Alembic en un
+estado inconsistente.
+
 ## Task 5 — Roles y permisos IAM
 
 - [ ] Definir modelos ORM de roles y asignaciones.
