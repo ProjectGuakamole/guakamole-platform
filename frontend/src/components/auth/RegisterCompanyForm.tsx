@@ -6,6 +6,7 @@ import {
   Field,
   Heading,
   Input,
+  Separator,
   Stack,
   Text,
 } from "@chakra-ui/react";
@@ -15,106 +16,262 @@ import { registerCompany } from "../../api/authApi";
 import type { CompanyRegisterData } from "../../types/auth";
 
 export default function RegisterCompanyForm() {
-  // Estado que almacena los datos introducidos
-  // por el usuario en el formulario.
+  /*
+   * Estado principal del formulario.
+   *
+   * Los datos están separados en:
+   *
+   * organization -> datos de la empresa
+   * user         -> datos del usuario
+   */
   const [formData, setFormData] = useState<CompanyRegisterData>({
-    companyName: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    taxId: "",
+    organization: {
+      name: "",
+      slug: "",
+      orgRegisteredName: "",
+      orgTax: "",
+      idCountry: 0,
+      idState: 0,
+      idCity: 0,
+      orgAddress: "",
+      orgZipcode: "",
+    },
+
+    user: {
+      email: "",
+      password: "",
+      confirmPassword: "",
+      firstName: "",
+      lastName: "",
+      birthdate: "",
+      idCountry: 0,
+      idState: 0,
+      idCity: 0,
+      userAddress: "",
+      userZipcode: "",
+    },
   });
 
   /*
-   * useMutation gestiona la petición de registro.
-   *
-   * isPending  -> la petición está en curso.
-   * isSuccess  -> el registro se ha realizado correctamente.
-   * isError    -> se ha producido un error.
-   * error      -> contiene el error devuelto.
+   * Mutation encargada de enviar el registro
+   * al backend.
    */
   const mutation = useMutation({
     mutationFn: registerCompany,
 
     onSuccess: (data) => {
-      console.log("Empresa registrada:", data);
-
-      // Posteriormente podremos:
-      // - guardar el token
-      // - actualizar el usuario autenticado
-      // - redirigir al dashboard
+      console.log("Registro correcto:", data);
     },
 
     onError: (error) => {
-      console.error("Error al registrar:", error);
+      console.error("Error en el registro:", error);
     },
   });
 
   /**
-   * Actualiza el estado del campo que está
-   * modificando el usuario.
+   * Actualiza un campo de ORGANIZATION.
    */
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOrganizationChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const { name, value } = event.target;
 
     setFormData((previousData) => ({
       ...previousData,
-      [name]: value,
+
+      organization: {
+        ...previousData.organization,
+        [name]: value,
+      },
     }));
   };
 
   /**
-   * Se ejecuta cuando el usuario envía el formulario.
+   * Actualiza un campo de USERS.
+   */
+  const handleUserChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+
+    setFormData((previousData) => ({
+      ...previousData,
+
+      user: {
+        ...previousData.user,
+        [name]: value,
+      },
+    }));
+  };
+
+  /**
+   * Envía el formulario.
    */
   const handleSubmit = (event: React.SubmitEvent<HTMLFormElement>) => {
-    // Evitamos que el navegador recargue la página.
     event.preventDefault();
 
     // Comprobamos que las contraseñas coincidan.
-    if (formData.password !== formData.confirmPassword) {
+    if (formData.user.password !== formData.user.confirmPassword) {
       return;
     }
 
-    // Enviamos los datos al backend.
     mutation.mutate(formData);
   };
 
   return (
-    <Box maxW="500px" mx="auto" p={8} borderWidth="1px" borderRadius="lg">
+    <Box maxW="700px" mx="auto" p={8} borderWidth="1px" borderRadius="lg">
       <Stack gap={6}>
         <Box>
           <Heading size="lg">Registrar empresa</Heading>
 
           <Text color="gray.600" mt={2}>
-            Crea una cuenta para tu empresa.
+            Registra tu empresa y crea el usuario administrador.
           </Text>
         </Box>
 
         <form onSubmit={handleSubmit}>
-          <Stack gap={4}>
-            {/* Nombre de la empresa */}
+          <Stack gap={6}>
+            {/* ========================================= */}
+            {/* DATOS DE LA ORGANIZACIÓN                  */}
+            {/* ========================================= */}
+
+            <Heading size="md">Datos de la empresa</Heading>
+
+            {/* Nombre */}
             <Field.Root required>
               <Field.Label>Nombre de la empresa</Field.Label>
 
               <Input
-                name="companyName"
-                type="text"
-                value={formData.companyName}
-                onChange={handleChange}
+                name="name"
+                value={formData.organization.name}
+                onChange={handleOrganizationChange}
+                placeholder="Mi Empresa"
+              />
+            </Field.Root>
+
+            {/* Slug */}
+            <Field.Root required>
+              <Field.Label>Slug</Field.Label>
+
+              <Input
+                name="slug"
+                value={formData.organization.slug}
+                onChange={handleOrganizationChange}
+                placeholder="mi-empresa"
+              />
+            </Field.Root>
+
+            {/* Razón social */}
+            <Field.Root>
+              <Field.Label>Razón social</Field.Label>
+
+              <Input
+                name="orgRegisteredName"
+                value={formData.organization.orgRegisteredName}
+                onChange={handleOrganizationChange}
                 placeholder="Mi Empresa S.L."
               />
             </Field.Root>
 
-            {/* CIF / NIF */}
-            <Field.Root required>
+            {/* CIF */}
+            <Field.Root>
               <Field.Label>CIF / NIF</Field.Label>
 
               <Input
-                name="taxId"
-                type="text"
-                value={formData.taxId}
-                onChange={handleChange}
+                name="orgTax"
+                value={formData.organization.orgTax}
+                onChange={handleOrganizationChange}
                 placeholder="B12345678"
+              />
+            </Field.Root>
+
+            {/* País */}
+            <Field.Root required>
+              <Field.Label>ID País</Field.Label>
+
+              <Input
+                name="idCountry"
+                type="number"
+                value={formData.organization.idCountry || ""}
+                onChange={handleOrganizationChange}
+              />
+            </Field.Root>
+
+            {/* Estado */}
+            <Field.Root required>
+              <Field.Label>ID Estado / Provincia</Field.Label>
+
+              <Input
+                name="idState"
+                type="number"
+                value={formData.organization.idState || ""}
+                onChange={handleOrganizationChange}
+              />
+            </Field.Root>
+
+            {/* Ciudad */}
+            <Field.Root required>
+              <Field.Label>ID Ciudad</Field.Label>
+
+              <Input
+                name="idCity"
+                type="number"
+                value={formData.organization.idCity || ""}
+                onChange={handleOrganizationChange}
+              />
+            </Field.Root>
+
+            {/* Dirección */}
+            <Field.Root>
+              <Field.Label>Dirección</Field.Label>
+
+              <Input
+                name="orgAddress"
+                value={formData.organization.orgAddress}
+                onChange={handleOrganizationChange}
+                placeholder="Calle Mayor 10"
+              />
+            </Field.Root>
+
+            {/* Código postal */}
+            <Field.Root>
+              <Field.Label>Código postal</Field.Label>
+
+              <Input
+                name="orgZipcode"
+                value={formData.organization.orgZipcode}
+                onChange={handleOrganizationChange}
+                placeholder="08001"
+              />
+            </Field.Root>
+
+            <Separator />
+
+            {/* ========================================= */}
+            {/* DATOS DEL USUARIO                         */}
+            {/* ========================================= */}
+
+            <Heading size="md">Datos del usuario</Heading>
+
+            {/* Nombre */}
+            <Field.Root required>
+              <Field.Label>Nombre</Field.Label>
+
+              <Input
+                name="firstName"
+                value={formData.user.firstName}
+                onChange={handleUserChange}
+                placeholder="Jordi"
+              />
+            </Field.Root>
+
+            {/* Apellidos */}
+            <Field.Root required>
+              <Field.Label>Apellidos</Field.Label>
+
+              <Input
+                name="lastName"
+                value={formData.user.lastName}
+                onChange={handleUserChange}
+                placeholder="García"
               />
             </Field.Root>
 
@@ -125,9 +282,21 @@ export default function RegisterCompanyForm() {
               <Input
                 name="email"
                 type="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="empresa@email.com"
+                value={formData.user.email}
+                onChange={handleUserChange}
+                placeholder="usuario@empresa.com"
+              />
+            </Field.Root>
+
+            {/* Fecha de nacimiento */}
+            <Field.Root>
+              <Field.Label>Fecha de nacimiento</Field.Label>
+
+              <Input
+                name="birthdate"
+                type="date"
+                value={formData.user.birthdate}
+                onChange={handleUserChange}
               />
             </Field.Root>
 
@@ -138,46 +307,107 @@ export default function RegisterCompanyForm() {
               <Input
                 name="password"
                 type="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="********"
+                value={formData.user.password}
+                onChange={handleUserChange}
               />
             </Field.Root>
 
-            {/* Confirmación de contraseña */}
+            {/* Confirmar contraseña */}
             <Field.Root required>
               <Field.Label>Confirmar contraseña</Field.Label>
 
               <Input
                 name="confirmPassword"
                 type="password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="********"
+                value={formData.user.confirmPassword}
+                onChange={handleUserChange}
               />
             </Field.Root>
 
-            {/* Error cuando las contraseñas no coinciden */}
-            {formData.password !== formData.confirmPassword &&
-              formData.confirmPassword.length > 0 && (
+            {/* País */}
+            <Field.Root required>
+              <Field.Label>ID País</Field.Label>
+
+              <Input
+                name="idCountry"
+                type="number"
+                value={formData.user.idCountry || ""}
+                onChange={handleUserChange}
+              />
+            </Field.Root>
+
+            {/* Estado */}
+            <Field.Root required>
+              <Field.Label>ID Estado / Provincia</Field.Label>
+
+              <Input
+                name="idState"
+                type="number"
+                value={formData.user.idState || ""}
+                onChange={handleUserChange}
+              />
+            </Field.Root>
+
+            {/* Ciudad */}
+            <Field.Root required>
+              <Field.Label>ID Ciudad</Field.Label>
+
+              <Input
+                name="idCity"
+                type="number"
+                value={formData.user.idCity || ""}
+                onChange={handleUserChange}
+              />
+            </Field.Root>
+
+            {/* Dirección */}
+            <Field.Root>
+              <Field.Label>Dirección</Field.Label>
+
+              <Input
+                name="userAddress"
+                value={formData.user.userAddress}
+                onChange={handleUserChange}
+                placeholder="Calle Mayor 10"
+              />
+            </Field.Root>
+
+            {/* Código postal */}
+            <Field.Root>
+              <Field.Label>Código postal</Field.Label>
+
+              <Input
+                name="userZipcode"
+                value={formData.user.userZipcode}
+                onChange={handleUserChange}
+                placeholder="08001"
+              />
+            </Field.Root>
+
+            {/* Error de contraseñas */}
+            {formData.user.password !== formData.user.confirmPassword &&
+              formData.user.confirmPassword.length > 0 && (
                 <Alert.Root status="error">
                   <Alert.Indicator />
+
                   <Alert.Content>Las contraseñas no coinciden.</Alert.Content>
                 </Alert.Root>
               )}
 
-            {/* Error devuelto por el backend */}
+            {/* Error del backend */}
             {mutation.isError && (
               <Alert.Root status="error">
                 <Alert.Indicator />
+
                 <Alert.Content>{mutation.error.message}</Alert.Content>
               </Alert.Root>
             )}
 
-            {/* Registro realizado correctamente */}
+            {/* Registro correcto */}
             {mutation.isSuccess && (
               <Alert.Root status="success">
                 <Alert.Indicator />
+
                 <Alert.Content>
                   La empresa se ha registrado correctamente.
                 </Alert.Content>
@@ -188,7 +418,9 @@ export default function RegisterCompanyForm() {
               type="submit"
               colorPalette="blue"
               loading={mutation.isPending}
-              disabled={formData.password !== formData.confirmPassword}
+              disabled={
+                formData.user.password !== formData.user.confirmPassword
+              }
             >
               Crear cuenta
             </Button>
