@@ -357,11 +357,21 @@ Objetivo: decidir endpoint de healthcheck del contenedor backend.
 
 Subtasks:
 
-- [ ] 5.1 Revisar healthcheck actual del backend en `docker-compose.yml`.
-- [ ] 5.2 Si `/api/ready` comprueba PostgreSQL de verdad, valorar usar `/api/ready`.
-- [ ] 5.3 Si `/api/ready` aún no comprueba PostgreSQL real, usar `/api/health`.
-- [ ] 5.4 Si se modifica Compose, cambiar solo el endpoint del healthcheck.
-- [ ] 5.5 Validar Compose.
+- [x] 5.1 Revisar healthcheck actual del backend en `docker-compose.yml`.
+- [x] 5.2 Si `/api/ready` comprueba PostgreSQL de verdad, valorar usar `/api/ready`.
+- [x] 5.3 Si `/api/ready` aún no comprueba PostgreSQL real, usar `/api/health`.
+- [x] 5.4 Si se modifica Compose, cambiar solo el endpoint del healthcheck.
+- [x] 5.5 Validar Compose.
+
+Decisión Task 5:
+
+`/api/ready` todavía no ejecuta una comprobación real contra PostgreSQL con
+`SELECT 1`; por seguridad devuelve `not_ready` de forma conservadora mientras no
+exista configuración centralizada de DB. Por tanto, el healthcheck del contenedor
+backend debe usar `/api/health` para comprobar únicamente que FastAPI está vivo,
+sin marcar el servicio como unhealthy por una readiness todavía pendiente de
+integración real con PostgreSQL. Se modifica solo el endpoint del healthcheck del
+backend, de `/api/v1/health` a `/api/health`.
 
 Validación si se toca Compose:
 
@@ -371,9 +381,9 @@ docker compose --env-file .env.example config
 
 Criterio para avanzar:
 
-- [ ] Decisión justificada.
-- [ ] Compose renderiza correctamente si se modifica.
-- [ ] No se reintroduce Redis.
+- [x] Decisión justificada.
+- [x] Compose renderiza correctamente si se modifica.
+- [x] No se reintroduce Redis.
 
 ---
 
