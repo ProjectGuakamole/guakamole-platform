@@ -23,7 +23,6 @@ class HealthResponse(BaseModel):
 
 class ReadinessDependencies(BaseModel):
     database: DependencyStatus
-    redis: DependencyStatus
 
 
 class ReadinessResponse(BaseModel):

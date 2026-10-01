@@ -19,7 +19,6 @@ def test_readiness_response_serializes_ready_dependencies() -> None:
         status=ReadinessStatus.READY,
         dependencies=ReadinessDependencies(
             database=DependencyStatus.OK,
-            redis=DependencyStatus.OK,
         ),
     )
 
@@ -27,7 +26,6 @@ def test_readiness_response_serializes_ready_dependencies() -> None:
         "status": "ready",
         "dependencies": {
             "database": "ok",
-            "redis": "ok",
         },
     }
 
@@ -37,7 +35,6 @@ def test_readiness_response_serializes_failed_dependency() -> None:
         status=ReadinessStatus.NOT_READY,
         dependencies=ReadinessDependencies(
             database=DependencyStatus.FAILED,
-            redis=DependencyStatus.OK,
         ),
     )
 
@@ -45,7 +42,6 @@ def test_readiness_response_serializes_failed_dependency() -> None:
         "status": "not_ready",
         "dependencies": {
             "database": "failed",
-            "redis": "ok",
         },
     }
 
