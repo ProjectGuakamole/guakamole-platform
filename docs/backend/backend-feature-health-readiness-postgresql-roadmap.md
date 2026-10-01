@@ -313,25 +313,25 @@ backend/tests/test_health.py
 
 Subtasks:
 
-- [ ] 4.1 Crear router operativo no versionado si no existe: `backend/app/api/health.py`.
-- [ ] 4.2 Implementar `GET /api/health`.
-- [ ] 4.3 Implementar `GET /api/ready`.
-- [ ] 4.4 Registrar router con prefijo `/api`.
-- [ ] 4.5 Mantener `GET /api/v1/health`.
-- [ ] 4.6 `/api/health` debe devolver 200 y `{"status": "ok"}`.
-- [ ] 4.7 `/api/health` no debe llamar a DB.
-- [ ] 4.8 `/api/ready` debe devolver 200 si DB está OK.
-- [ ] 4.9 `/api/ready` debe devolver 503 si DB falla.
-- [ ] 4.10 `/api/ready` debe devolver contrato PostgreSQL-only.
+- [x] 4.1 Crear router operativo no versionado si no existe: `backend/app/api/health.py`.
+- [x] 4.2 Implementar `GET /api/health`.
+- [x] 4.3 Implementar `GET /api/ready`.
+- [x] 4.4 Registrar router con prefijo `/api`.
+- [x] 4.5 Mantener `GET /api/v1/health`.
+- [x] 4.6 `/api/health` debe devolver 200 y `{"status": "ok"}`.
+- [x] 4.7 `/api/health` no debe llamar a DB.
+- [x] 4.8 `/api/ready` debe devolver 200 si DB está OK.
+- [x] 4.9 `/api/ready` debe devolver 503 si DB falla.
+- [x] 4.10 `/api/ready` debe devolver contrato PostgreSQL-only.
 
 Tests obligatorios:
 
-- [ ] `/api/health` devuelve 200.
-- [ ] `/api/health` devuelve `{"status": "ok"}`.
-- [ ] `/api/health` no llama a readiness/check DB.
-- [ ] `/api/ready` DB OK devuelve 200.
-- [ ] `/api/ready` DB failed devuelve 503.
-- [ ] `/api/v1/health` sigue disponible.
+- [x] `/api/health` devuelve 200.
+- [x] `/api/health` devuelve `{"status": "ok"}`.
+- [x] `/api/health` no llama a readiness/check DB.
+- [x] `/api/ready` DB OK devuelve 200.
+- [x] `/api/ready` DB failed devuelve 503.
+- [x] `/api/v1/health` sigue disponible.
 
 Validación:
 
@@ -345,9 +345,9 @@ uv run pytest
 
 Criterio para avanzar:
 
-- [ ] Endpoints implementados.
-- [ ] Compatibilidad conservada.
-- [ ] Tests de contrato OK.
+- [x] Endpoints implementados.
+- [x] Compatibilidad conservada.
+- [x] Tests de contrato OK.
 
 ---
 
