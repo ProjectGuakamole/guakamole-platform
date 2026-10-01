@@ -29,6 +29,12 @@ def test_check_database_returns_failed_when_probe_raises(
     assert checks.check_database() is DependencyStatus.FAILED
 
 
+def test_check_database_returns_failed_when_probe_is_not_configured_by_default() -> (
+    None
+):
+    assert checks.check_database() is DependencyStatus.FAILED
+
+
 def test_get_readiness_status_returns_ready_when_database_is_ok(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

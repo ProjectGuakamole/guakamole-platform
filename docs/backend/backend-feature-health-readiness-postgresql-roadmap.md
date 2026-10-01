@@ -258,18 +258,28 @@ Objetivo: evitar readiness falsamente positiva.
 
 Subtasks:
 
-- [ ] 3.1 Revisar si existe configuración centralizada de DB/session/engine.
+- [x] 3.1 Revisar si existe configuración centralizada de DB/session/engine.
 - [ ] 3.2 Si existe configuración suficiente, implementar probe real con consulta equivalente a `SELECT 1`.
-- [ ] 3.3 Si no existe configuración suficiente, hacer que el probe no devuelva `OK` falsamente.
-- [ ] 3.4 Definir comportamiento temporal documentado si el probe real queda pendiente.
-- [ ] 3.5 Asegurar timeout corto cuando el cliente/engine lo permita.
-- [ ] 3.6 Capturar excepciones y devolver `FAILED` sin exponer detalles.
-- [ ] 3.7 Añadir/ajustar tests con mocks para OK/fallo.
+- [x] 3.3 Si no existe configuración suficiente, hacer que el probe no devuelva `OK` falsamente.
+- [x] 3.4 Definir comportamiento temporal documentado si el probe real queda pendiente.
+- [x] 3.5 Asegurar timeout corto cuando el cliente/engine lo permita.
+- [x] 3.6 Capturar excepciones y devolver `FAILED` sin exponer detalles.
+- [x] 3.7 Añadir/ajustar tests con mocks para OK/fallo.
 
 Decisión recomendada:
 
-- [ ] Preferir check real con `SELECT 1` si hay infraestructura mínima.
-- [ ] Si no hay infraestructura mínima, readiness debe ser conservadora y no devolver `ready` como si la DB estuviera comprobada.
+- [x] Preferir check real con `SELECT 1` si hay infraestructura mínima.
+- [x] Si no hay infraestructura mínima, readiness debe ser conservadora y no devolver `ready` como si la DB estuviera comprobada.
+
+Decisión Task 3:
+
+No existe todavía configuración centralizada suficiente de base de datos,
+session o engine en `backend/app/db/` ni en `backend/app/core/`. Por tanto,
+no se implementa aún el `SELECT 1`; `_probe_database()` falla de forma
+controlada por defecto mediante una excepción interna privada. Cuando se añada
+configuración centralizada, el probe deberá sustituirse por una consulta ligera
+con timeout corto si el cliente/engine lo permite. Mientras tanto, readiness es
+conservadora y no puede devolver `ready` por un placeholder silencioso.
 
 Validación:
 
@@ -283,9 +293,9 @@ uv run pytest
 
 Criterio para avanzar:
 
-- [ ] No hay readiness falsamente positiva.
-- [ ] No se exponen detalles internos.
-- [ ] Tests cubren OK/fallo.
+- [x] No hay readiness falsamente positiva.
+- [x] No se exponen detalles internos.
+- [x] Tests cubren OK/fallo.
 
 ---
 

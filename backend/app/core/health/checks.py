@@ -8,13 +8,19 @@ from app.core.health.schemas import (
 )
 
 
-def _probe_database() -> None:
-    """Placeholder for the future lightweight database probe.
+class _DatabaseProbeNotConfiguredError(RuntimeError):
+    """Raised when the database probe cannot run safely yet."""
 
-    When centralized database configuration exists, this function will execute a
-    short-timeout query equivalent to SELECT 1 without exposing infrastructure
-    details to API responses.
+
+def _probe_database() -> None:
+    """Run the database probe.
+
+    There is no centralized database configuration or shared engine/session yet.
+    Failing closed prevents readiness from reporting OK without verifying
+    PostgreSQL. When that configuration exists, this function must execute a
+    short-timeout query equivalent to SELECT 1.
     """
+    raise _DatabaseProbeNotConfiguredError
 
 
 def _check_dependency(probe: Callable[[], None]) -> DependencyStatus:
