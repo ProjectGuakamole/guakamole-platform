@@ -185,11 +185,14 @@ de `localhost`.
 - [x] 3.5 Añadir tests metadata.
 - [x] 3.6 Ejecutar validación.
 
-## Task 4 — Modelado de departamentos y pertenencia organizativa
+## Task 4 — Crear `tbl_organization_role`
 
-- [ ] Definir modelos ORM de departamentos y relaciones necesarias.
-- [ ] Añadir migración incremental.
-- [ ] Añadir tests de claves foráneas y constraints.
+- [x] 4.1 Crear modelo ORM `OrganizationRole`.
+- [x] 4.2 Crear schemas `OrganizationRoleBase`, `OrganizationRoleCreate`, `OrganizationRoleUpdate`, `OrganizationRoleRead`.
+- [x] 4.3 Crear migración `0005_create_tbl_organization_role`.
+- [x] 4.4 Definir constraint `pk_tbl_organization_role`.
+- [x] 4.5 Añadir tests metadata.
+- [x] 4.6 Ejecutar validación.
 
 ## Task 5 — Roles y permisos IAM
 

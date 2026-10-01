@@ -55,3 +55,29 @@ class PlatformRoleRead(PlatformRoleBase):
     id_platform_role: int
     created_at: datetime
     updated_at: datetime | None
+
+
+class OrganizationRoleBase(BaseModel):
+    """Campos base de un rol organizativo."""
+
+    org_role_type: str = Field(..., max_length=50)
+
+
+class OrganizationRoleCreate(OrganizationRoleBase):
+    """Datos necesarios para crear un rol organizativo."""
+
+
+class OrganizationRoleUpdate(BaseModel):
+    """Datos opcionales para actualizar parcialmente un rol organizativo."""
+
+    org_role_type: str | None = Field(default=None, max_length=50)
+
+
+class OrganizationRoleRead(OrganizationRoleBase):
+    """Representación de lectura de un rol organizativo."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id_org_role: int
+    created_at: datetime
+    updated_at: datetime | None
