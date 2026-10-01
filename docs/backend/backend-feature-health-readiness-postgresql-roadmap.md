@@ -152,16 +152,16 @@ backend/tests/test_health_schemas.py
 
 Subtasks:
 
-- [ ] 1.1 Actualizar `ReadinessDependencies` para que solo tenga `database: DependencyStatus`.
-- [ ] 1.2 Eliminar campo `redis` del contrato de readiness.
-- [ ] 1.3 Mantener `HealthStatus`.
-- [ ] 1.4 Mantener `ReadinessStatus`.
-- [ ] 1.5 Mantener `DependencyStatus`.
-- [ ] 1.6 Mantener `HealthResponse`.
-- [ ] 1.7 Mantener `ReadinessResponse`.
-- [ ] 1.8 Actualizar tests de schemas para readiness OK solo con database.
-- [ ] 1.9 Actualizar tests de schemas para readiness failed solo con database.
-- [ ] 1.10 Eliminar tests de schema relacionados con Redis.
+- [x] 1.1 Actualizar `ReadinessDependencies` para que solo tenga `database: DependencyStatus`.
+- [x] 1.2 Eliminar campo `redis` del contrato de readiness.
+- [x] 1.3 Mantener `HealthStatus`.
+- [x] 1.4 Mantener `ReadinessStatus`.
+- [x] 1.5 Mantener `DependencyStatus`.
+- [x] 1.6 Mantener `HealthResponse`.
+- [x] 1.7 Mantener `ReadinessResponse`.
+- [x] 1.8 Actualizar tests de schemas para readiness OK solo con database.
+- [x] 1.9 Actualizar tests de schemas para readiness failed solo con database.
+- [x] 1.10 Eliminar tests de schema relacionados con Redis.
 
 Contrato esperado:
 
@@ -195,10 +195,10 @@ uv run pytest
 
 Criterio para avanzar:
 
-- [ ] Schemas PostgreSQL-only.
-- [ ] Tests actualizados.
-- [ ] Sin referencias a Redis en schemas/tests de schemas.
-- [ ] Calidad backend OK.
+- [x] Schemas PostgreSQL-only.
+- [x] Tests actualizados.
+- [x] Sin referencias a Redis en schemas/tests de schemas.
+- [x] Calidad backend OK.
 
 ---
 
@@ -215,24 +215,24 @@ backend/tests/test_health_checks.py
 
 Subtasks:
 
-- [ ] 2.1 Mantener `check_database() -> DependencyStatus`.
-- [ ] 2.2 Mantener `get_readiness_status() -> ReadinessResponse`.
-- [ ] 2.3 Eliminar `check_redis()`.
-- [ ] 2.4 Eliminar `_probe_redis()`.
-- [ ] 2.5 Eliminar tests de Redis.
-- [ ] 2.6 Actualizar `get_readiness_status()` para depender solo de database.
-- [ ] 2.7 Si database es `OK`, readiness debe ser `READY`.
-- [ ] 2.8 Si database es `FAILED`, readiness debe ser `NOT_READY`.
-- [ ] 2.9 Mantener captura de excepciones.
-- [ ] 2.10 No exponer detalles internos.
-- [ ] 2.11 Mantener diseño testeable con monkeypatch/mocks.
+- [x] 2.1 Mantener `check_database() -> DependencyStatus`.
+- [x] 2.2 Mantener `get_readiness_status() -> ReadinessResponse`.
+- [x] 2.3 Eliminar `check_redis()`.
+- [x] 2.4 Eliminar `_probe_redis()`.
+- [x] 2.5 Eliminar tests de Redis.
+- [x] 2.6 Actualizar `get_readiness_status()` para depender solo de database.
+- [x] 2.7 Si database es `OK`, readiness debe ser `READY`.
+- [x] 2.8 Si database es `FAILED`, readiness debe ser `NOT_READY`.
+- [x] 2.9 Mantener captura de excepciones.
+- [x] 2.10 No exponer detalles internos.
+- [x] 2.11 Mantener diseño testeable con monkeypatch/mocks.
 
 Tests obligatorios:
 
-- [ ] `check_database()` devuelve `OK` si el probe de DB no falla.
-- [ ] `check_database()` devuelve `FAILED` si el probe de DB falla.
-- [ ] `get_readiness_status()` devuelve `READY` si DB está OK.
-- [ ] `get_readiness_status()` devuelve `NOT_READY` si DB falla.
+- [x] `check_database()` devuelve `OK` si el probe de DB no falla.
+- [x] `check_database()` devuelve `FAILED` si el probe de DB falla.
+- [x] `get_readiness_status()` devuelve `READY` si DB está OK.
+- [x] `get_readiness_status()` devuelve `NOT_READY` si DB falla.
 
 Validación:
 
@@ -246,9 +246,9 @@ uv run pytest
 
 Criterio para avanzar:
 
-- [ ] Checks PostgreSQL-only.
-- [ ] Sin referencias a Redis en checks/tests de checks.
-- [ ] Calidad backend OK.
+- [x] Checks PostgreSQL-only.
+- [x] Sin referencias a Redis en checks/tests de checks.
+- [x] Calidad backend OK.
 
 ---
 
@@ -404,22 +404,89 @@ Criterio para avanzar:
 
 ---
 
-### Task 7 — Validación final y PR
+### Task 7 — Makefile operativo de backend y entorno local
+
+Objetivo: crear un `Makefile` de ayuda para comandos repetibles de desarrollo, validación y operación local sin esconder lógica crítica ni introducir secretos.
+
+Archivo previsto:
+
+```text
+Makefile
+```
+
+Subtasks:
+
+- [ ] 7.1 Crear `Makefile` en la raíz del repositorio.
+- [ ] 7.2 Añadir target de ayuda, por ejemplo `make help`.
+- [ ] 7.3 Añadir targets de calidad backend:
+  - `make backend-lint`
+  - `make backend-format-check`
+  - `make backend-mypy`
+  - `make backend-test`
+  - `make backend-check`
+- [ ] 7.4 Añadir target para levantar servidor FastAPI local, por ejemplo `make backend-run`.
+- [ ] 7.5 Añadir targets Docker Compose seguros:
+  - `make docker-config`
+  - `make docker-up`
+  - `make docker-down`
+  - `make docker-ps`
+  - `make docker-logs`
+- [ ] 7.6 Añadir targets específicos para PostgreSQL si aplica:
+  - `make postgres-up`
+  - `make postgres-logs`
+  - `make postgres-down`
+- [ ] 7.7 Añadir target para probar health/readiness cuando existan endpoints:
+  - `make health-check`
+  - `make ready-check`
+- [ ] 7.8 Usar `.env.example` en comandos de validación de Compose cuando sea seguro.
+- [ ] 7.9 No introducir valores secretos ni depender de `.env` real en comandos documentales.
+- [ ] 7.10 Documentar en el propio `Makefile` los targets principales.
+- [ ] 7.11 Validar que los targets no modifican `frontend/` ni `.env`.
+
+Validación:
+
+```bash
+make help
+make backend-check
+make docker-config
+```
+
+Si se añaden targets que levantan servicios:
+
+```bash
+make postgres-up
+make docker-ps
+make postgres-down
+```
+
+Criterio para avanzar:
+
+- [ ] `Makefile` creado.
+- [ ] Targets de backend funcionan.
+- [ ] Targets Docker/Compose renderizan correctamente.
+- [ ] No se introducen secretos.
+- [ ] No se modifica `.env`.
+- [ ] No se modifica `frontend/`.
+
+---
+
+### Task 8 — Validación final y PR
 
 Objetivo: validar todo antes del commit/push/PR.
 
 Subtasks:
 
-- [ ] 7.1 Revisar estado Git.
-- [ ] 7.2 Revisar diff completo.
-- [ ] 7.3 Confirmar que no hay cambios en `frontend/`.
-- [ ] 7.4 Confirmar que `.env` no se modificó.
-- [ ] 7.5 Confirmar que Redis no aparece en contrato/readiness.
-- [ ] 7.6 Ejecutar calidad backend.
-- [ ] 7.7 Ejecutar tests.
-- [ ] 7.8 Validar Compose si se modificó.
-- [ ] 7.9 Preparar commit.
-- [ ] 7.10 Crear PR hacia `main`.
+- [ ] 8.1 Revisar estado Git.
+- [ ] 8.2 Revisar diff completo.
+- [ ] 8.3 Confirmar que no hay cambios en `frontend/`.
+- [ ] 8.4 Confirmar que `.env` no se modificó.
+- [ ] 8.5 Confirmar que Redis no aparece en contrato/readiness.
+- [ ] 8.6 Ejecutar calidad backend.
+- [ ] 8.7 Ejecutar tests.
+- [ ] 8.8 Validar Compose si se modificó.
+- [ ] 8.9 Validar targets principales del `Makefile` si se añadió.
+- [ ] 8.10 Preparar commit.
+- [ ] 8.11 Crear PR hacia `main`.
 
 Comandos obligatorios:
 
@@ -450,6 +517,7 @@ Criterio de cierre:
 - [ ] Compose OK si aplica.
 - [ ] Sin cambios prohibidos.
 - [ ] PR creado.
+- [ ] Makefile validado si se añadió.
 
 ## Criterios de aceptación finales
 
@@ -467,6 +535,7 @@ Criterio de cierre:
 - [ ] No se exponen stacktraces.
 - [ ] No se modifica `frontend/`.
 - [ ] No se modifica `.env`.
+- [ ] `Makefile` disponible para comandos comunes de backend, Docker, PostgreSQL y validación si se implementó Task 7.
 
 ## Trabajo posterior fuera de esta branch
 

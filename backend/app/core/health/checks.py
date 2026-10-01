@@ -17,14 +17,6 @@ def _probe_database() -> None:
     """
 
 
-def _probe_redis() -> None:
-    """Placeholder for the future lightweight Redis probe.
-
-    When centralized Redis configuration exists, this function will execute a
-    short-timeout PING without exposing infrastructure details to API responses.
-    """
-
-
 def _check_dependency(probe: Callable[[], None]) -> DependencyStatus:
     try:
         probe()
@@ -37,19 +29,11 @@ def check_database() -> DependencyStatus:
     return _check_dependency(_probe_database)
 
 
-def check_redis() -> DependencyStatus:
-    return _check_dependency(_probe_redis)
-
-
 def get_readiness_status() -> ReadinessResponse:
-    dependencies = ReadinessDependencies(
-        database=check_database(),
-        redis=check_redis(),
-    )
+    dependencies = ReadinessDependencies(database=check_database())
     status = (
         ReadinessStatus.READY
         if dependencies.database is DependencyStatus.OK
-        and dependencies.redis is DependencyStatus.OK
         else ReadinessStatus.NOT_READY
     )
     return ReadinessResponse(status=status, dependencies=dependencies)
