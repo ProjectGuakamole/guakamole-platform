@@ -235,11 +235,15 @@ estado inconsistente.
 - [x] 5.6 Añadir tests metadata.
 - [x] 5.7 Ejecutar validación.
 
-## Task 6 — Repositorios IAM internos
+## Task 6 — Crear `tbl_city`
 
-- [ ] Añadir repositorios ORM sin endpoints públicos.
-- [ ] Mantener consultas acotadas por tenant cuando aplique.
-- [ ] Añadir tests unitarios.
+- [x] 6.1 Crear modelo ORM `City`.
+- [x] 6.2 Crear schemas `CityBase`, `CityCreate`, `CityUpdate`, `CityRead`.
+- [x] 6.3 Crear migración `0007_create_tbl_city`.
+- [x] 6.4 Añadir FK `id_state → sch_iam.tbl_state.id_state`.
+- [x] 6.5 Añadir índice `ix_tbl_city_id_state`.
+- [x] 6.6 Añadir tests metadata.
+- [x] 6.7 Ejecutar validación.
 
 ## Task 7 — Servicios de aplicación IAM
 

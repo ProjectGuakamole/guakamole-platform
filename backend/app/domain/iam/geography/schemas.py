@@ -49,3 +49,29 @@ class StateRead(StateBase):
     model_config = ConfigDict(from_attributes=True)
 
     id_state: int
+
+
+class CityBase(BaseModel):
+    """Campos base del catálogo de ciudades."""
+
+    id_state: int
+    city_name: str = Field(..., max_length=120)
+
+
+class CityCreate(CityBase):
+    """Datos necesarios para crear una ciudad."""
+
+
+class CityUpdate(BaseModel):
+    """Datos opcionales para actualizar parcialmente una ciudad."""
+
+    id_state: int | None = None
+    city_name: str | None = Field(default=None, max_length=120)
+
+
+class CityRead(CityBase):
+    """Representación de lectura de una ciudad."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id_city: int

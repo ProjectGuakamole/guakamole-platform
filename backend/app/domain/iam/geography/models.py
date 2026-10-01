@@ -44,3 +44,25 @@ class State(Base):
     id_state: Mapped[int] = mapped_column(BigInteger)
     id_country: Mapped[int] = mapped_column(BigInteger, nullable=False)
     state_name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+class City(Base):
+    """Ciudad disponible en el catálogo geográfico IAM."""
+
+    __tablename__ = "tbl_city"
+    __table_args__ = (
+        PrimaryKeyConstraint("id_city", name="pk_tbl_city"),
+        ForeignKeyConstraint(
+            ["id_state"],
+            [f"{IAM_SCHEMA}.tbl_state.id_state"],
+            name="fk_tbl_city_id_state",
+            ondelete="RESTRICT",
+            onupdate="CASCADE",
+        ),
+        Index("ix_tbl_city_id_state", "id_state"),
+        {"schema": IAM_SCHEMA},
+    )
+
+    id_city: Mapped[int] = mapped_column(BigInteger)
+    id_state: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    city_name: Mapped[str] = mapped_column(String(120), nullable=False)
