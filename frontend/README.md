@@ -1,5 +1,20 @@
 # React + TypeScript + Vite
 
+## Tests
+
+Los tests de componentes y de la API de autenticación se ejecutan con Vitest y
+React Testing Library:
+
+```bash
+npm test
+```
+
+Para ejecutar los tests en modo watch durante el desarrollo:
+
+```bash
+npm run test:watch
+```
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
