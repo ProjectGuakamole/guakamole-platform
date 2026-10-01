@@ -4,7 +4,7 @@ Branch esperada: `backend/feature/iam-orm-alembic`
 
 Schema PostgreSQL IAM: `sch_iam`
 
-Estado: Task 0 completada y preparada para revisión QA.
+Estado: Task 1 completada y preparada para revisión QA.
 
 ## Task 0 — Preparación ORM/Alembic/schema `sch_iam`
 
@@ -70,10 +70,12 @@ backend/app/domain/
 
 ## Task 1 — Modelado base de catálogos geográficos
 
-- [ ] Definir modelos ORM geográficos acordados.
-- [ ] Añadir migración de tablas geográficas.
-- [ ] Añadir schemas Pydantic correspondientes.
-- [ ] Añadir tests de constraints y metadata.
+- [x] 1.1 Crear modelo ORM `Country`.
+- [x] 1.2 Crear schemas Pydantic.
+- [x] 1.3 Crear migración `0002_create_tbl_country`.
+- [x] 1.4 Definir constraint `pk_tbl_country`.
+- [x] 1.5 Añadir tests metadata.
+- [x] 1.6 Ejecutar validación.
 
 ## Task 2 — Modelado base de organizaciones
 
