@@ -176,12 +176,14 @@ de `localhost`.
 - `alembic.ini` no contiene credenciales operativas.
 - No se añaden secretos reales.
 
-## Task 3 — Modelado base de usuarios
+## Task 3 — Crear `tbl_platform_role`
 
-- [ ] Definir modelos ORM de usuario sin autenticación JWT.
-- [ ] Añadir migración incremental.
-- [ ] Añadir schemas Pydantic internos.
-- [ ] Añadir tests de unicidad y tipos.
+- [x] 3.1 Crear modelo ORM `PlatformRole`.
+- [x] 3.2 Crear schemas `PlatformRoleBase`, `PlatformRoleCreate`, `PlatformRoleUpdate`, `PlatformRoleRead`.
+- [x] 3.3 Crear migración `0004_create_tbl_platform_role`.
+- [x] 3.4 Definir constraint `pk_tbl_platform_role`.
+- [x] 3.5 Añadir tests metadata.
+- [x] 3.6 Ejecutar validación.
 
 ## Task 4 — Modelado de departamentos y pertenencia organizativa
 
