@@ -122,7 +122,7 @@ export default function RegisterCompanyForm() {
         <Box>
           <Heading size="lg">Registrar empresa</Heading>
 
-          <Text color="gray.600" mt={2}>
+          <Text color="dark" mt={2}>
             Registra tu empresa y crea el usuario administrador.
           </Text>
         </Box>
