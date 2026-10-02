@@ -4,7 +4,7 @@ Branch esperada: `backend/feature/iam-orm-alembic`
 
 Schema PostgreSQL IAM: `sch_iam`
 
-Estado: Task 2 completada; Task 2b documental preparada para revisión QA.
+Estado: Task 13 completada; documentación final backend preparada para revisión QA. Task 14 pendiente.
 
 ## Task 0 — Preparación ORM/Alembic/schema `sch_iam`
 
@@ -299,14 +299,14 @@ estado inconsistente.
 
 ## Task 12 — Hardening multi-tenant
 
-- [ ] Revisar queries por `organization_id`.
-- [ ] Añadir tests de acceso cruzado denegado.
-- [ ] Documentar decisiones de aislamiento.
+- [x] Revisar queries por `organization_id`.
+- [x] Añadir tests de acceso cruzado denegado.
+- [x] Documentar decisiones de aislamiento.
 
 ## Task 13 — Documentación operativa IAM
 
-- [ ] Documentar migraciones, rollback y criterios de QA.
-- [ ] Documentar decisiones técnicas backend.
+- [x] Documentar migraciones, rollback y criterios de QA.
+- [x] Documentar decisiones técnicas backend.
 
 ## Task 14 — Validación final de roadmap IAM
 
