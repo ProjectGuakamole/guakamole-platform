@@ -5,6 +5,7 @@ ENV_FILE ?= .env.example
 ENV_FILE_PATH := $(if $(filter /%,$(ENV_FILE)),$(ENV_FILE),./$(ENV_FILE))
 COMPOSE := docker compose --env-file $(ENV_FILE)
 API_BASE_URL ?= http://localhost:8000
+REVISION ?= -1
 
 help: ## Muestra los comandos disponibles.
 	@printf 'Comandos disponibles:\n'
@@ -30,7 +31,7 @@ help: ## Muestra los comandos disponibles.
 	@printf '  make db-upgrade            Ejecuta Alembic upgrade head con $$(ENV_FILE).\n'
 	@printf '  make db-current            Muestra revisión actual Alembic con $$(ENV_FILE).\n'
 	@printf '  make db-history            Muestra histórico Alembic con $$(ENV_FILE).\n'
-	@printf '  make db-downgrade          Ejecuta Alembic downgrade -1 con $$(ENV_FILE).\n'
+	@printf '  make db-downgrade          Ejecuta Alembic downgrade $$(REVISION) con $$(ENV_FILE).\n'
 	@printf '  make health-check          Consulta $(API_BASE_URL)/api/health.\n'
 	@printf '  make ready-check           Consulta $(API_BASE_URL)/api/ready.\n'
 
@@ -93,7 +94,7 @@ db-history: ## Muestra el histórico de migraciones Alembic usando $(ENV_FILE).
 	set -a; . $(ENV_FILE_PATH); set +a; cd $(BACKEND_DIR) && uv run alembic history
 
 db-downgrade: ## Revierte una revisión Alembic usando $(ENV_FILE).
-	set -a; . $(ENV_FILE_PATH); set +a; cd $(BACKEND_DIR) && uv run alembic downgrade -1
+	set -a; . $(ENV_FILE_PATH); set +a; cd $(BACKEND_DIR) && uv run alembic downgrade $(REVISION)
 
 health-check: ## Consulta el endpoint de liveness sin asumir que el servidor esté levantado.
 	curl -i $(API_BASE_URL)/api/health

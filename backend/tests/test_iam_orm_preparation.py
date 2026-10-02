@@ -121,7 +121,7 @@ def test_makefile_exposes_alembic_database_targets_with_env_file() -> None:
         "db-upgrade:": "uv run alembic upgrade head",
         "db-current:": "uv run alembic current",
         "db-history:": "uv run alembic history",
-        "db-downgrade:": "uv run alembic downgrade -1",
+        "db-downgrade:": "uv run alembic downgrade $(REVISION)",
     }
 
     for target, command in expected_targets.items():
@@ -131,6 +131,7 @@ def test_makefile_exposes_alembic_database_targets_with_env_file() -> None:
     assert makefile_content.count("set -a; . $(ENV_FILE_PATH); set +a;") >= len(
         expected_targets
     )
+    assert "REVISION ?= -1" in makefile_content
 
 
 def test_makefile_help_documents_env_file_usage() -> None:
