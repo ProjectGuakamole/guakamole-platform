@@ -289,11 +289,13 @@ estado inconsistente.
 - [x] 10.7 Añadir tests metadata.
 - [x] 10.8 Ejecutar validación.
 
-## Task 11 — Integración con autenticación
+## Task 11 — Seed inicial mínimo IAM
 
-- [ ] Conectar IAM con autenticación cuando el diseño esté aprobado.
-- [ ] No introducir secretos en repositorio.
-- [ ] Añadir tests de seguridad.
+- [x] 11.1 Crear migración seed separada.
+- [x] 11.2 Insertar datos mínimos.
+- [x] 11.3 Downgrade debe eliminar solo estos seeds.
+- [x] 11.4 Añadir tests/validación si aplica.
+- [x] 11.5 Ejecutar validación.
 
 ## Task 12 — Hardening multi-tenant
 
