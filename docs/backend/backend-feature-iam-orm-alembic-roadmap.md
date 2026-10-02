@@ -256,11 +256,17 @@ estado inconsistente.
 - [x] 7.7 Añadir tests metadata.
 - [x] 7.8 Ejecutar validación.
 
-## Task 8 — Schemas Pydantic públicos/controlados
+## Task 8 — Crear `tbl_users`
 
-- [ ] Definir schemas de entrada/salida necesarios.
-- [ ] Validar inputs server-side.
-- [ ] Añadir tests de validación.
+- [x] 8.1 Crear modelo ORM `User`.
+- [x] 8.2 Crear schemas `UserBase`, `UserCreate`, `UserUpdate`, `UserRead`.
+- [x] 8.3 Crear migración `0009_create_tbl_users`.
+- [x] 8.4 Añadir FKs.
+- [x] 8.5 Añadir unique email.
+- [x] 8.6 Añadir índices FK.
+- [x] 8.7 Añadir tests metadata.
+- [x] 8.8 Añadir tests que verifiquen que `UserRead` no expone `password_hash`.
+- [x] 8.9 Ejecutar validación.
 
 ## Task 9 — Endpoints administrativos IAM mínimos
 
