@@ -278,10 +278,16 @@ estado inconsistente.
 - [x] 9.6 Añadir tests metadata.
 - [x] 9.7 Ejecutar validación.
 
-## Task 10 — Auditoría IAM
+## Task 10 — Crear `tbl_department_relations`
 
-- [ ] Registrar eventos auditables relevantes.
-- [ ] Añadir tests de emisión de eventos.
+- [x] 10.1 Crear modelo ORM `DepartmentRelation`.
+- [x] 10.2 Crear schemas `DepartmentRelationBase`, `DepartmentRelationCreate`, `DepartmentRelationUpdate`, `DepartmentRelationRead`.
+- [x] 10.3 Crear migración `0011_create_tbl_department_relations`.
+- [x] 10.4 Añadir FKs con `ON DELETE CASCADE` / `ON UPDATE CASCADE`.
+- [x] 10.5 Añadir unique compuesto.
+- [x] 10.6 Añadir índices FK.
+- [x] 10.7 Añadir tests metadata.
+- [x] 10.8 Ejecutar validación.
 
 ## Task 11 — Integración con autenticación
 
