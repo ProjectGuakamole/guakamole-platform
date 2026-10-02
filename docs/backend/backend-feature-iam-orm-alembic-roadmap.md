@@ -245,11 +245,16 @@ estado inconsistente.
 - [x] 6.6 Añadir tests metadata.
 - [x] 6.7 Ejecutar validación.
 
-## Task 7 — Servicios de aplicación IAM
+## Task 7 — Crear `tbl_organization`
 
-- [ ] Añadir servicios internos de casos de uso mínimos.
-- [ ] Evitar lógica de endpoint en servicios.
-- [ ] Añadir tests de reglas de negocio.
+- [x] 7.1 Crear modelo ORM `Organization`.
+- [x] 7.2 Crear schemas `OrganizationBase`, `OrganizationCreate`, `OrganizationUpdate`, `OrganizationRead`.
+- [x] 7.3 Crear migración `0008_create_tbl_organization`.
+- [x] 7.4 Añadir FKs.
+- [x] 7.5 Añadir unique constraints.
+- [x] 7.6 Añadir índices FK.
+- [x] 7.7 Añadir tests metadata.
+- [x] 7.8 Ejecutar validación.
 
 ## Task 8 — Schemas Pydantic públicos/controlados
 

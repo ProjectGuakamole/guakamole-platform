@@ -18,6 +18,7 @@ def import_models() -> None:
 
     import_module("app.domain.iam.access.models")
     import_module("app.domain.iam.geography.models")
+    import_module("app.domain.iam.organizations.models")
 
 
 import_models()
