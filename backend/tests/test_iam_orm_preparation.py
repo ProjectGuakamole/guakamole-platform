@@ -134,9 +134,102 @@ def test_makefile_exposes_alembic_database_targets_with_env_file() -> None:
     assert "REVISION ?= -1" in makefile_content
 
 
-def test_makefile_help_documents_env_file_usage() -> None:
+def test_makefile_groups_backend_quality_targets() -> None:
     makefile_content = Path("../Makefile").read_text(encoding="utf-8")
 
+    expected_dependency_chain = (
+        "backend-test: backend-lint backend-format-check backend-mypy backend-pytest"
+    )
+
+    assert expected_dependency_chain in makefile_content
+    assert "backend-pytest:" in makefile_content
+    assert "cd $(BACKEND_DIR) && uv run pytest" in makefile_content
+
+
+def test_makefile_keeps_hidden_install_aliases() -> None:
+    makefile_content = Path("../Makefile").read_text(encoding="utf-8")
+
+    assert "setup: install" in makefile_content
+    assert "backend-install: install" in makefile_content
+
+
+def test_makefile_keeps_hidden_docker_and_postgres_targets() -> None:
+    makefile_content = Path("../Makefile").read_text(encoding="utf-8")
+    expected_targets = {
+        "docker-config:",
+        "docker-ps:",
+        "postgres-up:",
+        "postgres-logs:",
+        "postgres-down:",
+    }
+
+    for target in expected_targets:
+        assert target in makefile_content
+
+
+def test_makefile_backend_check_validates_running_service() -> None:
+    makefile_content = Path("../Makefile").read_text(encoding="utf-8")
+
+    assert "backend-check: health-check ready-check" in makefile_content
+    assert "curl -i $(API_BASE_URL)/api/health" in makefile_content
+    assert "curl -i $(API_BASE_URL)/api/ready" in makefile_content
+
+
+def test_makefile_exposes_psql_target() -> None:
+    makefile_content = Path("../Makefile").read_text(encoding="utf-8")
+    phony_line = makefile_content.splitlines()[0]
+
+    assert phony_line.startswith(".PHONY:")
+    assert "psql" in phony_line
+    assert "psql:" in makefile_content
+    assert "$(COMPOSE) up -d postgres" in makefile_content
+    expected_psql_command = (
+        "$(COMPOSE) exec postgres sh -c "
+        '\'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"\''
+    )
+
+    assert expected_psql_command in makefile_content
+
+
+def test_makefile_help_documents_primary_commands_only() -> None:
+    makefile_content = Path("../Makefile").read_text(encoding="utf-8")
+    help_block = makefile_content.split("install:", maxsplit=1)[0]
+    hidden_commands = {
+        "make setup",
+        "make backend-install",
+        "make backend-lint",
+        "make backend-format-check",
+        "make backend-mypy",
+        "make backend-pytest",
+        "make health-check",
+        "make ready-check",
+        "make docker-config",
+        "make docker-ps",
+        "make postgres-up",
+        "make postgres-logs",
+        "make postgres-down",
+    }
+    visible_commands = {
+        "make install",
+        "make backend-test",
+        "make backend-check",
+        "make backend-run",
+        "make docker-up",
+        "make docker-down",
+        "make docker-logs",
+        "make psql",
+        "make db-upgrade",
+        "make db-current",
+        "make db-history",
+        "make db-downgrade",
+    }
+
     assert "ENV_FILE ?= .env.example" in makefile_content
-    assert "make docker-up ENV_FILE=.env" in makefile_content
-    assert "make db-upgrade ENV_FILE=.env" in makefile_content
+    assert "REVISION ?= -1" in makefile_content
+    assert "API_BASE_URL ?= http://localhost:8000" in makefile_content
+
+    for command in visible_commands:
+        assert command in help_block
+
+    for command in hidden_commands:
+        assert command not in help_block
