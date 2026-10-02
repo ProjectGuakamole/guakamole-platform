@@ -268,11 +268,15 @@ estado inconsistente.
 - [x] 8.8 Añadir tests que verifiquen que `UserRead` no expone `password_hash`.
 - [x] 8.9 Ejecutar validación.
 
-## Task 9 — Endpoints administrativos IAM mínimos
+## Task 9 — Crear `tbl_department`
 
-- [ ] Implementar endpoints acordados por arquitectura.
-- [ ] Aplicar autorización y tenant context.
-- [ ] Añadir tests HTTP.
+- [x] 9.1 Crear modelo ORM `Department`.
+- [x] 9.2 Crear schemas `DepartmentBase`, `DepartmentCreate`, `DepartmentUpdate`, `DepartmentRead`.
+- [x] 9.3 Crear migración `0010_create_tbl_department`.
+- [x] 9.4 Añadir FK.
+- [x] 9.5 Añadir índice FK.
+- [x] 9.6 Añadir tests metadata.
+- [x] 9.7 Ejecutar validación.
 
 ## Task 10 — Auditoría IAM
 

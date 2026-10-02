@@ -17,6 +17,7 @@ def import_models() -> None:
     """Importa modelos ORM para registrarlos en Base.metadata."""
 
     import_module("app.domain.iam.access.models")
+    import_module("app.domain.iam.departments.models")
     import_module("app.domain.iam.geography.models")
     import_module("app.domain.iam.organizations.models")
     import_module("app.domain.iam.users.models")
