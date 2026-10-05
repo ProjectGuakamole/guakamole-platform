@@ -2,7 +2,7 @@
 
 **Estado inicial:** en progreso.
 
-**Nota:** T00, T01, T02 y T03 quedan completadas tras revisión arquitectónica y validación QA.
+**Nota:** T00, T01, T02, T03 y T04 quedan completadas tras revisión arquitectónica y validación QA.
 
 Esta fase es documental. No se crean issues por cada task salvo que aparezcan problemas, bloqueos o decisiones que requieran seguimiento específico.
 
@@ -12,7 +12,7 @@ Esta fase es documental. No se crean issues por cada task salvo que aparezcan pr
 - [x] T01 — ADR arquitectura backend hexagonal pragmática. Estado: completado tras revisión arquitectónica y validación QA.
 - [x] T02 — Estándar de estructura backend por módulos. Estado: completado tras revisión arquitectónica y validación QA.
 - [x] T03 — Reglas de dependencias, seguridad y multi-tenancy. Estado: completado tras revisión arquitectónica y validación QA.
-- [ ] T04 — Estrategia de testing.
+- [x] T04 — Estrategia de testing. Estado: completado tras revisión arquitectónica y validación QA.
 - [ ] T05 — Diseño piloto IAM.
 - [ ] T06 — Roadmap implantación `BACK-ARCH-HEX-001`.
 - [ ] T07 — Revisión QA y cierre fase documental.
