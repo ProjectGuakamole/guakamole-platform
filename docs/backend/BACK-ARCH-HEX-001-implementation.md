@@ -323,14 +323,14 @@ make db-current
 - [x] T3.3 Crear builder/factory de TenantContext para tests.
 - [x] T3.4 Tests unitarios TenantContext válido.
 - [x] T3.5 Tests unitarios denegaciones.
-- [ ] T4.1 Crear policy.
-- [ ] T4.2 Regla PLATFORM_ADMIN.
-- [ ] T4.3 Regla COMPANY_ADMIN.
-- [ ] T4.4 Regla GROUP_MANAGER.
-- [ ] T4.5 Regla EMPLOYEE.
-- [ ] T4.6 Regla usuario/org disabled.
-- [ ] T4.7 Tests unitarios positivos.
-- [ ] T4.8 Tests unitarios negativos.
+- [x] T4.1 Crear policy.
+- [x] T4.2 Regla PLATFORM_ADMIN.
+- [x] T4.3 Regla COMPANY_ADMIN.
+- [x] T4.4 Regla GROUP_MANAGER.
+- [x] T4.5 Regla EMPLOYEE.
+- [x] T4.6 Regla usuario/org disabled.
+- [x] T4.7 Tests unitarios positivos.
+- [x] T4.8 Tests unitarios negativos.
 - [ ] T5.1 Definir contrato repository.
 - [ ] T5.2 Implementar query base filtrada por `organization_id`.
 - [ ] T5.3 Implementar paginación.
@@ -431,6 +431,15 @@ Validación real ejecutada durante Task 3:
 - `cd backend && uv run pytest tests/test_iam_tenant_context.py`: OK final, `7 passed`.
 - `make backend-test`: OK. Ruff OK, format OK, mypy OK y pytest OK con `250 passed`.
 
+Validación real ejecutada durante Task 4:
+
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `git status --short`: OK al inicio de Task 4, sin cambios pendientes.
+- `cd backend && uv run pytest tests/test_iam_list_users_policy.py`: OK inicial, `9 passed`.
+- `make backend-test`: primer intento FALLA en `mypy --strict` porque el test accedía a un atributo importado no exportado explícitamente desde `policies.py`; se corrigió eliminando esa aserción innecesaria del test de límites.
+- `cd backend && uv run pytest tests/test_iam_list_users_policy.py`: OK final, `9 passed`.
+- `make backend-test`: OK. Ruff OK, format OK, mypy OK y pytest OK con `259 passed`.
+
 ## Registro de resultados por task
 
 ### Task 0 — Baseline y preparación
@@ -525,7 +534,19 @@ Task 3 completada, validada en verde y aprobada por QA. Se ha introducido única
 
 ### Task 4 — Policy IAM para listar usuarios
 
-Pendiente.
+Task 4 completada, validada en verde y aprobada por QA. Se ha implementado únicamente la policy de autorización del caso de uso de listar usuarios de organización y sus tests unitarios, sin endpoint, router funcional, repository, service, dependencies FastAPI ni auditoría real.
+
+- **Policy añadida:** `ListOrganizationUsersPolicy.ensure_allowed(context)` y helper `ensure_can_list_organization_users(context)` en `backend/app/domain/iam/users/policies.py`.
+- **Reglas implementadas:** `PLATFORM_ADMIN` permitido con contexto válido, incluyendo acceso cross-tenant; `COMPANY_ADMIN` permitido solo en su propia organización; `GROUP_MANAGER` denegado explícitamente en el piloto inicial por falta de scope de grupo; `EMPLOYEE` denegado; roles desconocidos denegados; usuario y organización inactivos se revalidan mediante `validate_tenant_context` sin duplicar la lógica de `TenantContext`.
+- **Tests añadidos:** `backend/tests/test_iam_list_users_policy.py` cubre casos positivos de `PLATFORM_ADMIN` cross-tenant y `COMPANY_ADMIN` own-org, denegación de `COMPANY_ADMIN` cross-tenant en construcción de `TenantContext`, denegación de `GROUP_MANAGER`, `EMPLOYEE` y rol desconocido, revalidación de usuario/organización inactivos y ausencia de imports directos de FastAPI/SQLAlchemy en la policy.
+- **Archivos modificados/creados:**
+  - `backend/app/domain/iam/users/policies.py`.
+  - `backend/tests/test_iam_list_users_policy.py`.
+  - `docs/backend/BACK-ARCH-HEX-001-implementation.md`.
+- **Resultados:** el test específico queda en verde con `9 passed`. La validación completa `make backend-test` queda en verde: Ruff OK, format OK, mypy strict OK y pytest OK con `259 passed`. Hubo un primer intento fallido de `make backend-test` por mypy en el test de límites; se corrigió antes del resultado final.
+- **Cierre QA:** aprobado. QA valida la matriz RBAC implementada para el piloto, la invocación de `validate_tenant_context(context)` antes de conceder permisos, la ausencia de secretos y que no se han añadido endpoint, router funcional, repository, service, dependencies FastAPI ni auditoría real. Como observación menor, el test de imports prohibidos es básico, pero la revisión directa confirma que `policies.py` no introduce dependencias de FastAPI, SQLAlchemy, ORM ni base de datos.
+- **Alcance respetado:** no se implementa endpoint, router funcional, repository, service, dependencies FastAPI ni auditoría real; no se modifican migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend; no se mueven modelos SQLAlchemy existentes; no se introducen secretos.
+- **Riesgos/limitaciones:** `GROUP_MANAGER` queda denegado hasta definir memberships, grupos y scope real. La policy trabaja sobre el IAM simplificado actual y presupone que capas previas resuelven correctamente los valores del `TenantContext`. La auditoría de accesos `PLATFORM_ADMIN` cross-tenant queda pendiente de Task 9.
 
 ### Task 5 — Repository IAM users
 
