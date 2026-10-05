@@ -313,11 +313,11 @@ make db-current
 - [x] T1.2 Añadir imports mínimos seguros.
 - [x] T1.3 Tests mínimos de imports.
 - [x] T1.4 Validación.
-- [ ] T2.1 Crear `UserListQuery`.
-- [ ] T2.2 Crear `OrganizationUserRead`.
-- [ ] T2.3 Crear `OrganizationUserListResponse`.
-- [ ] T2.4 Tests de schemas válidos.
-- [ ] T2.5 Tests de schemas inválidos/security.
+- [x] T2.1 Crear `UserListQuery`.
+- [x] T2.2 Crear `OrganizationUserRead`.
+- [x] T2.3 Crear `OrganizationUserListResponse`.
+- [x] T2.4 Tests de schemas válidos.
+- [x] T2.5 Tests de schemas inválidos/security.
 - [ ] T3.1 Crear modelo interno `TenantContext`.
 - [ ] T3.2 Definir errores internos controlados.
 - [ ] T3.3 Crear builder/factory de TenantContext para tests.
@@ -401,6 +401,23 @@ Validación real ejecutada durante Task 1:
 - `cd backend && uv run pytest tests/architecture/test_iam_users_structure.py`: OK, `2 passed`.
 - `make backend-test`: OK. Ruff OK, format OK, mypy OK y pytest OK con `218 passed`.
 
+Validación real ejecutada durante Task 2:
+
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `git status --short`: OK al inicio de Task 2, sin cambios pendientes.
+- `cd backend && uv run pytest tests/test_iam_user_list_schemas.py`: OK, `24 passed`.
+- `cd backend && uv run ruff check --fix app/domain/iam/users/schemas.py tests/test_iam_user_list_schemas.py`: OK. Ruff corrigió la ordenación de imports en `schemas.py`.
+- `cd backend && uv run ruff format app/domain/iam/users/schemas.py tests/test_iam_user_list_schemas.py`: OK, `2 files left unchanged`.
+- `make backend-test`: primer intento FALLA en `mypy --strict` por tipos demasiado amplios (`str`) en tests parametrizados de `sort_by` y `sort_dir`; se corrigió usando `model_validate` para payloads dinámicos.
+- `cd backend && uv run pytest tests/test_iam_user_list_schemas.py && uv run ruff check app/domain/iam/users/schemas.py tests/test_iam_user_list_schemas.py && uv run ruff format --check app/domain/iam/users/schemas.py tests/test_iam_user_list_schemas.py`: OK, `24 passed`, Ruff OK y formato OK.
+- `make backend-test`: OK. Ruff OK, format OK, mypy OK y pytest OK con `242 passed`.
+
+Revalidación real ejecutada tras cambios requeridos por QA en Task 2:
+
+- `cd backend && uv run pytest tests/test_iam_user_list_schemas.py`: OK, `25 passed`.
+- `make backend-test`: primer intento FALLA en `ruff check .` por ordenación de imports en `tests/test_iam_user_list_schemas.py` y regla `S106` al pasar un literal a `password_hash` en el stub de test. Se corrigió ordenando imports y evitando el literal sensible en el constructor del stub.
+- `make backend-test`: OK. Ruff OK, format OK, mypy OK y pytest OK con `243 passed`.
+
 ## Registro de resultados por task
 
 ### Task 0 — Baseline y preparación
@@ -458,7 +475,24 @@ Task 1 completada y validada en verde. Los bloqueos de entorno detectados inicia
 
 ### Task 2 — Schemas Pydantic del piloto IAM
 
-Pendiente.
+Task 2 completada y validada en verde. Se han añadido únicamente schemas Pydantic del piloto IAM y tests unitarios de schemas, sin implementar endpoint, router funcional, `TenantContext`, policy, repository, service ni auditoría.
+
+- **Schemas añadidos/corregidos:**
+  - `UserListQuery`, con `limit` por defecto `50`, máximo `100`, mínimo `1`, `offset >= 0`, `search` opcional con máximo `100` caracteres y normalización por `strip`, `sort_by` con allowlist y `sort_dir` limitado a `asc`/`desc`.
+  - `OrganizationUserRead`, como schema explícito de salida para usuarios visibles dentro de organización, con identificadores internos actuales (`id_user`, `id_organization`, roles/estado actuales) y timestamps alineados con los atributos Python del modelo IAM vigente (`created_at`, `updated_at`, `last_login_at`). QA detectó una discrepancia previa entre `create_at`/`update_at` y los atributos ORM `created_at`/`updated_at`, relevante porque el schema usa `ConfigDict(from_attributes=True)`.
+  - `OrganizationUserListResponse`, con `items`, `limit`, `offset` y `total` opcional.
+- **Decisiones de campos:** se mantiene el criterio de IDs internos `BIGINT` representados como `int`, sin forzar UUID. La allowlist inicial de ordenación usa campos reales o seguros del modelo actual: `email`, `first_name`, `last_name`, `create_at`, `last_login_at` e `id_user`. El schema de salida del piloto no incluye `password_hash`, tokens, secretos, MFA, flags ni respuestas correctas.
+- **Configuración Pydantic:** `UserListQuery` usa `ConfigDict(extra="forbid")` para evitar filtros/campos arbitrarios y reducir riesgo de mass assignment. `OrganizationUserRead` usa `ConfigDict(from_attributes=True)` siguiendo el patrón de lectura existente.
+- **Tests añadidos/actualizados:** `backend/tests/test_iam_user_list_schemas.py` cubre defaults, límites válidos de paginación, ordenaciones permitidas, direcciones permitidas, normalización de búsqueda, serialización segura de `OrganizationUserRead`, validación `from_attributes=True` desde un objeto tipo ORM con `created_at`/`updated_at`, respuesta paginada y casos inválidos/security (`limit=0`, `limit=101`, `offset=-1`, `sort_by=password_hash`, sort arbitrario, `sort_dir` arbitrario, búsqueda demasiado larga, ausencia de `password_hash` en `model_fields` y rechazo de extra field sensible en query).
+- **Archivos modificados/creados:**
+  - `backend/app/domain/iam/users/schemas.py`.
+  - `backend/tests/test_iam_user_list_schemas.py`.
+  - `docs/backend/BACK-ARCH-HEX-001-implementation.md`.
+- **Corrección QA aplicada:** se sustituyen `create_at` y `update_at` por `created_at` y `updated_at` en `OrganizationUserRead` para mantener coherencia con `UserRead` y con `TimestampMixin`, sin aliases adicionales.
+- **Resultados:** el test específico queda en verde con `25 passed`. La validación completa `make backend-test` queda en verde: Ruff OK, format OK, mypy OK y pytest OK con `243 passed`. Durante esta revalidación hubo un primer intento fallido de `make backend-test` por Ruff en el propio test; se corrigió antes del resultado final en verde.
+- **Cierre QA:** aprobado tras la corrección de timestamps en `OrganizationUserRead`. QA revalidó que el schema usa `created_at`/`updated_at`, mantiene compatibilidad `from_attributes=True` mediante un test con objeto tipo ORM, no expone `password_hash` ni secretos y deja Task 2 lista para commit.
+- **Alcance respetado:** no se implementa endpoint, router funcional, `TenantContext`, policy, repository, service ni auditoría; no se modifican migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend; no se mueven modelos SQLAlchemy existentes; no se introducen secretos.
+- **Riesgos/limitaciones:** `OrganizationUserRead` refleja el modelo IAM simplificado actual, donde el usuario contiene directamente `id_organization`, `id_platform_role` e `id_org_role`; si en fases posteriores se introduce `OrganizationMembership`/roles múltiples, el contrato podrá necesitar una evolución controlada. La validación de `search` en esta task se limita a longitud y normalización; la protección frente a SQL injection deberá completarse en repository mediante queries parametrizadas y allowlists.
 
 ### Task 3 — TenantContext mínimo
 

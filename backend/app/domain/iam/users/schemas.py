@@ -1,6 +1,17 @@
 from datetime import date, datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+UserListSortField = Literal[
+    "email",
+    "first_name",
+    "last_name",
+    "create_at",
+    "last_login_at",
+    "id_user",
+]
+SortDirection = Literal["asc", "desc"]
 
 
 class UserBase(BaseModel):
@@ -56,3 +67,52 @@ class UserRead(UserBase):
     created_at: datetime
     updated_at: datetime | None
     last_login_at: datetime | None
+
+
+class UserListQuery(BaseModel):
+    """Parámetros seguros para listar usuarios de una organización."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    limit: int = Field(default=50, ge=1, le=100)
+    offset: int = Field(default=0, ge=0)
+    search: str | None = Field(default=None, max_length=100)
+    sort_by: UserListSortField = "email"
+    sort_dir: SortDirection = "asc"
+
+    @field_validator("search")
+    @classmethod
+    def normalize_search(cls, value: str | None) -> str | None:
+        """Normaliza búsquedas vacías para evitar filtros ambiguos."""
+
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+
+class OrganizationUserRead(BaseModel):
+    """Usuario visible en el listado de una organización sin datos sensibles."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id_user: int
+    id_organization: int
+    email: str = Field(..., max_length=254)
+    first_name: str = Field(..., max_length=100)
+    last_name: str = Field(..., max_length=150)
+    id_status: int
+    id_platform_role: int
+    id_org_role: int
+    created_at: datetime
+    updated_at: datetime | None
+    last_login_at: datetime | None
+
+
+class OrganizationUserListResponse(BaseModel):
+    """Respuesta paginada del listado de usuarios de organización."""
+
+    items: list[OrganizationUserRead]
+    limit: int
+    offset: int
+    total: int | None = None
