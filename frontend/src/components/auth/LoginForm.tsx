@@ -7,7 +7,6 @@ import {
   Heading,
   Input,
   Stack,
-  Text,
 } from "@chakra-ui/react";
 import { useMutation } from "@tanstack/react-query";
 
@@ -63,14 +62,24 @@ export default function LoginForm() {
   };
 
   return (
-    <Box maxW="500px" mx="auto" p={8} borderWidth="1px" borderRadius="lg">
+    <Box
+      width="full"
+      maxW="500px"
+      mx="auto"
+      p={8}
+      borderWidth="1px"
+      borderRadius="lg"
+      css={{
+        "& input::placeholder": {
+          color: "gray.500",
+          fontWeight: "normal",
+          opacity: 1,
+        },
+      }}
+    >
       <Stack gap={6}>
         <Box>
           <Heading size="lg">Iniciar sesión</Heading>
-
-          <Text color="gray.600" mt={2}>
-            Accede a tu cuenta de empresa.
-          </Text>
         </Box>
 
         <form onSubmit={handleSubmit}>
