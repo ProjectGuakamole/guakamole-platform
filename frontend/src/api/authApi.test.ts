@@ -44,7 +44,7 @@ describe('authApi', () => {
     })
 
     await expect(registerCompany(registerData)).resolves.toEqual(authResponse)
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:3000/api/auth/register', {
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(registerData),
@@ -69,7 +69,7 @@ describe('authApi', () => {
     })
 
     await expect(login(loginData)).resolves.toEqual(authResponse)
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:3000/api/auth/login', {
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(loginData),

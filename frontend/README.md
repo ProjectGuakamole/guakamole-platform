@@ -1,5 +1,36 @@
 # React + TypeScript + Vite
 
+## Conexión con el backend
+
+Las llamadas de la aplicación usan rutas relativas bajo `/api`, para que el
+navegador las envíe al mismo origen que sirve el frontend.
+
+En desarrollo, Vite reenvía esas solicitudes al backend en
+`http://localhost:8000`. Para usar otra dirección, define `BACKEND_URL` antes
+de arrancar Vite. En Git Bash:
+
+```bash
+BACKEND_URL=http://localhost:8000 npm run dev
+```
+
+En PowerShell:
+
+```powershell
+$env:BACKEND_URL = "http://localhost:8000"
+npm run dev
+```
+
+En Docker, Nginx dentro del contenedor del frontend reenvía `/api/` al servicio
+`backend:8000`. Así, tanto el puerto directo del frontend como el Nginx de
+entrada de Docker Compose pueden servir la aplicación y sus solicitudes API.
+
+Con el backend levantado, puedes comprobar el proxy en
+`http://localhost:3000/api/health` (frontend directo) o
+`http://localhost/api/health` (Nginx de entrada). Las rutas de registro e
+inicio de sesión del frontend requieren que el backend implemente los
+endpoints `/api/auth/register` y `/api/auth/login`; la configuración del proxy
+no crea esos endpoints.
+
 ## Tests
 
 Los tests de componentes y de la API de autenticación se ejecutan con Vitest y
