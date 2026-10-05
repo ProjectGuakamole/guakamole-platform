@@ -1,0 +1,22 @@
+# DOC-BACK-ARCH-HEX-001 — Roadmap documental de arquitectura hexagonal
+
+**Estado:** completado tras revisión arquitectónica y validación QA final.
+
+**Nota:** T00, T01, T02, T03, T04, T05, T06 y T07 quedan completadas tras revisión arquitectónica y validación QA.
+
+Esta fase es documental. No se crean issues por cada task salvo que aparezcan problemas, bloqueos o decisiones que requieran seguimiento específico.
+
+## Checklist interno
+
+- [x] T00 — Documento educativo. Estado: completado tras revisión arquitectónica y validación QA.
+- [x] T01 — ADR arquitectura backend hexagonal pragmática. Estado: completado tras revisión arquitectónica y validación QA.
+- [x] T02 — Estándar de estructura backend por módulos. Estado: completado tras revisión arquitectónica y validación QA.
+- [x] T03 — Reglas de dependencias, seguridad y multi-tenancy. Estado: completado tras revisión arquitectónica y validación QA.
+- [x] T04 — Estrategia de testing. Estado: completado tras revisión arquitectónica y validación QA.
+- [x] T05 — Diseño piloto IAM. Estado: completado tras revisión arquitectónica y validación QA.
+- [x] T06 — Roadmap implantación `BACK-ARCH-HEX-001`. Estado: completado tras revisión arquitectónica y validación QA.
+- [x] T07 — Revisión QA y cierre fase documental. Estado: completado tras revisión arquitectónica y validación QA final.
+
+## Nota de alcance
+
+El trabajo de esta fase debe mantenerse bajo `docs/backend/hexagonal/` y no implica cambios en código productivo, migraciones, Docker, Makefile, frontend ni configuración de entorno.
