@@ -37,7 +37,7 @@ La fase debe validar de forma progresiva:
 
 ## Cambios realizados
 
-Inicialmente solo se crea este documento de planificación de implementación. No se ha modificado código backend productivo, migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend.
+Se crea y actualiza este documento de planificación y baseline de implementación. En Task 0 se ha documentado el estado inicial real de la rama, los comandos ejecutados, el resultado de Alembic y la estructura IAM observada. No se ha modificado código backend productivo, migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend.
 
 ## Justificación técnica
 
@@ -87,10 +87,10 @@ Centralizar la planificación de `BACK-ARCH-HEX-001` en un único documento perm
 **Microtasks:**
 
 - T0.1 Crear rama de implementación.
-- T0.2 Revisar documentación base.
-- T0.3 Ejecutar baseline backend.
-- T0.4 Explorar estructura IAM actual.
-- T0.5 Crear documento único de fase.
+- T0.2 Revisar documentación base. **Completada en baseline Task 0.**
+- T0.3 Ejecutar baseline backend. **Completada con bloqueo parcial documentado.**
+- T0.4 Explorar estructura IAM actual. **Completada en baseline Task 0.**
+- T0.5 Crear documento único de fase. **Completada/actualizada en baseline Task 0.**
 
 **Criterios de cierre:** rama confirmada, documentación base revisada, baseline registrado sin inventar resultados, estructura IAM inspeccionada y este documento creado/actualizado.
 
@@ -305,10 +305,10 @@ make db-current
 ## Estado inicial del roadmap
 
 - [x] T0.1 Crear rama de implementación. Confirmada rama actual: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
-- [ ] T0.2 Revisar documentación base.
-- [ ] T0.3 Ejecutar baseline backend.
-- [ ] T0.4 Explorar estructura IAM actual.
-- [ ] T0.5 Crear documento único de fase.
+- [x] T0.2 Revisar documentación base.
+- [x] T0.3 Ejecutar baseline backend.
+- [x] T0.4 Explorar estructura IAM actual.
+- [x] T0.5 Crear documento único de fase.
 - [ ] T1.1 Crear estructura base.
 - [ ] T1.2 Añadir imports mínimos seguros.
 - [ ] T1.3 Tests mínimos de imports.
@@ -382,13 +382,47 @@ make db-current
 
 ## Tests ejecutados
 
-No se han ejecutado tests ni comandos de QA en esta actualización documental inicial. Quedan pendientes para las microtasks correspondientes.
+Baseline real ejecutado durante Task 0:
+
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `git status --short`: OK. Sin cambios iniciales registrados antes de actualizar este documento.
+- `make backend-check`: FALLA. El objetivo ejecuta `curl -i http://localhost:8000/api/health` y no puede conectar con `localhost:8000`; no parece estar levantado el servicio FastAPI local.
+- `make db-current`: OK. Alembic informa `0012_seed_initial_iam_catalogs (head)`.
+- `make db-history`: OK. Historial lineal desde `0001_create_schema_iam` hasta `0012_seed_initial_iam_catalogs (head)`.
+- `make db-upgrade`: OK. Ejecutado porque el entorno permitió validar Alembic sin destruir datos; `alembic upgrade head` no aplicó cambios pendientes visibles al estar ya en head.
 
 ## Registro de resultados por task
 
 ### Task 0 — Baseline y preparación
 
-Pendiente de registrar resultados, salvo confirmación de rama actual.
+Task 0 completada como baseline/preparación sin cambios funcionales.
+
+- **Rama confirmada:** `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- **Documentación base revisada:**
+  - `docs/backend/hexagonal/architecture.md`.
+  - `docs/backend/hexagonal/adr-backend-hexagonal-architecture.md`.
+  - `docs/backend/hexagonal/module-structure.md`.
+  - `docs/backend/hexagonal/security-and-tenant-rules.md`.
+  - `docs/backend/hexagonal/testing-strategy.md`.
+  - `docs/backend/hexagonal/iam-pilot-design.md`.
+  - `docs/backend/hexagonal/implementation-roadmap.md`.
+  - `docs/backend/BACK-ARCH-HEX-001-implementation.md`.
+- **Comandos ejecutados:** `git branch --show-current`, `git status --short`, `make backend-check`, `make db-current`, `make db-history` y `make db-upgrade`.
+- **Resultado de baseline:** Alembic está en head (`0012_seed_initial_iam_catalogs`). El baseline de health check falla porque FastAPI no está escuchando en `localhost:8000`; no se ha intentado corregir por estar fuera del alcance de Task 0.
+- **Estructura IAM observada:** existe `backend/app/domain/iam/` con subdominios `access`, `geography`, `organizations`, `users` y `departments`, además de `constants.py` con `IAM_SCHEMA = "sch_iam"`. La estructura actual contiene principalmente modelos SQLAlchemy y schemas Pydantic; todavía no se observan `routers.py`, `services.py`, `policies.py`, `repositories.py` ni `dependencies.py` para el piloto hexagonal de users.
+- **Modelos/tablas IAM principales observados:**
+  - `Status` → `sch_iam.tbl_status`.
+  - `PlatformRole` → `sch_iam.tbl_platform_role`.
+  - `OrganizationRole` → `sch_iam.tbl_organization_role`.
+  - `Country`, `State`, `City` → catálogos geográficos `sch_iam.tbl_country`, `sch_iam.tbl_state`, `sch_iam.tbl_city`.
+  - `Organization` → `sch_iam.tbl_organization`, con FKs a país, provincia/estado, ciudad y estado.
+  - `User` → `sch_iam.tbl_users`, con `id_organization`, roles global/organización, geografía, estado, email, `password_hash`, datos personales y `last_login_at`.
+  - `Department` → `sch_iam.tbl_department`, asociado a organización.
+  - `DepartmentRelation` → `sch_iam.tbl_department_relations`, relación entre departamento y usuario.
+- **Tests IAM actuales observados:** hay tests en `backend/tests/` para modelos, schemas y migraciones IAM: usuarios, organización, roles de plataforma/organización, estados, país/provincia/ciudad, departamentos, relaciones departamento-usuario, preparación ORM y seeds iniciales. Ya existe un test específico que comprueba que `UserRead` no expone `password_hash`.
+- **Migraciones/head observadas:** migraciones lineales `0001_create_schema_iam` → `0012_seed_initial_iam_catalogs (head)`. Las migraciones cubren schema IAM, catálogos geográficos, estados, roles, organización, usuarios, departamentos, relaciones departamento-usuario y seeds iniciales IAM.
+- **Secretos:** no se han añadido secretos ni se han modificado archivos de configuración sensible (`.env`, `.env.example`).
+- **Limitaciones/riesgos identificados:** el IAM actual es una implementación relacional simplificada frente al domain model objetivo: `User` pertenece directamente a una organización y tiene un rol global/organizativo directo; no se observa todavía `OrganizationMembership`, `MembershipRole`, `Group`, `GroupMember` ni `GroupManager` como tablas/modelos separados. El endpoint piloto deberá documentar y tratar esta limitación al diseñar `TenantContext`, RBAC y aislamiento multi-tenant. El fallo de `make backend-check` queda como bloqueo operativo del baseline si QA requiere health check con servidor local levantado.
 
 ### Task 1 — Estructura mínima IAM users sin comportamiento
 
