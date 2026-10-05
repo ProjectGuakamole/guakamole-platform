@@ -318,11 +318,11 @@ make db-current
 - [x] T2.3 Crear `OrganizationUserListResponse`.
 - [x] T2.4 Tests de schemas válidos.
 - [x] T2.5 Tests de schemas inválidos/security.
-- [ ] T3.1 Crear modelo interno `TenantContext`.
-- [ ] T3.2 Definir errores internos controlados.
-- [ ] T3.3 Crear builder/factory de TenantContext para tests.
-- [ ] T3.4 Tests unitarios TenantContext válido.
-- [ ] T3.5 Tests unitarios denegaciones.
+- [x] T3.1 Crear modelo interno `TenantContext`.
+- [x] T3.2 Definir errores internos controlados.
+- [x] T3.3 Crear builder/factory de TenantContext para tests.
+- [x] T3.4 Tests unitarios TenantContext válido.
+- [x] T3.5 Tests unitarios denegaciones.
 - [ ] T4.1 Crear policy.
 - [ ] T4.2 Regla PLATFORM_ADMIN.
 - [ ] T4.3 Regla COMPANY_ADMIN.
@@ -418,6 +418,19 @@ Revalidación real ejecutada tras cambios requeridos por QA en Task 2:
 - `make backend-test`: primer intento FALLA en `ruff check .` por ordenación de imports en `tests/test_iam_user_list_schemas.py` y regla `S106` al pasar un literal a `password_hash` en el stub de test. Se corrigió ordenando imports y evitando el literal sensible en el constructor del stub.
 - `make backend-test`: OK. Ruff OK, format OK, mypy OK y pytest OK con `243 passed`.
 
+Validación real ejecutada durante Task 3:
+
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `git status --short`: OK al inicio de Task 3, sin cambios pendientes.
+- `cd backend && uv run pytest tests/test_iam_tenant_context.py`: primer intento FALLA con `5 passed, 1 failed` porque el test estático buscaba literales `fastapi`/`sqlalchemy` en todo el source y detectaba las menciones del docstring. Se corrigió para comprobar nombres importados en el módulo.
+- `make backend-test`: primer intento FALLA en `ruff check .` por formato de imports en `backend/app/domain/iam/access/tenant_context.py`. Se corrigió con Ruff.
+- `cd backend && uv run ruff check --fix app/domain/iam/access/tenant_context.py tests/test_iam_tenant_context.py`: OK. Ruff corrigió el formato de imports en `tenant_context.py`.
+- `cd backend && uv run ruff format app/domain/iam/access/tenant_context.py tests/test_iam_tenant_context.py`: OK, `2 files left unchanged`.
+- `cd backend && uv run pytest tests/test_iam_tenant_context.py`: OK inicial, `6 passed`.
+- Revisión arquitectónica añade una protección adicional para impedir que `is_platform_admin=True` escale privilegios si `platform_role` no es `PLATFORM_ADMIN`.
+- `cd backend && uv run pytest tests/test_iam_tenant_context.py`: OK final, `7 passed`.
+- `make backend-test`: OK. Ruff OK, format OK, mypy OK y pytest OK con `250 passed`.
+
 ## Registro de resultados por task
 
 ### Task 0 — Baseline y preparación
@@ -496,7 +509,19 @@ Task 2 completada y validada en verde. Se han añadido únicamente schemas Pydan
 
 ### Task 3 — TenantContext mínimo
 
-Pendiente.
+Task 3 completada, validada en verde y aprobada por QA. Se ha introducido únicamente el contexto interno mínimo de tenant, errores controlados y tests unitarios, sin endpoint, router funcional, policy de listado, repository, service ni auditoría real.
+
+- **Archivo creado:** `backend/app/domain/iam/access/tenant_context.py`.
+- **Modelo interno añadido:** `TenantContext` como `dataclass(frozen=True, slots=True)` con los campos mínimos `actor_user_id`, `requested_organization_id`, `effective_organization_id`, `platform_role`, `organization_role`, `user_status`, `organization_status` e `is_platform_admin`.
+- **Helpers mínimos añadidos:** propiedades `is_same_organization`, `is_active_user` e `is_active_organization`, sin lógica de policy compleja.
+- **Errores internos controlados:** `TenantContextError`, `TenantAccessDeniedError`, `InactiveUserError` e `InactiveOrganizationError`, sin dependencia de HTTP/FastAPI.
+- **Builder/validación:** `build_tenant_context(...)` y `validate_tenant_context(...)` construyen y validan el contexto sin consultar base de datos, sin importar modelos SQLAlchemy y sin conocer FastAPI. Validan usuario activo, organización activa, denegación cross-tenant para actores que no sean `PLATFORM_ADMIN` y una protección security-first anti-escalada: si `is_platform_admin=True` pero `platform_role != PLATFORM_ADMIN`, el contexto se deniega.
+- **Compatibilidad con IAM simplificado:** el diseño recibe valores ya resueltos de usuario, organización y roles porque el backend actual todavía usa `User.id_organization`, `id_platform_role`, `id_org_role` e `id_status` directamente. No se fingen `OrganizationMembership`, `MembershipRole`, grupos ni scopes aún inexistentes.
+- **Tests añadidos:** `backend/tests/test_iam_tenant_context.py` cubre contexto válido same-organization para `COMPANY_ADMIN`, contexto válido cross-tenant para `PLATFORM_ADMIN`, usuario inactivo, organización inactiva, denegación cross-tenant non-platform, prevención de escalada mediante `is_platform_admin=True` sin rol `PLATFORM_ADMIN` y ausencia de imports directos de FastAPI/SQLAlchemy en el módulo.
+- **Resultados:** el test específico queda en verde con `7 passed`. La validación completa `make backend-test` queda en verde: Ruff OK, format OK, mypy OK y pytest OK con `250 passed`. Durante la implementación hubo fallos intermedios documentados y corregidos: un test estático demasiado amplio y correcciones de formato requeridas por Ruff.
+- **Cierre QA:** aprobado. QA valida las reglas de usuario activo, organización activa, denegación cross-tenant para non-platform, autorización cross-tenant para `PLATFORM_ADMIN` y la mejora anti-escalada cuando `is_platform_admin=True` no está respaldado por `platform_role=PLATFORM_ADMIN`.
+- **Alcance respetado:** no se implementa endpoint, router funcional, policy de listado, repository, service ni auditoría real; no se modifican migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend; no se mueven modelos SQLAlchemy existentes; no se introducen secretos.
+- **Riesgos/limitaciones:** `TenantContext` no sustituye a la futura policy RBAC. `GROUP_MANAGER`, memberships reales, scopes por grupo y estrategia 403/404 anti-enumeración quedan pendientes para tasks posteriores. El acceso cross-tenant de `PLATFORM_ADMIN` queda permitido a nivel de contexto cuando el rol de plataforma es coherente, pero deberá auditarse y limitarse por caso de uso cuando se implemente la policy/service.
 
 ### Task 4 — Policy IAM para listar usuarios
 
