@@ -1,8 +1,8 @@
 # DOC-BACK-ARCH-HEX-001 — Roadmap documental de arquitectura hexagonal
 
-**Estado inicial:** en progreso.
+**Estado:** completado tras revisión arquitectónica y validación QA final.
 
-**Nota:** T00, T01, T02, T03, T04, T05 y T06 quedan completadas tras revisión arquitectónica y validación QA.
+**Nota:** T00, T01, T02, T03, T04, T05, T06 y T07 quedan completadas tras revisión arquitectónica y validación QA.
 
 Esta fase es documental. No se crean issues por cada task salvo que aparezcan problemas, bloqueos o decisiones que requieran seguimiento específico.
 
@@ -15,7 +15,7 @@ Esta fase es documental. No se crean issues por cada task salvo que aparezcan pr
 - [x] T04 — Estrategia de testing. Estado: completado tras revisión arquitectónica y validación QA.
 - [x] T05 — Diseño piloto IAM. Estado: completado tras revisión arquitectónica y validación QA.
 - [x] T06 — Roadmap implantación `BACK-ARCH-HEX-001`. Estado: completado tras revisión arquitectónica y validación QA.
-- [ ] T07 — Revisión QA y cierre fase documental.
+- [x] T07 — Revisión QA y cierre fase documental. Estado: completado tras revisión arquitectónica y validación QA final.
 
 ## Nota de alcance
 
