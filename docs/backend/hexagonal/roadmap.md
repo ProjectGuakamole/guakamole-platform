@@ -2,14 +2,14 @@
 
 **Estado inicial:** en progreso.
 
-**Nota:** T00 queda completada tras revisión arquitectónica y validación QA.
+**Nota:** T00 y T01 quedan completadas tras revisión arquitectónica y validación QA.
 
 Esta fase es documental. No se crean issues por cada task salvo que aparezcan problemas, bloqueos o decisiones que requieran seguimiento específico.
 
 ## Checklist interno
 
 - [x] T00 — Documento educativo. Estado: completado tras revisión arquitectónica y validación QA.
-- [ ] T01 — ADR arquitectura backend hexagonal pragmática.
+- [x] T01 — ADR arquitectura backend hexagonal pragmática. Estado: completado tras revisión arquitectónica y validación QA.
 - [ ] T02 — Estándar de estructura backend por módulos.
 - [ ] T03 — Reglas de dependencias, seguridad y multi-tenancy.
 - [ ] T04 — Estrategia de testing.
