@@ -4,7 +4,7 @@ Branch esperada: `backend/feature/iam-orm-alembic`
 
 Schema PostgreSQL IAM: `sch_iam`
 
-Estado: Task 13 completada; documentación final backend preparada para revisión QA. Task 14 pendiente.
+Estado: Task 14 completada tras validación técnica final comunicada por el equipo para la issue #14 / `ISS-BACK-IAM-DOCS-001`. Documentación final backend preparada para PR y QA.
 
 ## Task 0 — Preparación ORM/Alembic/schema `sch_iam`
 
@@ -310,6 +310,28 @@ estado inconsistente.
 
 ## Task 14 — Validación final de roadmap IAM
 
-- [ ] Ejecutar checks completos.
-- [ ] Revisar migraciones acumuladas.
-- [ ] Preparar resumen para PR y QA.
+- [x] Ejecutar checks completos.
+- [x] Revisar migraciones acumuladas.
+- [x] Preparar resumen para PR y QA.
+
+### Evidencia de validación QA
+
+Validación técnica final comunicada por el usuario/equipo sobre `main` para cerrar documentalmente la Task 14 asociada a la issue #14 / `ISS-BACK-IAM-DOCS-001`:
+
+```bash
+make backend-check
+make docker-config
+make db-history
+make db-upgrade
+make db-current
+```
+
+Resultados documentados de forma prudente, sin pegar logs completos ni valores sensibles:
+
+- `make backend-check`: correcto.
+- `make docker-config`: correcto.
+- `make db-history`: historial Alembic revisado correctamente.
+- `make db-upgrade`: migraciones aplicadas correctamente.
+- `make db-current`: confirma `0012_seed_initial_iam_catalogs (head)`.
+
+Conclusión: Task 14 cerrada documentalmente para la issue #14 / `ISS-BACK-IAM-DOCS-001`, sin cambios de código, sin cambios de migraciones y sin documentar secretos, credenciales, tokens ni valores reales de entorno.
