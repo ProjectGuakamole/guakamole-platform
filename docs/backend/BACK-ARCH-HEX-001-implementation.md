@@ -331,13 +331,13 @@ make db-current
 - [x] T4.6 Regla usuario/org disabled.
 - [x] T4.7 Tests unitarios positivos.
 - [x] T4.8 Tests unitarios negativos.
-- [ ] T5.1 Definir contrato repository.
-- [ ] T5.2 Implementar query base filtrada por `organization_id`.
-- [ ] T5.3 Implementar paginación.
-- [ ] T5.4 Implementar search parametrizado.
-- [ ] T5.5 Implementar sort allowlist.
-- [ ] T5.6 Tests repository multi-tenant.
-- [ ] T5.7 Tests search/sort security.
+- [x] T5.1 Definir contrato repository.
+- [x] T5.2 Implementar query base filtrada por `organization_id`.
+- [x] T5.3 Implementar paginación.
+- [x] T5.4 Implementar search parametrizado.
+- [x] T5.5 Implementar sort allowlist.
+- [x] T5.6 Tests repository multi-tenant.
+- [x] T5.7 Tests search/sort security.
 - [ ] T6.1 Crear service.
 - [ ] T6.2 Invocar policy antes de repository.
 - [ ] T6.3 Integrar repository.
@@ -439,6 +439,40 @@ Validación real ejecutada durante Task 4:
 - `make backend-test`: primer intento FALLA en `mypy --strict` porque el test accedía a un atributo importado no exportado explícitamente desde `policies.py`; se corrigió eliminando esa aserción innecesaria del test de límites.
 - `cd backend && uv run pytest tests/test_iam_list_users_policy.py`: OK final, `9 passed`.
 - `make backend-test`: OK. Ruff OK, format OK, mypy OK y pytest OK con `259 passed`.
+
+Validación real ejecutada durante Task 5:
+
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `git status --short`: OK al inicio de Task 5, sin cambios pendientes.
+- `cd backend && uv run pytest tests/test_iam_users_repository.py`: primer intento FALLA por creación incompleta de tablas referenciadas en SQLite de test; se corrige importando los modelos IAM necesarios y creando metadata completa en la base efímera.
+- `cd backend && uv run pytest tests/test_iam_users_repository.py`: segundo intento FALLA al mapear filas SQLAlchemy `Row` directamente a `OrganizationUserRead`; se corrige usando `Session.scalars(...)` para obtener instancias `User`.
+- `cd backend && uv run pytest tests/test_iam_users_repository.py`: OK final, `7 passed`.
+- `make backend-test`: primer intento FALLA en `ruff check .` por línea demasiado larga y estilo de fixture; se corrige el formato.
+- `make backend-test`: segundo intento FALLA en `mypy --strict` por tipos de columnas de ordenación; se corrige devolviendo expresiones tipadas por rama de allowlist.
+- `make backend-test`: OK final. Ruff OK, format OK, mypy strict OK y pytest OK con `266 passed`.
+
+Revalidación real ejecutada durante Task 5 tras decisión arquitectónica sobre PostgreSQL:
+
+- `git status --short`: OK. Se observan cambios pendientes previos de Task 5 en `backend/app/domain/iam/users/repositories.py`, `backend/tests/test_iam_users_repository.py` y este documento.
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `cd backend && uv run pytest tests/test_iam_users_repository.py`: primer intento FALLA al eliminar SQLite porque SQLAlchemy no tenía registrados en metadata los modelos IAM referenciados por FKs; se corrige importando modelos de catálogos IAM reales en el test.
+- `cd backend && uv run pytest tests/test_iam_users_repository.py`: segundo intento FALLA porque la base PostgreSQL local no contenía los registros de catálogo esperados por ID `1`; se corrige creando fixtures de datos de catálogo propios del test en PostgreSQL y limpiándolos tras cada caso.
+- `cd backend && uv run pytest tests/test_iam_users_repository.py`: tercer intento FALLA por orden de inserción de catálogos geográficos con FKs; se corrige sembrando país, provincia/estado y ciudad de forma secuencial con commits explícitos antes de organizaciones y usuarios.
+- `cd backend && uv run pytest tests/test_iam_users_repository.py`: OK final, `7 passed`.
+- `make backend-test`: primer intento FALLA en `ruff check .` por orden de imports y línea larga en `tests/test_iam_users_repository.py`; se corrige el test.
+- `make backend-test`: segundo intento FALLA en `ruff format --check .` porque `tests/test_iam_users_repository.py` necesitaba formateo; se ejecuta `cd backend && uv run ruff format tests/test_iam_users_repository.py`, OK, `1 file reformatted`.
+- `cd backend && uv run pytest tests/test_iam_users_repository.py`: OK tras formateo, `7 passed`.
+- `make backend-test`: OK final. Ruff OK, format OK, mypy strict OK y pytest OK con `266 passed`.
+
+Revisión arquitectónica adicional de Task 5 sobre seguridad de URL de base de datos:
+
+- Se corrige `backend/tests/test_iam_users_repository.py` para exigir explícitamente un dialecto PostgreSQL (`postgresql://`, `postgresql+psycopg://`, `postgresql+psycopg2://` o `postgres://`) antes de crear el engine SQLAlchemy.
+- Se elimina el fallback a `.env.example`; los tests de repository ya no pueden pasar accidentalmente con configuración de ejemplo ni con SQLite.
+- Si no existe `DATABASE_URL`, el helper solo acepta configuración real desde `.env` local y construye una URL PostgreSQL a partir de las variables `POSTGRES_*`; si no hay configuración suficiente o el dialecto no es PostgreSQL, falla con mensaje claro.
+- Se añade un test unitario del helper que rechaza `sqlite:///...` sin abrir conexión a base de datos.
+- `cd backend && uv run pytest tests/test_iam_users_repository.py`: FALLA inicialmente porque `.env` local contiene credenciales desalineadas con el contenedor PostgreSQL activo; se confirma que `make db-current` funciona con `.env.example` y que el contenedor `guakamole_postgres` está healthy con los valores esperados por Compose.
+- `cd backend && DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' uv run pytest tests/test_iam_users_repository.py`: OK final contra PostgreSQL real, `8 passed`. La contraseña se omite en documentación y logs de resumen.
+- `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: OK final. Ruff OK, format OK, mypy strict OK y pytest OK con `267 passed`.
 
 ## Registro de resultados por task
 
@@ -550,7 +584,19 @@ Task 4 completada, validada en verde y aprobada por QA. Se ha implementado únic
 
 ### Task 5 — Repository IAM users
 
-Pendiente.
+Task 5 completada y validada en verde. Se ha implementado únicamente el repository de listado de usuarios de organización y sus tests de repository, sin endpoint, router funcional, service, dependencies FastAPI ni auditoría real.
+
+- **Repository añadido:** `OrganizationUsersRepository` como contrato `Protocol` y `SqlAlchemyOrganizationUsersRepository` como implementación SQLAlchemy sync en `backend/app/domain/iam/users/repositories.py`.
+- **Firma principal:** `list_by_organization(*, organization_id: int, query: UserListQuery) -> OrganizationUserListResponse`.
+- **Aislamiento por tenant:** la query base aplica siempre `User.id_organization == organization_id`. El `organization_id` se recibe como parámetro controlado por la futura capa de caso de uso, no como filtro arbitrario de cliente.
+- **Paginación y filtros:** se aplican `limit` y `offset` desde `UserListQuery`; `search` se limita a `email`, `first_name` y `last_name` con SQLAlchemy parametrizado; la ordenación usa allowlist explícita para `email`, `first_name`, `last_name`, `create_at`, `last_login_at` e `id_user`.
+- **Campos sensibles excluidos:** el repository devuelve `OrganizationUserListResponse` con `OrganizationUserRead`; no expone `password_hash`, tokens, MFA secrets ni campos sensibles. Aunque el ORM interno contiene `password_hash`, no se serializa en la salida del repository.
+- **Tests añadidos:** `backend/tests/test_iam_users_repository.py` cubre datos multi-org, aislamiento por `organization_id`, paginación, búsqueda permitida, ausencia de fuga cross-tenant con nombres/emails coincidentes, ordenación por allowlist, no exposición de `password_hash` y ausencia de imports FastAPI en el repository.
+- **Corrección de riesgo SQLite:** se elimina el uso de SQLite efímero del test de repository. Los tests de `SqlAlchemyOrganizationUsersRepository` usan `create_engine(get_test_database_url(), hide_parameters=True)` contra PostgreSQL real mediante `DATABASE_URL` o configuración PostgreSQL explícita del `.env` local. Se elimina el fallback a `.env.example` para evitar ejecuciones accidentales con placeholders, SQLite u otro dialecto. No crean tablas manualmente ni usan `Base.metadata.create_all`; trabajan contra las tablas existentes del proyecto y siembran/limpian fixtures reales de catálogo, organización y usuario con IDs reservados para el test.
+- **Resultados:** el test específico queda en verde contra PostgreSQL real con `8 passed` usando `cd backend && DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' uv run pytest tests/test_iam_users_repository.py`. La validación completa `make backend-test` queda en verde contra PostgreSQL real con `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: Ruff OK, format OK, mypy strict OK y pytest OK con `267 passed`. Hubo fallos intermedios documentados por setup SQLite inicial, mapping SQLAlchemy, Ruff, mypy, migración posterior a PostgreSQL y credenciales locales `.env` desalineadas; todos quedaron corregidos o acotados antes del resultado final usando una `DATABASE_URL` PostgreSQL válida y con contraseña enmascarada.
+- **Cierre QA:** aprobado. QA valida que los tests de repository no usan SQLite, no usan `Base.metadata.create_all`, no tienen fallback a `.env.example`, rechazan SQLite explícitamente, usan PostgreSQL real mediante `DATABASE_URL` explícita, activan `hide_parameters=True`, limpian fixtures con IDs reservados antes/después y cubren multi-org, no fuga cross-tenant, paginación, search, sort allowlist, no exposición de `password_hash` y ausencia de imports FastAPI. El fallo de `cd backend && uv run pytest tests/test_iam_users_repository.py` con el `.env` local desalineado queda documentado como problema de entorno local, no como bloqueo de Task 5, porque la validación aprobada se ejecutó contra PostgreSQL real con `DATABASE_URL` explícita y contraseña enmascarada.
+- **Alcance respetado:** no se implementa endpoint, router funcional, service, dependencies FastAPI ni auditoría real; no se modifican policies, migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend; no se mueven modelos SQLAlchemy existentes; no se introducen secretos.
+- **Riesgos/limitaciones:** el repository trabaja sobre el IAM simplificado actual (`User.id_organization`, roles/status directos en usuario). En fases posteriores, si se introducen `OrganizationMembership`, roles múltiples o scopes de grupo, el repository deberá evolucionar sin relajar el filtro tenant. El riesgo de divergencia por SQLite efímero queda corregido: los tests de repository validan queries SQLAlchemy contra PostgreSQL real del entorno de tests y fallan de forma explícita si se intenta usar SQLite, otro dialecto o configuración de ejemplo.
 
 ### Task 6 — Service del caso de uso
 
@@ -582,10 +628,12 @@ Pendiente.
 
 ## Riesgos o deuda técnica
 
-- La implementación aún no ha comenzado; cualquier detalle técnico queda pendiente de validación contra el estado real del backend.
+- Tasks 0 a 5 están implementadas y validadas; quedan pendientes Task 6 en adelante para completar service, dependencies FastAPI, router/API, auditoría mínima, tests de límites arquitectónicos y cierre final de fase.
 - La auditoría final dependerá del estado actual del módulo de auditoría backend; si no existe integración real suficiente, se deberá documentar el uso de fake/stub y su deuda asociada.
 - La policy IAM y el `TenantContext` serán puntos críticos: un error puede afectar al aislamiento multiempresa.
 - Los tests de límites arquitectónicos deberán equilibrar utilidad y mantenimiento para no bloquear refactors legítimos.
+- El repository de Task 5 usa el IAM simplificado actual (`User.id_organization`, roles/status directos en usuario). Cuando existan `OrganizationMembership`, memberships/roles múltiples y scopes por grupo, deberá evolucionar manteniendo el filtro obligatorio por tenant y la ausencia de fugas cross-tenant.
+- El `.env` local usado sin sobrescribir `DATABASE_URL` está desalineado con el PostgreSQL real del contenedor local; por ello `cd backend && uv run pytest tests/test_iam_users_repository.py` falla en ese entorno. No bloquea Task 5 porque la validación aprobada por QA se ejecutó contra PostgreSQL real mediante `DATABASE_URL` explícita y enmascarada.
 
 ## Relación con el backend
 
