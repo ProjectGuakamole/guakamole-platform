@@ -4,7 +4,6 @@ from collections.abc import Iterator
 from importlib import import_module
 from types import ModuleType
 
-
 IAM_USERS_MODULES: tuple[str, ...] = (
     "app.domain.iam.users.routers",
     "app.domain.iam.users.schemas",

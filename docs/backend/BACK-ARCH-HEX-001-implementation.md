@@ -395,9 +395,11 @@ Validación real ejecutada durante Task 1:
 
 - `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
 - `git status --short`: OK al inicio de Task 1, sin cambios pendientes.
-- `uv run pytest backend/tests/architecture/test_iam_users_structure.py`: FALLA antes de ejecutar tests por configuración existente de pytest: `Unknown config option: asyncio_mode`. Pytest llega a recolectar 2 tests, pero termina con código 4. También aparece un warning preexistente relacionado con el filtro de warnings de `starlette`.
-- `uv run ruff check .`: FALLA porque el ejecutable `ruff` no está disponible en el entorno gestionado por `uv` (`No such file or directory`).
-- `uv run mypy --strict .`: FALLA por errores preexistentes de entorno/tipado, principalmente imports no encontrados de `sqlalchemy`, `fastapi` y atributos de `alembic`. No se han corregido por estar fuera del alcance de Task 1.
+- Tras sincronización/preparación del entorno backend, los bloqueos previos de pytest, Ruff y mypy quedaron resueltos para Task 1.
+- `cd backend && uv run ruff check --fix tests/architecture/test_iam_users_structure.py`: OK. Ruff detectó un problema de ordenación de imports en el test de arquitectura de IAM/users y lo corrigió automáticamente.
+- `cd backend && uv run ruff format tests/architecture/test_iam_users_structure.py`: OK. Formateo aplicado al test de arquitectura tras la corrección de Ruff.
+- `cd backend && uv run pytest tests/architecture/test_iam_users_structure.py`: OK, `2 passed`.
+- `make backend-test`: OK. Ruff OK, format OK, mypy OK y pytest OK con `218 passed`.
 
 ## Registro de resultados por task
 
@@ -434,7 +436,7 @@ Task 0 completada como baseline/preparación sin cambios funcionales.
 
 ### Task 1 — Estructura mínima IAM users sin comportamiento
 
-Task 1 completada y aprobada por QA a nivel de implementación de scaffolding, con bloqueos de validación automática del entorno documentados. El cierre QA confirma que los problemas detectados no son atribuibles al scaffolding de Task 1 y que no se han introducido cambios funcionales.
+Task 1 completada y validada en verde. Los bloqueos de entorno detectados inicialmente quedaron resueltos tras la sincronización/preparación del entorno backend y la corrección de Ruff sobre el test de arquitectura. El cierre confirma que no se han introducido cambios funcionales fuera del scaffolding mínimo previsto.
 
 - **Estructura creada/completada:** se mantiene `backend/app/domain/iam/users/models.py` sin moverlo ni reestructurarlo y se conserva `schemas.py` existente sin cambios funcionales. Se añade el scaffolding mínimo importable para `routers.py`, `services.py`, `policies.py`, `repositories.py` y `dependencies.py`. También se añade un docstring mínimo y `__all__` vacío en `__init__.py`.
 - **Archivos creados/modificados:**
@@ -448,11 +450,11 @@ Task 1 completada y aprobada por QA a nivel de implementación de scaffolding, c
   - `backend/tests/architecture/test_iam_users_structure.py`.
   - `docs/backend/BACK-ARCH-HEX-001-implementation.md`.
 - **Tests añadidos:** `backend/tests/architecture/test_iam_users_structure.py` intenta importar los módulos mínimos de IAM/users y verifica que `routers.py` no expone todavía un `router` funcional.
-- **Comandos ejecutados:** `git branch --show-current`, `git status --short`, `uv run pytest backend/tests/architecture/test_iam_users_structure.py`, `uv run ruff check .` y `uv run mypy --strict .`.
-- **Resultados:** la rama esperada se confirma y el estado inicial estaba limpio. La validación automática queda bloqueada por problemas de entorno/configuración preexistentes: pytest falla por `asyncio_mode` desconocido, aunque llega a recolectar 2 tests; ruff no está instalado/disponible en el entorno `uv`; y mypy falla por dependencias/stubs no disponibles de SQLAlchemy/FastAPI/Alembic. QA confirma imports manuales correctos y no observa fallos atribuibles al scaffolding añadido.
-- **Cierre QA:** aprobado. QA verifica que no hay endpoint real, router funcional expuesto, policies funcionales, repositories con queries, services con lógica de negocio ni dependencies funcionales. También confirma que `models.py` y `schemas.py` existentes no se han modificado, que no se han añadido secretos y que los cambios quedan limitados al alcance esperado.
+- **Comandos ejecutados:** `git branch --show-current`, `git status --short`, `cd backend && uv run ruff check --fix tests/architecture/test_iam_users_structure.py`, `cd backend && uv run ruff format tests/architecture/test_iam_users_structure.py`, `cd backend && uv run pytest tests/architecture/test_iam_users_structure.py` y `make backend-test`.
+- **Resultados:** la rama esperada se confirma y el estado inicial estaba limpio. Ruff detectó ordenación incorrecta de imports en `backend/tests/architecture/test_iam_users_structure.py`; se corrigió con `ruff check --fix` y se normalizó el formato con `ruff format`. El test específico de Task 1 queda validado con `2 passed`. La validación completa `make backend-test` queda en verde: Ruff OK, format OK, mypy OK y pytest OK con `218 passed`.
+- **Cierre QA:** aprobado y cerrado con validación completa. QA verifica que no hay endpoint real, router funcional expuesto, policies funcionales, repositories con queries, services con lógica de negocio ni dependencies funcionales. También confirma que `models.py` y `schemas.py` existentes no se han modificado, que no se han añadido secretos y que los cambios quedan limitados al alcance esperado.
 - **Alcance respetado:** no se implementa endpoint funcional, no se crean schemas funcionales del piloto, no se introduce `TenantContext`, policies, repository ni service funcional, no se modifican migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend, y no se mueven modelos SQLAlchemy existentes.
-- **Riesgos/bloqueos:** antes de avanzar olvidando la deuda de entorno, debe mantenerse visible que la validación automática completa sigue bloqueada: compatibilidad de pytest con `asyncio_mode`, disponibilidad de `ruff` y dependencias/stubs necesarios para `mypy --strict`. Task 1 queda aprobada por QA, pero la rama todavía no dispone de una ejecución completa en verde de checks automáticos.
+- **Riesgos/bloqueos:** los bloqueos de entorno documentados inicialmente para Task 1 quedan resueltos en esta validación. No quedan bloqueos conocidos de Task 1 tras `make backend-test` en verde. Cualquier riesgo posterior deberá documentarse en la task correspondiente si aparece durante nuevas implementaciones.
 
 ### Task 2 — Schemas Pydantic del piloto IAM
 
