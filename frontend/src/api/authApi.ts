@@ -4,7 +4,7 @@ import type {
   LoginData,
 } from "../types/auth";
 
-const API_URL = "http://localhost:3000/api/auth";
+const API_URL = "/api/auth";
 
 /**
  * Registra una nueva organización
