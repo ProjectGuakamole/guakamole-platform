@@ -2,7 +2,7 @@
 
 **Estado inicial:** en progreso.
 
-**Nota:** T00, T01, T02, T03, T04 y T05 quedan completadas tras revisión arquitectónica y validación QA.
+**Nota:** T00, T01, T02, T03, T04, T05 y T06 quedan completadas tras revisión arquitectónica y validación QA.
 
 Esta fase es documental. No se crean issues por cada task salvo que aparezcan problemas, bloqueos o decisiones que requieran seguimiento específico.
 
@@ -14,7 +14,7 @@ Esta fase es documental. No se crean issues por cada task salvo que aparezcan pr
 - [x] T03 — Reglas de dependencias, seguridad y multi-tenancy. Estado: completado tras revisión arquitectónica y validación QA.
 - [x] T04 — Estrategia de testing. Estado: completado tras revisión arquitectónica y validación QA.
 - [x] T05 — Diseño piloto IAM. Estado: completado tras revisión arquitectónica y validación QA.
-- [ ] T06 — Roadmap implantación `BACK-ARCH-HEX-001`.
+- [x] T06 — Roadmap implantación `BACK-ARCH-HEX-001`. Estado: completado tras revisión arquitectónica y validación QA.
 - [ ] T07 — Revisión QA y cierre fase documental.
 
 ## Nota de alcance
