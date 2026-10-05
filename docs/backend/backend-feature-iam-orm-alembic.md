@@ -83,7 +83,19 @@ Validación final comunicada para Task 12:
 - `211 passed`.
 - Base de datos en `0012_seed_initial_iam_catalogs (head)`.
 
-Para validar esta documentación no se han ejecutado tests adicionales, al tratarse exclusivamente de Task 13 documental.
+Validación técnica final comunicada por el usuario/equipo para Task 14 sobre `main`, asociada a la issue #14 / `ISS-BACK-IAM-DOCS-001`:
+
+```bash
+make backend-check
+make docker-config
+make db-history
+make db-upgrade
+make db-current
+```
+
+Resultado documentado de forma resumida y verificable: `backend-check` correcto, `docker-config` correcto, historial Alembic revisado correctamente, migraciones aplicadas correctamente y `db-current` confirmando `0012_seed_initial_iam_catalogs (head)`.
+
+Para esta actualización documental no se han ejecutado comandos adicionales desde esta rama; se refleja la validación confirmada por el usuario/equipo sin inventar salidas ni pegar logs sensibles.
 
 ## Comandos de validación
 
@@ -124,7 +136,7 @@ Usando el entorno de desarrollo compartido definido en `.env.example`, sin crede
 
 ## Estado final
 
-Task 12 fue validada con `211 passed` y la base de datos en `0012_seed_initial_iam_catalogs (head)`. Task 13 deja actualizada la documentación backend final de la branch para QA/PR.
+Task 12 fue validada con `211 passed` y la base de datos en `0012_seed_initial_iam_catalogs (head)`. Task 13 dejó actualizada la documentación backend final de la branch para QA/PR. Task 14 queda completada tras la validación técnica final comunicada sobre `main`, por lo que la base ORM/Alembic IAM queda validada documentalmente para la issue #14 / `ISS-BACK-IAM-DOCS-001`, sin cambios de código y sin documentar secretos.
 
 ## Relacion con el backend
 
