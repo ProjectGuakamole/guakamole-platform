@@ -13,6 +13,8 @@ from app.domain.iam.access.schemas import (
     OrganizationRoleUpdate,
 )
 
+pytestmark = pytest.mark.test_unit
+
 
 def test_organization_role_model_uses_expected_table_and_schema() -> None:
     assert OrganizationRole.__tablename__ == "tbl_organization_role"

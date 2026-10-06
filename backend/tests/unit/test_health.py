@@ -10,6 +10,8 @@ from app.core.health.schemas import (
 )
 from app.main import app
 
+pytestmark = pytest.mark.test_unit
+
 
 def test_versioned_health_check_returns_ok() -> None:
     client = TestClient(app)

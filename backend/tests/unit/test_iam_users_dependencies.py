@@ -19,6 +19,8 @@ from app.domain.iam.users.repositories import SqlAlchemyOrganizationUsersReposit
 from app.domain.iam.users.schemas import UserListQuery
 from app.domain.iam.users.services import ListOrganizationUsersService
 
+pytestmark = pytest.mark.test_unit
+
 
 def test_user_list_query_dependency_creates_defaults() -> None:
     query = get_user_list_query()

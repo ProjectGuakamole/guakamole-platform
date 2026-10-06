@@ -16,6 +16,8 @@ from sqlalchemy.sql.type_api import TypeEngine
 from app.domain.iam.users.models import User
 from app.domain.iam.users.schemas import UserCreate, UserRead, UserUpdate
 
+pytestmark = pytest.mark.test_unit
+
 EXPECTED_COLUMNS = {
     "id_user",
     "id_organization",

@@ -11,6 +11,8 @@ from app.domain.iam.access.tenant_context import (
     build_tenant_context,
 )
 
+pytestmark = pytest.mark.security
+
 
 def test_company_admin_same_organization_builds_valid_context() -> None:
     context = build_tenant_context(

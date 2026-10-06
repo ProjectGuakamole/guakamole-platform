@@ -3,6 +3,10 @@
 import ast
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.architecture
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 IAM_USERS_PACKAGE = PROJECT_ROOT / "app" / "domain" / "iam" / "users"
 

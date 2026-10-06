@@ -18,6 +18,8 @@ from scripts.seed_demo_iam import (
     validate_fixture,
 )
 
+pytestmark = pytest.mark.test_unit
+
 
 class FakeInspector:
     def __init__(

@@ -8,6 +8,8 @@ from sqlalchemy.sql.schema import ForeignKeyConstraint, PrimaryKeyConstraint, Ta
 from app.domain.iam.geography.models import City, Country, State
 from app.domain.iam.geography.schemas import CityCreate, CityRead, CityUpdate
 
+pytestmark = pytest.mark.test_unit
+
 
 def test_country_and_state_models_still_exist() -> None:
     assert Country.__tablename__ == "tbl_country"

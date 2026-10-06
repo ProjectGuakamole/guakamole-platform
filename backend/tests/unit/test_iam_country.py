@@ -8,6 +8,8 @@ from sqlalchemy.sql.schema import PrimaryKeyConstraint
 from app.domain.iam.geography.models import Country
 from app.domain.iam.geography.schemas import CountryRead, CountryUpdate
 
+pytestmark = pytest.mark.test_unit
+
 
 def test_country_model_uses_expected_table_and_schema() -> None:
     assert Country.__tablename__ == "tbl_country"

@@ -19,6 +19,8 @@ from app.domain.iam.departments.schemas import (
     DepartmentRelationUpdate,
 )
 
+pytestmark = pytest.mark.test_unit
+
 EXPECTED_COLUMNS = {
     "id_department_relation",
     "id_department",

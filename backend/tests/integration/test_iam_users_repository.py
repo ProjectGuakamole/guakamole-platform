@@ -15,6 +15,8 @@ from app.domain.iam.users.models import User
 from app.domain.iam.users.repositories import SqlAlchemyOrganizationUsersRepository
 from app.domain.iam.users.schemas import UserListQuery
 
+pytestmark = [pytest.mark.integration, pytest.mark.db]
+
 SAFE_HASH = "argon2id" + "-repository-test"
 DATABASE_URL_ENV_VAR = "DATABASE_URL"
 TEST_DATABASE_URL_ENV_VAR = "TEST_DATABASE_URL"

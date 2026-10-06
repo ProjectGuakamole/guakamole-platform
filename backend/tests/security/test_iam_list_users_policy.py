@@ -12,6 +12,8 @@ from app.domain.iam.access.tenant_context import (
 from app.domain.iam.users import policies as policies_module
 from app.domain.iam.users.policies import ensure_can_list_organization_users
 
+pytestmark = pytest.mark.security
+
 
 def test_platform_admin_can_list_cross_tenant_users() -> None:
     context = build_tenant_context(

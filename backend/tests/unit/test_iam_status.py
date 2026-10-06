@@ -9,6 +9,8 @@ from sqlalchemy.sql.schema import PrimaryKeyConstraint
 from app.domain.iam.access.models import Status
 from app.domain.iam.access.schemas import StatusCreate, StatusRead, StatusUpdate
 
+pytestmark = pytest.mark.test_unit
+
 
 def test_status_model_uses_expected_table_and_schema() -> None:
     assert Status.__tablename__ == "tbl_status"

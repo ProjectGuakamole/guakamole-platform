@@ -13,6 +13,8 @@ from app.domain.iam.access.schemas import (
     PlatformRoleUpdate,
 )
 
+pytestmark = pytest.mark.test_unit
+
 
 def test_platform_role_model_uses_expected_table_and_schema() -> None:
     assert PlatformRole.__tablename__ == "tbl_platform_role"
