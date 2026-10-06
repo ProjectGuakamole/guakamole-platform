@@ -350,14 +350,14 @@ make db-current
 - [x] T7.2 Dependency de TenantContext.
 - [x] T7.3 Dependency de service.
 - [x] T7.4 Tests unitarios/dependency si aplica.
-- [ ] T8.1 Crear router.
-- [ ] T8.2 Registrar router en API v1.
-- [ ] T8.3 Integrar dependencies y service.
-- [ ] T8.4 Definir responses HTTP.
-- [ ] T8.5 Tests API 200.
-- [ ] T8.6 Tests API 401/403/404.
-- [ ] T8.7 Tests API 422.
-- [ ] T8.8 Test API no `password_hash`.
+- [x] T8.1 Crear router.
+- [x] T8.2 Registrar router en API v1.
+- [x] T8.3 Integrar dependencies y service.
+- [x] T8.4 Definir responses HTTP.
+- [x] T8.5 Tests API 200.
+- [x] T8.6 Tests API 401/403/404.
+- [x] T8.7 Tests API 422.
+- [x] T8.8 Test API no `password_hash`.
 - [ ] T9.1 Definir evento/s IAM piloto.
 - [ ] T9.2 Implementar audit fake/real según estado backend.
 - [ ] T9.3 Auditar PLATFORM_ADMIN cross-tenant.
@@ -496,6 +496,26 @@ Validación real ejecutada durante Task 7:
 - `make backend-test`: segundo intento FALLA en los tests de repository al usar el `.env` local desalineado con PostgreSQL (`password authentication failed`). Ruff, format y mypy habían pasado antes del fallo de pytest.
 - `make postgres-up`: OK. PostgreSQL local queda levantado mediante `.env.example`, sin modificar Docker ni ficheros de entorno.
 - `DATABASE_URL=postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db make backend-test`: OK final contra PostgreSQL real. Ruff OK, format OK, mypy strict OK y pytest OK con `289 passed`.
+
+Validación real ejecutada durante Task 8:
+
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `git status --short`: OK al inicio de Task 8, sin cambios pendientes.
+- `cd backend && uv run pytest tests/test_iam_users_router.py`: OK inicial, `10 passed`. Se detectó un warning de Starlette por el uso de la constante de estado 422 y se corrigió usando el código HTTP literal `422` en la documentación OpenAPI del router.
+- `make backend-test`: primer intento FALLA en `ruff check .` por uso de `getattr` con atributo constante y una línea larga en `tests/test_iam_users_router.py`; se corrige tipando el fake con `TenantContext` y dividiendo la llamada.
+- `make backend-test`: segundo intento FALLA en `ruff format --check .` porque `backend/app/domain/iam/users/routers.py` y `backend/tests/test_iam_users_router.py` requerían formateo; se ejecuta `cd backend && uv run ruff format app/domain/iam/users/routers.py tests/test_iam_users_router.py`, OK, `2 files reformatted`.
+- `make backend-test`: tercer intento FALLA en pytest por dos motivos: el test arquitectónico heredado de Task 1 aún esperaba que no existiera router funcional y los tests de repository no pudieron autenticar contra PostgreSQL local usando la configuración del `.env` local (`password authentication failed`). Ruff, format y mypy strict habían pasado antes del fallo de pytest. Se actualiza el test arquitectónico para reflejar que desde Task 8 el módulo IAM/users sí expone un `APIRouter`.
+- `cd backend && uv run pytest tests/test_iam_users_router.py tests/architecture/test_iam_users_structure.py`: OK final de tests específicos de Task 8 y estructura afectada, `12 passed`.
+- `make postgres-up`: OK. El contenedor `guakamole_postgres` ya estaba `Running` usando `.env.example`, sin modificar Docker ni ficheros de entorno.
+- `DATABASE_URL=postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db make backend-test`: FALLA en pytest por autenticación PostgreSQL local (`password authentication failed` para `guakamole_user`). Ruff OK, format OK, mypy strict OK y pytest reporta `293 passed, 6 errors`, todos en `tests/test_iam_users_repository.py` por entorno PostgreSQL/credenciales locales. La contraseña queda enmascarada.
+
+Revalidación real posterior de Task 8 con `DATABASE_URL` PostgreSQL explícita válida:
+
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `git status --short`: OK. Se observan cambios pendientes propios de Task 8 y de este documento; no se observan cambios en frontend, migraciones, Docker, Makefile, `.env` ni `.env.example`.
+- `make postgres-up`: OK. El contenedor `guakamole_postgres` permanece `Running` usando `.env.example`, sin modificar Docker ni ficheros de entorno.
+- `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: OK final contra PostgreSQL real con URL explícita. Ruff OK, format OK, mypy strict OK y pytest OK con `299 passed`.
+- `cd backend && uv run pytest tests/test_iam_users_router.py`: OK final del test router específico, `10 passed`.
 
 ## Registro de resultados por task
 
@@ -654,7 +674,19 @@ Task 7 completada, validada en verde y aprobada por QA. Se han implementado úni
 
 ### Task 8 — Router/API piloto
 
-Pendiente.
+Task 8 completada, validada en verde y aprobada por QA. La suite completa queda revalidada contra PostgreSQL real con `DATABASE_URL` explícita válida y contraseña enmascarada en la documentación.
+
+- **Router añadido:** `backend/app/domain/iam/users/routers.py` expone un `APIRouter` con `GET /organizations/{organization_id}/users` y `response_model=OrganizationUserListResponse`.
+- **Ruta registrada:** `backend/app/api/v1/router.py` incluye el router IAM/users con `prefix="/iam"`, por lo que la ruta final queda disponible como `GET /api/v1/iam/organizations/{organization_id}/users`.
+- **Integración de dependencies:** el endpoint usa `get_tenant_context`, `get_user_list_query` y `get_list_organization_users_service`. El router delega en `service.list_users(context=context, query=query)` sin RBAC inline y sin acceso directo a base de datos.
+- **Contrato y errores:** `organization_id` se recibe por path con validación `gt=0`; `limit`, `offset`, `search`, `sort_by` y `sort_dir` se validan por las dependencies/schemas existentes. La auth provisional sin override devuelve `501`. Las denegaciones de tenant/RBAC controladas se mapean a `403` genérico y la validación FastAPI/Pydantic devuelve `422`.
+- **Response model seguro:** la respuesta usa `OrganizationUserListResponse`/`OrganizationUserRead`, sin `password_hash` ni campos sensibles conocidos.
+- **Tests añadidos:** `backend/tests/test_iam_users_router.py` cubre OpenAPI, comportamiento `501` sin override de auth, caso permitido `200`, uso de `context.requested_organization_id` desde path, normalización de query params, denegación cross-tenant `403`, validación `422`, ausencia de `password_hash` y ausencia de imports directos de SQLAlchemy/repository en el router.
+- **Test arquitectónico actualizado:** `backend/tests/architecture/test_iam_users_structure.py` deja de exigir scaffolding sin router y ahora valida que el módulo expone un `APIRouter` tras Task 8.
+- **Resultados:** los tests específicos quedan en verde con `cd backend && uv run pytest tests/test_iam_users_router.py tests/architecture/test_iam_users_structure.py` (`12 passed`) y con `cd backend && uv run pytest tests/test_iam_users_router.py` (`10 passed`). La validación completa queda finalmente en verde contra PostgreSQL real mediante `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: Ruff OK, format OK, mypy strict OK y pytest OK con `299 passed`. El fallo previo de autenticación PostgreSQL local queda explicado por configuración de entorno desalineada cuando no se sobrescribe `DATABASE_URL`, no por el router de Task 8.
+- **Cierre QA:** aprobado. QA confirma que T8.1-T8.8 quedan completadas; que el endpoint está registrado correctamente en `GET /api/v1/iam/organizations/{organization_id}/users`; que el router no contiene RBAC inline, consultas directas a base de datos, imports directos de SQLAlchemy ni imports directos de repository; que la auth provisional sin override devuelve `501`; que las denegaciones cross-tenant/RBAC devuelven `403`; que las requests inválidas devuelven `422`; que la respuesta no expone `password_hash`; y que no hay cambios fuera de alcance ni secretos añadidos.
+- **Alcance respetado:** no se implementa auditoría real, no se implementa auth real completa, no se modifican migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend, no se mueven modelos SQLAlchemy existentes y no se introducen secretos.
+- **Riesgos/limitaciones aceptados:** Task 9 deberá integrar auditoría real porque Task 8 no la implementa por alcance. La dependency provisional de auth sigue devolviendo `501` si no se sobrescribe con autenticación real. IAM mantiene el modelo simplificado actual hasta evolucionar hacia memberships/RBAC completo. La suite completa depende de credenciales PostgreSQL locales coherentes para los tests de repository heredados; para esta revalidación se ha usado `DATABASE_URL` explícita válida y enmascarada.
 
 ### Task 9 — Auditoría mínima
 
@@ -674,7 +706,7 @@ Pendiente.
 
 ## Riesgos o deuda técnica
 
-- Tasks 0 a 7 están implementadas y validadas; quedan pendientes Task 8 en adelante para completar router/API, auditoría mínima, tests de límites arquitectónicos y cierre final de fase.
+- Tasks 0 a 8 están implementadas y Task 8 queda aprobada por QA tras revalidar la suite completa con PostgreSQL real mediante `DATABASE_URL` explícita válida y contraseña enmascarada. Quedan pendientes Task 9 en adelante para completar auditoría mínima, tests de límites arquitectónicos y cierre final de fase.
 - La auditoría final dependerá del estado actual del módulo de auditoría backend; si no existe integración real suficiente, se deberá documentar el uso de fake/stub y su deuda asociada.
 - La policy IAM y el `TenantContext` serán puntos críticos: un error puede afectar al aislamiento multiempresa.
 - Los tests de límites arquitectónicos deberán equilibrar utilidad y mantenimiento para no bloquear refactors legítimos.

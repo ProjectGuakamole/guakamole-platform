@@ -4,6 +4,8 @@ from collections.abc import Iterator
 from importlib import import_module
 from types import ModuleType
 
+from fastapi import APIRouter
+
 IAM_USERS_MODULES: tuple[str, ...] = (
     "app.domain.iam.users.routers",
     "app.domain.iam.users.schemas",
@@ -27,8 +29,8 @@ def test_iam_users_scaffolding_modules_are_importable() -> None:
     assert tuple(module.__name__ for module in imported_modules) == IAM_USERS_MODULES
 
 
-def test_iam_users_scaffolding_does_not_expose_functional_router() -> None:
-    """Task 1 no debe añadir router/endpoints funcionales todavía."""
+def test_iam_users_module_exposes_fastapi_router_after_task_8() -> None:
+    """El módulo IAM/users expone el router funcional a partir de Task 8."""
     routers_module = import_module("app.domain.iam.users.routers")
 
-    assert not hasattr(routers_module, "router")
+    assert isinstance(routers_module.router, APIRouter)
