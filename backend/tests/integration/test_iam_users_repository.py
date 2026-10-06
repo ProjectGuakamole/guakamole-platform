@@ -105,7 +105,7 @@ def ensure_valid_test_database_url(database_url: str) -> str:
 
 
 def get_repository_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    return Path(__file__).resolve().parents[3]
 
 
 def get_database_url_from_environment(
