@@ -177,13 +177,13 @@ Centralizar la planificación de `BACK-ARCH-HEX-001` en un único documento perm
 - T6.1 Crear service.
 - T6.2 Invocar policy antes de repository.
 - T6.3 Integrar repository.
-- T6.4 Mapear salida segura.
-- T6.5 Preparar auditoría.
-- T6.6 Tests service allow.
-- T6.7 Tests service deny.
-- T6.8 Tests audit.
+- T6.4 Manejar errores controlados.
+- T6.5 Tests service allowed.
+- T6.6 Tests service denied.
+- T6.7 Tests orden policy antes que repository.
+- T6.8 Tests no campos sensibles.
 
-**Criterios de cierre:** service valida autorización antes de acceder a datos, devuelve salida segura y deja auditoría preparada/testeada.
+**Criterios de cierre:** service valida autorización antes de acceder a datos, usa la organización solicitada validada del `TenantContext`, propaga errores controlados sin HTTP y devuelve salida segura.
 
 ### Task 7 — Dependencies FastAPI del piloto
 
@@ -338,14 +338,14 @@ make db-current
 - [x] T5.5 Implementar sort allowlist.
 - [x] T5.6 Tests repository multi-tenant.
 - [x] T5.7 Tests search/sort security.
-- [ ] T6.1 Crear service.
-- [ ] T6.2 Invocar policy antes de repository.
-- [ ] T6.3 Integrar repository.
-- [ ] T6.4 Mapear salida segura.
-- [ ] T6.5 Preparar auditoría.
-- [ ] T6.6 Tests service allow.
-- [ ] T6.7 Tests service deny.
-- [ ] T6.8 Tests audit.
+- [x] T6.1 Crear service.
+- [x] T6.2 Invocar policy antes de repository.
+- [x] T6.3 Integrar repository.
+- [x] T6.4 Manejar errores controlados.
+- [x] T6.5 Tests service allowed.
+- [x] T6.6 Tests service denied.
+- [x] T6.7 Tests orden policy antes que repository.
+- [x] T6.8 Tests no campos sensibles.
 - [ ] T7.1 Dependency de query params.
 - [ ] T7.2 Dependency de TenantContext.
 - [ ] T7.3 Dependency de service.
@@ -474,6 +474,19 @@ Revisión arquitectónica adicional de Task 5 sobre seguridad de URL de base de 
 - `cd backend && DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' uv run pytest tests/test_iam_users_repository.py`: OK final contra PostgreSQL real, `8 passed`. La contraseña se omite en documentación y logs de resumen.
 - `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: OK final. Ruff OK, format OK, mypy strict OK y pytest OK con `267 passed`.
 
+Validación real ejecutada durante Task 6:
+
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `git status --short`: OK al inicio de Task 6, sin cambios pendientes.
+- `cd backend && uv run pytest tests/test_iam_list_users_service.py`: OK inicial, `7 passed`.
+- `make backend-test`: primer intento FALLA en `ruff check .` por argumento no usado en el fake de policy del test de service; se corrige usando explícitamente el parámetro sin cambiar comportamiento.
+- `cd backend && uv run pytest tests/test_iam_list_users_service.py && uv run ruff check app/domain/iam/users/services.py tests/test_iam_list_users_service.py && uv run ruff format --check app/domain/iam/users/services.py tests/test_iam_list_users_service.py`: pytest y Ruff OK, pero `ruff format --check` detecta que `services.py` necesitaba formateo.
+- `cd backend && uv run ruff format app/domain/iam/users/services.py tests/test_iam_list_users_service.py`: OK, `1 file reformatted, 1 file left unchanged`.
+- `cd backend && uv run pytest tests/test_iam_list_users_service.py`: OK final del test específico, `7 passed`.
+- `make backend-test`: FALLA inicialmente por los tests de repository al no poder conectar con PostgreSQL en `127.0.0.1:5432` (`Connection refused`). Antes del fallo de pytest, Ruff, format y mypy pasan; pytest reporta `268 passed, 6 errors`, todos en `tests/test_iam_users_repository.py` por indisponibilidad de PostgreSQL local.
+- `make postgres-up`: OK. Se levanta el servicio PostgreSQL local usando `.env.example` sin modificar Docker ni ficheros de entorno.
+- `DATABASE_URL=postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db make backend-test`: OK final contra PostgreSQL real. Ruff OK, format OK, mypy strict OK y pytest OK con `274 passed`.
+
 ## Registro de resultados por task
 
 ### Task 0 — Baseline y preparación
@@ -600,7 +613,19 @@ Task 5 completada y validada en verde. Se ha implementado únicamente el reposit
 
 ### Task 6 — Service del caso de uso
 
-Pendiente.
+Task 6 completada y validada en verde. Se ha implementado únicamente el service/use case de listado de usuarios de organización y sus tests unitarios, sin endpoint/router funcional, dependencies FastAPI ni auditoría real.
+
+- **Service añadido:** `ListOrganizationUsersService` en `backend/app/domain/iam/users/services.py`.
+- **Firma principal:** `list_users(*, context: TenantContext, query: UserListQuery) -> OrganizationUserListResponse`.
+- **Inyección de dependencias:** el service recibe un `OrganizationUsersRepository` y opcionalmente un authorizer compatible con `ListOrganizationUsersAuthorizer`; si no se inyecta policy, usa `ListOrganizationUsersPolicy`.
+- **Orden security-first:** el service invoca `policy.ensure_allowed(context)` antes de llamar a `repository.list_by_organization(...)`. Si la policy deniega, el repository no se ejecuta.
+- **Tenant controlado:** el repository recibe siempre `context.requested_organization_id`, no un `organization_id` arbitrario de cliente ni un valor de query/body.
+- **Errores controlados:** `TenantAccessDeniedError`, `InactiveUserError`, `InactiveOrganizationError` y otros errores controlados derivados de la policy/`TenantContext` se propagan sin convertirlos a HTTP y sin depender de FastAPI.
+- **Salida segura:** el service no construye modelos ORM ni serializa campos por su cuenta; devuelve el `OrganizationUserListResponse` del repository, basado en `OrganizationUserRead`, y los tests verifican que no aparece `password_hash`.
+- **Tests añadidos:** `backend/tests/test_iam_list_users_service.py` usa fakes in-memory de repository y policy. Cubre caso permitido, uso de `context.requested_organization_id`, propagación de denegación, no llamada al repository si la policy deniega, orden policy antes de repository, ausencia de campos sensibles y ausencia de imports FastAPI/SQLAlchemy en el service.
+- **Resultados:** `cd backend && uv run pytest tests/test_iam_list_users_service.py` queda en verde con `7 passed`. Tras levantar PostgreSQL local con `make postgres-up`, la validación completa `DATABASE_URL=postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db make backend-test` queda en verde: Ruff OK, format OK, mypy strict OK y pytest OK con `274 passed`. La contraseña se mantiene enmascarada en la documentación.
+- **Alcance respetado:** no se implementa endpoint/router funcional, dependencies FastAPI ni auditoría real; no se modifican migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend; no se mueven modelos SQLAlchemy existentes; no se introducen secretos.
+- **Riesgos/limitaciones:** Task 6 no implementa auditoría por decisión de alcance; Task 9 se ocupará de ello. La validación completa requiere un PostgreSQL real disponible para los tests de repository heredados de Task 5; en local se resolvió levantando el servicio con `make postgres-up` y usando `DATABASE_URL` explícita enmascarada.
 
 ### Task 7 — Dependencies FastAPI del piloto
 
@@ -628,7 +653,7 @@ Pendiente.
 
 ## Riesgos o deuda técnica
 
-- Tasks 0 a 5 están implementadas y validadas; quedan pendientes Task 6 en adelante para completar service, dependencies FastAPI, router/API, auditoría mínima, tests de límites arquitectónicos y cierre final de fase.
+- Tasks 0 a 6 están implementadas y validadas; quedan pendientes Task 7 en adelante para completar dependencies FastAPI, router/API, auditoría mínima, tests de límites arquitectónicos y cierre final de fase.
 - La auditoría final dependerá del estado actual del módulo de auditoría backend; si no existe integración real suficiente, se deberá documentar el uso de fake/stub y su deuda asociada.
 - La policy IAM y el `TenantContext` serán puntos críticos: un error puede afectar al aislamiento multiempresa.
 - Los tests de límites arquitectónicos deberán equilibrar utilidad y mantenimiento para no bloquear refactors legítimos.
