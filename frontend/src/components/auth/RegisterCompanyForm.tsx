@@ -120,14 +120,24 @@ export default function RegisterCompanyForm() {
       width="full"
       maxW="700px"
       mx="auto"
-      p={8}
-      borderWidth="1px"
-      borderRadius="lg"
+      color="white"
       css={{
+        "& label": {
+          color: "#cbd5e1",
+        },
+        "& input": {
+          background: "rgba(255, 255, 255, 0.045)",
+          borderColor: "rgba(255, 255, 255, 0.16)",
+          color: "#fff",
+        },
         "& input::placeholder": {
-          color: "gray.500",
+          color: "#94a3b8",
           fontWeight: "normal",
           opacity: 1,
+        },
+        "& input:focus": {
+          borderColor: "#5eead4",
+          boxShadow: "0 0 0 1px #5eead4",
         },
       }}
     >
@@ -138,7 +148,7 @@ export default function RegisterCompanyForm() {
             {/* DATOS DE LA ORGANIZACIÓN                  */}
             {/* ========================================= */}
 
-            <Heading size="md">Datos de la empresa</Heading>
+            <Heading color="white" size="md">Datos de la empresa</Heading>
 
             {/* Nombre */}
             <Field.Root required>
@@ -254,7 +264,7 @@ export default function RegisterCompanyForm() {
             {/* DATOS DEL USUARIO                         */}
             {/* ========================================= */}
 
-            <Heading size="md">Datos del usuario</Heading>
+            <Heading color="white" size="md">Datos del usuario</Heading>
 
             {/* Nombre */}
             <Field.Root required>
@@ -421,11 +431,13 @@ export default function RegisterCompanyForm() {
 
             <Button
               type="submit"
-              colorPalette="blue"
+              colorPalette="teal"
+              fontWeight="bold"
               loading={mutation.isPending}
               disabled={
                 formData.user.password !== formData.user.confirmPassword
               }
+              width="full"
             >
               Crear cuenta
             </Button>

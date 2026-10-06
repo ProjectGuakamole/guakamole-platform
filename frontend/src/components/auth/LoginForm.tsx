@@ -66,20 +66,30 @@ export default function LoginForm() {
       width="full"
       maxW="500px"
       mx="auto"
-      p={8}
-      borderWidth="1px"
-      borderRadius="lg"
+      color="white"
       css={{
+        "& label": {
+          color: "#cbd5e1",
+        },
+        "& input": {
+          background: "rgba(255, 255, 255, 0.045)",
+          borderColor: "rgba(255, 255, 255, 0.16)",
+          color: "#fff",
+        },
         "& input::placeholder": {
-          color: "gray.500",
+          color: "#94a3b8",
           fontWeight: "normal",
           opacity: 1,
+        },
+        "& input:focus": {
+          borderColor: "#5eead4",
+          boxShadow: "0 0 0 1px #5eead4",
         },
       }}
     >
       <Stack gap={6}>
         <Box>
-          <Heading size="lg">Iniciar sesión</Heading>
+          <Heading color="white" size="lg">Iniciar sesión</Heading>
         </Box>
 
         <form onSubmit={handleSubmit}>
@@ -128,8 +138,10 @@ export default function LoginForm() {
 
             <Button
               type="submit"
-              colorPalette="blue"
+              colorPalette="teal"
+              fontWeight="bold"
               loading={mutation.isPending}
+              width="full"
             >
               Iniciar sesión
             </Button>
