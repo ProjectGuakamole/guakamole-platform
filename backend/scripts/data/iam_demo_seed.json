@@ -1,0 +1,82 @@
+{
+  "statuses": [
+    {"status": "ACTIVE"},
+    {"status": "INACTIVE"},
+    {"status": "PENDING"},
+    {"status": "DISABLED"},
+    {"status": "ARCHIVED"}
+  ],
+  "platform_roles": [
+    {"platform_role_type": "USER", "description": "Usuario estándar de plataforma"},
+    {"platform_role_type": "PLATFORM_ADMIN", "description": "Administrador global de Project Guakamole"},
+    {"platform_role_type": "SUPPORT", "description": "Soporte operativo interno"},
+    {"platform_role_type": "AUDITOR", "description": "Consulta de auditoría"},
+    {"platform_role_type": "SERVICE", "description": "Cuenta técnica no interactiva"}
+  ],
+  "organization_roles": [
+    {"org_role_type": "COMPANY_ADMIN"},
+    {"org_role_type": "GROUP_MANAGER"},
+    {"org_role_type": "SCENARIO_EDITOR"},
+    {"org_role_type": "EMPLOYEE"},
+    {"org_role_type": "AUDITOR"}
+  ],
+  "countries": [
+    {"country_name": "España"},
+    {"country_name": "Portugal"},
+    {"country_name": "Francia"},
+    {"country_name": "Alemania"},
+    {"country_name": "Italia"}
+  ],
+  "states": [
+    {"state_name": "Catalunya", "country_name": "España"},
+    {"state_name": "Comunidad de Madrid", "country_name": "España"},
+    {"state_name": "Comunitat Valenciana", "country_name": "España"},
+    {"state_name": "Andalucía", "country_name": "España"},
+    {"state_name": "Aragón", "country_name": "España"}
+  ],
+  "cities": [
+    {"city_name": "Barcelona", "state_name": "Catalunya"},
+    {"city_name": "Madrid", "state_name": "Comunidad de Madrid"},
+    {"city_name": "Valencia", "state_name": "Comunitat Valenciana"},
+    {"city_name": "Sevilla", "state_name": "Andalucía"},
+    {"city_name": "Zaragoza", "state_name": "Aragón"}
+  ],
+  "organizations": [
+    {"slug": "demo-acme-soc", "name": "Demo ACME SOC", "tax": "DEMO-TAX-001", "zipcode": "08001"},
+    {"slug": "demo-cybercorp", "name": "Demo CyberCorp", "tax": "DEMO-TAX-002", "zipcode": "28001"},
+    {"slug": "demo-blue-team", "name": "Demo Blue Team", "tax": "DEMO-TAX-003", "zipcode": "17001"},
+    {"slug": "demo-red-shield", "name": "Demo Red Shield", "tax": "DEMO-TAX-004", "zipcode": "46001"},
+    {"slug": "demo-iron-soc", "name": "Demo Iron SOC", "tax": "DEMO-TAX-005", "zipcode": "41001"},
+    {"slug": "demo-cloud-defense", "name": "Demo Cloud Defense", "tax": "DEMO-TAX-006", "zipcode": "50001"}
+  ],
+  "users": [
+    {"email": "ana.acme@iam.demo.test", "first_name": "Demo Ana", "last_name": "Analista", "organization_slug": "demo-acme-soc", "org_role": "COMPANY_ADMIN"},
+    {"email": "carlos.acme@iam.demo.test", "first_name": "Demo Carlos", "last_name": "SOC", "organization_slug": "demo-acme-soc", "org_role": "EMPLOYEE"},
+    {"email": "julia.cyber@iam.demo.test", "first_name": "Demo Julia", "last_name": "Manager", "organization_slug": "demo-cybercorp", "org_role": "GROUP_MANAGER"},
+    {"email": "marc.cyber@iam.demo.test", "first_name": "Demo Marc", "last_name": "Analista", "organization_slug": "demo-cybercorp", "org_role": "EMPLOYEE"},
+    {"email": "laura.blue@iam.demo.test", "first_name": "Demo Laura", "last_name": "Threat", "organization_slug": "demo-blue-team", "org_role": "COMPANY_ADMIN"},
+    {"email": "pablo.red@iam.demo.test", "first_name": "Demo Pablo", "last_name": "Responder", "organization_slug": "demo-red-shield", "org_role": "EMPLOYEE"},
+    {"email": "nuria.iron@iam.demo.test", "first_name": "Demo Nuria", "last_name": "Forense", "organization_slug": "demo-iron-soc", "org_role": "GROUP_MANAGER"},
+    {"email": "diego.cloud@iam.demo.test", "first_name": "Demo Diego", "last_name": "Cloud", "organization_slug": "demo-cloud-defense", "org_role": "EMPLOYEE"}
+  ],
+  "departments": [
+    {"name": "Demo SOC L1", "organization_slug": "demo-acme-soc"},
+    {"name": "Demo SOC L2", "organization_slug": "demo-acme-soc"},
+    {"name": "Demo Incident Response", "organization_slug": "demo-cybercorp"},
+    {"name": "Demo Threat Hunting", "organization_slug": "demo-cybercorp"},
+    {"name": "Demo Blue Team", "organization_slug": "demo-blue-team"},
+    {"name": "Demo Red Team Coordination", "organization_slug": "demo-red-shield"},
+    {"name": "Demo Forensics", "organization_slug": "demo-iron-soc"},
+    {"name": "Demo Cloud Security", "organization_slug": "demo-cloud-defense"}
+  ],
+  "department_relations": [
+    {"department_name": "Demo SOC L1", "user_email": "ana.acme@iam.demo.test"},
+    {"department_name": "Demo SOC L1", "user_email": "carlos.acme@iam.demo.test"},
+    {"department_name": "Demo Incident Response", "user_email": "julia.cyber@iam.demo.test"},
+    {"department_name": "Demo Threat Hunting", "user_email": "marc.cyber@iam.demo.test"},
+    {"department_name": "Demo Blue Team", "user_email": "laura.blue@iam.demo.test"},
+    {"department_name": "Demo Red Team Coordination", "user_email": "pablo.red@iam.demo.test"},
+    {"department_name": "Demo Forensics", "user_email": "nuria.iron@iam.demo.test"},
+    {"department_name": "Demo Cloud Security", "user_email": "diego.cloud@iam.demo.test"}
+  ]
+}
