@@ -8,7 +8,6 @@ import {
   Input,
   Separator,
   Stack,
-  Text,
 } from "@chakra-ui/react";
 import { useMutation } from "@tanstack/react-query";
 
@@ -117,16 +116,22 @@ export default function RegisterCompanyForm() {
   };
 
   return (
-    <Box maxW="700px" mx="auto" p={8} borderWidth="1px" borderRadius="lg">
+    <Box
+      width="full"
+      maxW="700px"
+      mx="auto"
+      p={8}
+      borderWidth="1px"
+      borderRadius="lg"
+      css={{
+        "& input::placeholder": {
+          color: "gray.500",
+          fontWeight: "normal",
+          opacity: 1,
+        },
+      }}
+    >
       <Stack gap={6}>
-        <Box>
-          <Heading size="lg">Registrar empresa</Heading>
-
-          <Text color="gray.600" mt={2}>
-            Registra tu empresa y crea el usuario administrador.
-          </Text>
-        </Box>
-
         <form onSubmit={handleSubmit}>
           <Stack gap={6}>
             {/* ========================================= */}
@@ -143,7 +148,7 @@ export default function RegisterCompanyForm() {
                 name="name"
                 value={formData.organization.name}
                 onChange={handleOrganizationChange}
-                placeholder="Mi Empresa"
+                placeholder="Mi Empresa*"
               />
             </Field.Root>
 
@@ -155,7 +160,7 @@ export default function RegisterCompanyForm() {
                 name="slug"
                 value={formData.organization.slug}
                 onChange={handleOrganizationChange}
-                placeholder="mi-empresa"
+                placeholder="mi-empresa*"
               />
             </Field.Root>
 
@@ -167,7 +172,7 @@ export default function RegisterCompanyForm() {
                 name="orgRegisteredName"
                 value={formData.organization.orgRegisteredName}
                 onChange={handleOrganizationChange}
-                placeholder="Mi Empresa S.L."
+                placeholder="Mi Empresa S.L.*"
               />
             </Field.Root>
 
@@ -179,7 +184,7 @@ export default function RegisterCompanyForm() {
                 name="orgTax"
                 value={formData.organization.orgTax}
                 onChange={handleOrganizationChange}
-                placeholder="B12345678"
+                placeholder="B12345678*"
               />
             </Field.Root>
 
@@ -227,7 +232,7 @@ export default function RegisterCompanyForm() {
                 name="orgAddress"
                 value={formData.organization.orgAddress}
                 onChange={handleOrganizationChange}
-                placeholder="Calle Mayor 10"
+                placeholder="Calle Mayor 10*"
               />
             </Field.Root>
 
@@ -239,7 +244,7 @@ export default function RegisterCompanyForm() {
                 name="orgZipcode"
                 value={formData.organization.orgZipcode}
                 onChange={handleOrganizationChange}
-                placeholder="08001"
+                placeholder="08001*"
               />
             </Field.Root>
 
@@ -259,7 +264,7 @@ export default function RegisterCompanyForm() {
                 name="firstName"
                 value={formData.user.firstName}
                 onChange={handleUserChange}
-                placeholder="Jordi"
+                placeholder="Jon*"
               />
             </Field.Root>
 
@@ -271,7 +276,7 @@ export default function RegisterCompanyForm() {
                 name="lastName"
                 value={formData.user.lastName}
                 onChange={handleUserChange}
-                placeholder="García"
+                placeholder="Doe*"
               />
             </Field.Root>
 
@@ -284,7 +289,7 @@ export default function RegisterCompanyForm() {
                 type="email"
                 value={formData.user.email}
                 onChange={handleUserChange}
-                placeholder="usuario@empresa.com"
+                placeholder="usuario@empresa.com*"
               />
             </Field.Root>
 
@@ -368,7 +373,7 @@ export default function RegisterCompanyForm() {
                 name="userAddress"
                 value={formData.user.userAddress}
                 onChange={handleUserChange}
-                placeholder="Calle Mayor 10"
+                placeholder="Calle Mayor 10*"
               />
             </Field.Root>
 
@@ -380,7 +385,7 @@ export default function RegisterCompanyForm() {
                 name="userZipcode"
                 value={formData.user.userZipcode}
                 onChange={handleUserChange}
-                placeholder="08001"
+                placeholder="08001*"
               />
             </Field.Root>
 

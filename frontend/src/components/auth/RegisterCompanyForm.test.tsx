@@ -1,4 +1,5 @@
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
+import '@testing-library/jest-dom/vitest'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -14,10 +15,34 @@ vi.mock('../../api/authApi', () => ({
 const authResponse: AuthResponse = {
   token: 'test-token',
   user: {
-    id: 'company-1',
+    id: 1,
     email: 'empresa@example.com',
-    companyName: 'Empresa de prueba',
+    firstName: 'Empresa',
+    lastName: 'de prueba',
+    idOrganization: 1,
   },
+}
+
+function fillRequiredFields(password: string, confirmPassword: string) {
+  const fields = [
+    ['Nombre de la empresa', 'Empresa de prueba'],
+    ['Slug', 'empresa-de-prueba'],
+    ['CIF / NIF', 'B12345678'],
+    ['ID País', '1'],
+    ['ID Estado / Provincia', '2'],
+    ['ID Ciudad', '3'],
+    ['Nombre', 'Jordi'],
+    ['Apellidos', 'García'],
+    ['Email', 'empresa@example.com'],
+    ['Contraseña', password],
+    ['Confirmar contraseña', confirmPassword],
+  ]
+
+  for (const [label, value] of fields) {
+    for (const input of screen.queryAllByLabelText(label)) {
+      fireEvent.change(input, { target: { value } })
+    }
+  }
 }
 
 describe('RegisterCompanyForm', () => {
@@ -30,29 +55,47 @@ describe('RegisterCompanyForm', () => {
     const user = userEvent.setup()
     renderWithProviders(<RegisterCompanyForm />)
 
-    await user.type(screen.getByLabelText('Nombre de la empresa'), 'Empresa de prueba')
-    await user.type(screen.getByLabelText('CIF / NIF'), 'B12345678')
-    await user.type(screen.getByLabelText('Email'), 'empresa@example.com')
-    await user.type(screen.getByLabelText('Contraseña'), 'secure-password')
-    await user.type(screen.getByLabelText('Confirmar contraseña'), 'different-password')
+    fillRequiredFields('secure-password', 'different-password')
 
     expect(screen.getByText('Las contraseñas no coinciden.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Crear cuenta' })).toBeDisabled()
     expect(registerCompany).not.toHaveBeenCalled()
 
-    await user.clear(screen.getByLabelText('Confirmar contraseña'))
-    await user.type(screen.getByLabelText('Confirmar contraseña'), 'secure-password')
+    fireEvent.change(screen.getByLabelText('Confirmar contraseña'), {
+      target: { value: 'secure-password' },
+    })
     await user.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
-    await waitFor(() => {
-      expect(registerCompany).toHaveBeenCalledOnce()
-      expect(vi.mocked(registerCompany).mock.calls[0][0]).toEqual({
-        companyName: 'Empresa de prueba',
-        taxId: 'B12345678',
+    const expectedData = {
+      organization: {
+        name: 'Empresa de prueba',
+        slug: 'empresa-de-prueba',
+        orgRegisteredName: '',
+        orgTax: 'B12345678',
+        idCountry: '1',
+        idState: '2',
+        idCity: '3',
+        orgAddress: '',
+        orgZipcode: '',
+      },
+      user: {
         email: 'empresa@example.com',
         password: 'secure-password',
         confirmPassword: 'secure-password',
-      })
+        firstName: 'Jordi',
+        lastName: 'García',
+        birthdate: '',
+        idCountry: '1',
+        idState: '2',
+        idCity: '3',
+        userAddress: '',
+        userZipcode: '',
+      },
+    }
+
+    await waitFor(() => {
+      expect(registerCompany).toHaveBeenCalledOnce()
+      expect(vi.mocked(registerCompany).mock.calls[0][0]).toEqual(expectedData)
     })
     expect(
       await screen.findByText('La empresa se ha registrado correctamente.'),
@@ -66,11 +109,7 @@ describe('RegisterCompanyForm', () => {
     const user = userEvent.setup()
     renderWithProviders(<RegisterCompanyForm />)
 
-    await user.type(screen.getByLabelText('Nombre de la empresa'), 'Empresa de prueba')
-    await user.type(screen.getByLabelText('CIF / NIF'), 'B12345678')
-    await user.type(screen.getByLabelText('Email'), 'empresa@example.com')
-    await user.type(screen.getByLabelText('Contraseña'), 'secure-password')
-    await user.type(screen.getByLabelText('Confirmar contraseña'), 'secure-password')
+    fillRequiredFields('secure-password', 'secure-password')
     await user.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
     expect(await screen.findByText('El CIF ya está registrado')).toBeInTheDocument()
