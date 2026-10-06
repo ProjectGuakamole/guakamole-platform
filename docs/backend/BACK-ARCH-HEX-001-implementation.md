@@ -2,7 +2,7 @@
 
 ## Estado inicial
 
-Planificación de implementación / pendiente de ejecución.
+La fase `BACK-ARCH-HEX-001` está implementada hasta Task 10 y la Task 11 consolida en este documento el estado de arquitectura, seguridad, contrato, tests, limitaciones y riesgos residuales para revisión final de Task 12.
 
 La rama de trabajo confirmada es `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
 
@@ -368,12 +368,12 @@ make db-current
 - [x] T10.3 Test models no importan routers/services.
 - [x] T10.4 Test services/policies/repositories respetan dependencias permitidas.
 - [x] T10.5 Documentar excepciones si las hubiera.
-- [ ] T11.1 Documentar estructura implementada.
-- [ ] T11.2 Documentar endpoint piloto.
-- [ ] T11.3 Documentar decisiones de seguridad.
-- [ ] T11.4 Documentar tests.
-- [ ] T11.5 Documentar limitaciones.
-- [ ] T11.6 Documentar riesgos residuales.
+- [x] T11.1 Documentar estructura implementada.
+- [x] T11.2 Documentar endpoint piloto.
+- [x] T11.3 Documentar decisiones de seguridad.
+- [x] T11.4 Documentar tests.
+- [x] T11.5 Documentar limitaciones.
+- [x] T11.6 Documentar riesgos residuales.
 - [ ] T12.1 Revisar `git status`.
 - [ ] T12.2 Revisar `git diff`.
 - [ ] T12.3 Ejecutar checks.
@@ -766,7 +766,88 @@ Task 10 implementada, revalidada en verde y aprobada por QA. Las microtasks T10.
 
 ### Task 11 — Documentación única de fase
 
-Pendiente.
+Task 11 completada documentalmente y aprobada por QA. No modifica código productivo, no añade tests nuevos, no modifica tests existentes, migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend. Su objetivo es dejar este documento único de fase preparado para revisión arquitectónica, `doc-orchestrator` y QA final de Task 12.
+
+#### Resumen de fase consolidado
+
+**Estructura implementada:** el piloto IAM/users queda organizado de forma hexagonal pragmática bajo `backend/app/domain/iam/`:
+
+- `access/tenant_context.py`: `TenantContext`, builder y errores controlados de tenant sin dependencias de FastAPI ni SQLAlchemy.
+- `users/schemas.py`: contratos Pydantic de query y respuesta (`UserListQuery`, `OrganizationUserRead`, `OrganizationUserListResponse`) sin `password_hash` en salida del piloto.
+- `users/policies.py`: policy `ListOrganizationUsersPolicy` para autorización del listado.
+- `users/repositories.py`: contrato `OrganizationUsersRepository` y adapter SQLAlchemy `SqlAlchemyOrganizationUsersRepository` filtrado por organización.
+- `users/services.py`: caso de uso `ListOrganizationUsersService`, puerto mínimo `AuditLogger`, `AuditEvent` congelado y `NoopAuditLogger` por defecto.
+- `users/dependencies.py`: frontera FastAPI/infra para query params, auth provisional, `TenantContext`, sesión SQLAlchemy y construcción del service.
+- `users/routers.py`: router HTTP del piloto, sin RBAC inline ni SQLAlchemy directo.
+- `api/v1/router.py`: registro del router IAM con prefijo `/iam`.
+
+**Endpoint piloto y contrato HTTP:** queda registrado `GET /api/v1/iam/organizations/{organization_id}/users`. El path `organization_id` se valida como entero positivo en la dependency y no se considera autorización por sí mismo. Los query params soportados son `limit` (`1..100`, defecto `50`), `offset` (`>= 0`, defecto `0`), `search` opcional con máximo `100` caracteres y normalización por `strip`, `sort_by` con allowlist (`email`, `first_name`, `last_name`, `create_at`, `last_login_at`, `id_user`) y `sort_dir` (`asc`/`desc`). La respuesta usa `OrganizationUserListResponse` con `items`, `limit`, `offset` y `total`; cada item usa `OrganizationUserRead` y no incluye `password_hash`.
+
+**Flujo implementado:**
+
+```text
+Request HTTP
+  ↓
+routers.py
+  ↓
+dependencies.py: query params + actor autenticado provisional + TenantContext + service
+  ↓
+TenantContext: usuario activo, organización activa, coherencia platform admin y tenant solicitado
+  ↓
+services.py: ListOrganizationUsersService.list_users(...)
+  ↓
+policies.py: ListOrganizationUsersPolicy.ensure_allowed(...) antes de acceder a datos
+  ↓
+repositories.py: list_by_organization(organization_id=context.requested_organization_id, query=query)
+  ↓
+services.py: AuditEvent IAM_ORGANIZATION_USERS_LISTED si la operación permitida finaliza correctamente
+  ↓
+OrganizationUserListResponse
+```
+
+**Reglas de autorización implementadas:**
+
+- `PLATFORM_ADMIN` puede listar usuarios de cualquier organización si el `TenantContext` es válido y el rol de plataforma respalda `is_platform_admin=True`.
+- `COMPANY_ADMIN` puede listar únicamente usuarios de su propia organización activa.
+- `GROUP_MANAGER`, `EMPLOYEE` y roles desconocidos quedan denegados en el piloto.
+- Usuario inactivo, organización inactiva y acceso cross-tenant non-platform se deniegan mediante errores controlados de `TenantContext`/policy.
+- Las denegaciones del endpoint se traducen a `403` genérico para no exponer detalles internos.
+- La autenticación real no está integrada: `get_pilot_authenticated_user()` devuelve `501` si no se sobrescribe en tests o en una integración futura.
+
+**Decisiones de seguridad:**
+
+- El router no contiene RBAC inline, no importa SQLAlchemy ni repository y delega en dependencies/service.
+- La policy se ejecuta antes del repository; los tests cubren que el repository no se llama si la policy deniega.
+- El repository filtra siempre por `User.id_organization == organization_id` usando el `organization_id` validado por el caso de uso.
+- `search` se aplica con SQLAlchemy parametrizado sobre `email`, `first_name` y `last_name`; `sort_by`/`sort_dir` usan allowlists.
+- Los schemas de salida excluyen `password_hash`; los tests validan que no aparece en respuestas ni schemas del piloto.
+- El engine SQLAlchemy de la dependency usa `hide_parameters=True` y exige `DATABASE_URL` real; en la documentación las URLs se registran con contraseña enmascarada (`***`).
+- Los tests de repository rechazan SQLite y validan contra PostgreSQL real para reducir divergencias de dialecto.
+- Los tests arquitectónicos de Task 10 protegen límites por imports directos: router sin SQLAlchemy/repository/proveedores externos, services/policies sin FastAPI/SQLAlchemy, models sin capas superiores y repository sin FastAPI.
+
+**Auditoría mínima y limitación `Noop`:** Task 9 define el evento `IAM_ORGANIZATION_USERS_LISTED`, `AuditEvent` con metadata inmutable y el puerto `AuditLogger`. El service emite auditoría de éxito después de policy OK y repository OK. La metadata evita datos personales y secretos: registra IDs, roles efectivos, `cross_tenant`, conteo, paginación, presencia de búsqueda y ordenación, pero no emails, nombres, texto crudo de búsqueda, `password_hash`, tokens, payload completo ni SQL. La implementación por defecto sigue siendo `NoopAuditLogger`, por lo que los eventos no se persisten ni se envían a observabilidad hasta que exista infraestructura común de auditoría.
+
+**Tests principales y resultados finales documentados:** la fase añade/cubre tests de schemas, `TenantContext`, policy, repository PostgreSQL real, service, dependencies, router/API, auditoría y límites arquitectónicos. El último resultado completo documentado en Task 10 es `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: Ruff OK, format OK (`82 files already formatted`), mypy strict OK (`81 source files`) y pytest OK con `311 passed`. En Task 11 no se ha ejecutado la suite completa por ser una task solo documental; no se han añadido tests nuevos ni se han modificado tests existentes. QA aprobó Task 11 y la validación mínima realizada queda limitada a revisión de estado/diff del documento, sin detectar secretos reales ni URLs con contraseña sin enmascarar.
+
+**Limitaciones actuales:**
+
+- IAM sigue usando el modelo simplificado actual (`User.id_organization`, `id_platform_role`, `id_org_role`, `id_status`) y todavía no existen `OrganizationMembership`, `MembershipRole`, grupos ni scopes reales de `GroupManager`.
+- La autenticación real del backend no está integrada en el endpoint piloto; la dependency provisional devuelve `501` sin override.
+- La sesión de base de datos del piloto está definida localmente en `users/dependencies.py` por ausencia de infraestructura común de sesión en el backend actual.
+- La estrategia anti-enumeración queda simplificada a `403` para denegaciones controladas del piloto; no se ha cerrado una política completa `403`/`404` por recurso visible/no visible.
+- La auditoría no persiste por el uso de `NoopAuditLogger` por defecto.
+- Los tests de límites arquitectónicos son estáticos y basados en imports directos; no sustituyen revisión humana de diseño ni detectan acoplamientos dinámicos.
+- La suite completa depende de PostgreSQL real y de una `DATABASE_URL` coherente; el `.env` local desalineado puede reproducir fallos de autenticación en tests de repository si no se sobrescribe la URL.
+
+**Riesgos residuales:**
+
+- Riesgo de evolución del modelo IAM: al introducir memberships, roles múltiples y grupos, el contrato y repository deberán cambiar sin romper aislamiento multi-tenant.
+- Riesgo de auditoría insuficiente hasta implementar persistencia real de `AuditEvent` y envío a observabilidad.
+- Riesgo de auth provisional: el endpoint no debe considerarse listo para uso real sin integración con autenticación/autorización verificadas.
+- Riesgo operativo de entorno: credenciales locales desalineadas pueden provocar falsos negativos si no se usa una `DATABASE_URL` PostgreSQL válida y enmascarada.
+- Riesgo de anti-enumeración pendiente: la fase no decide completamente cuándo ocultar recursos con `404` frente a denegar con `403`.
+
+**Qué queda para Task 12:** revisión final de `git status`, `git diff`, checks aplicables, security review, confirmación de ausencia de secretos y cierre QA/documental de la fase. Task 12 deberá decidir si reejecuta la suite completa o si acepta como suficiente la validación completa ya documentada en Task 10 más el diff exclusivamente documental de Task 11.
 
 ### Task 12 — QA final de fase
 
@@ -774,7 +855,7 @@ Pendiente.
 
 ## Riesgos o deuda técnica
 
-- Tasks 0 a 10 están implementadas. Task 10 añade tests de límites arquitectónicos y queda revalidada con `cd backend && uv run pytest tests/architecture` en verde y `make backend-test` en verde contra PostgreSQL real mediante `DATABASE_URL` explícita enmascarada. Quedan pendientes Task 11 y Task 12 para documentación/cierre final.
+- Tasks 0 a 11 están implementadas/documentadas. Task 10 añade tests de límites arquitectónicos y queda revalidada con `cd backend && uv run pytest tests/architecture` en verde y `make backend-test` en verde contra PostgreSQL real mediante `DATABASE_URL` explícita enmascarada. Task 11 consolida estructura, contrato, seguridad, tests, limitaciones y riesgos residuales en este documento. Queda pendiente Task 12 para QA final y cierre de fase.
 - Riesgo residual aceptado de Task 9: la auditoría mínima queda integrada mediante el puerto `AuditLogger` y `NoopAuditLogger` por defecto, pero todavía no existe infraestructura audit real/persistente. La persistencia de eventos y su envío a observabilidad deberán abordarse en una fase posterior.
 - La policy IAM y el `TenantContext` serán puntos críticos: un error puede afectar al aislamiento multiempresa.
 - Los tests de límites arquitectónicos de Task 10 son estáticos por AST y protegen imports directos; deberán mantenerse si se reorganiza el paquete IAM/users para no bloquear refactors legítimos.
