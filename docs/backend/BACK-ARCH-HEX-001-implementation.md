@@ -575,6 +575,14 @@ Corrección de CI para PR #20 por tests de repository contra PostgreSQL real:
 - **Cambio aplicado:** `.github/workflows/backend-ci.yml` añade un servicio efímero `postgres:16` al job `backend-quality`, con base `guakamole_db`, usuario `guakamole_user`, contraseña no sensible de CI `guakamole_test_password`, puerto `5432:5432` y healthcheck `pg_isready`. El job exporta `TEST_DATABASE_URL` y `DATABASE_URL` apuntando a ese servicio mediante `postgresql+psycopg`.
 - **Garantías mantenidas:** los tests de repository siguen usando PostgreSQL real; no se introduce SQLite, skips ni secretos reales. No se modifican código productivo backend, tests, migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend.
 
+Segundo ajuste de CI para PR #20 por base efímera vacía:
+
+- **Causa raíz:** aunque GitHub Actions ya levantaba correctamente el servicio PostgreSQL, la base efímera arrancaba vacía y el workflow no ejecutaba migraciones antes de `pytest`. Por ello `tests/test_iam_users_repository.py` fallaba con `psycopg.errors.UndefinedTable: relation "sch_iam.tbl_users" does not exist`.
+- **Cambio aplicado:** `.github/workflows/backend-ci.yml` añade el step `Aplicar migraciones Alembic` tras `uv sync --all-groups` y antes de Ruff/mypy/pytest, ejecutando `uv run alembic upgrade head` con el `working-directory` por defecto del job (`backend`). El step usa las variables de entorno del job (`DATABASE_URL` y `TEST_DATABASE_URL`) que apuntan al PostgreSQL service efímero.
+- **Requisito operativo documentado:** el CI de backend necesita dos piezas para que los tests de repository sean representativos: un servicio PostgreSQL real disponible y `alembic upgrade head` ejecutado antes de los tests que acceden a tablas del schema `sch_iam`.
+- **Garantías mantenidas:** se mantiene PostgreSQL real; no se introduce SQLite, skips, cambios productivos backend, tests, migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend.
+- **Validación local:** `make backend-test` sigue siendo el comando local esperado. No se puede reproducir completamente el service container de GitHub Actions desde este entorno local sin ejecutar el workflow remoto; esta corrección queda preparada para validación en CI/QA del PR.
+
 ## Registro de resultados por task
 
 ### Task 0 — Baseline y preparación
