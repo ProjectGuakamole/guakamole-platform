@@ -346,10 +346,10 @@ make db-current
 - [x] T6.6 Tests service denied.
 - [x] T6.7 Tests orden policy antes que repository.
 - [x] T6.8 Tests no campos sensibles.
-- [ ] T7.1 Dependency de query params.
-- [ ] T7.2 Dependency de TenantContext.
-- [ ] T7.3 Dependency de service.
-- [ ] T7.4 Tests unitarios/dependency si aplica.
+- [x] T7.1 Dependency de query params.
+- [x] T7.2 Dependency de TenantContext.
+- [x] T7.3 Dependency de service.
+- [x] T7.4 Tests unitarios/dependency si aplica.
 - [ ] T8.1 Crear router.
 - [ ] T8.2 Registrar router en API v1.
 - [ ] T8.3 Integrar dependencies y service.
@@ -486,6 +486,16 @@ Validación real ejecutada durante Task 6:
 - `make backend-test`: FALLA inicialmente por los tests de repository al no poder conectar con PostgreSQL en `127.0.0.1:5432` (`Connection refused`). Antes del fallo de pytest, Ruff, format y mypy pasan; pytest reporta `268 passed, 6 errors`, todos en `tests/test_iam_users_repository.py` por indisponibilidad de PostgreSQL local.
 - `make postgres-up`: OK. Se levanta el servicio PostgreSQL local usando `.env.example` sin modificar Docker ni ficheros de entorno.
 - `DATABASE_URL=postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db make backend-test`: OK final contra PostgreSQL real. Ruff OK, format OK, mypy strict OK y pytest OK con `274 passed`.
+
+Validación real ejecutada durante Task 7:
+
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `git status --short`: OK al inicio de Task 7, sin cambios pendientes.
+- `cd backend && uv run pytest tests/test_iam_users_dependencies.py`: OK inicial, `15 passed`.
+- `make backend-test`: primer intento FALLA en `ruff format --check` porque `tests/test_iam_users_dependencies.py` requería formateo. Se corrige con `cd backend && uv run ruff format tests/test_iam_users_dependencies.py`.
+- `make backend-test`: segundo intento FALLA en los tests de repository al usar el `.env` local desalineado con PostgreSQL (`password authentication failed`). Ruff, format y mypy habían pasado antes del fallo de pytest.
+- `make postgres-up`: OK. PostgreSQL local queda levantado mediante `.env.example`, sin modificar Docker ni ficheros de entorno.
+- `DATABASE_URL=postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db make backend-test`: OK final contra PostgreSQL real. Ruff OK, format OK, mypy strict OK y pytest OK con `289 passed`.
 
 ## Registro de resultados por task
 
@@ -629,7 +639,18 @@ Task 6 completada y validada en verde. Se ha implementado únicamente el service
 
 ### Task 7 — Dependencies FastAPI del piloto
 
-Pendiente.
+Task 7 completada, validada en verde y aprobada por QA. Se han implementado únicamente dependencies FastAPI para el piloto IAM/users y sus tests, sin crear router/API funcional, sin registrar endpoint y sin auditoría real.
+
+- **Dependency de query params:** `get_user_list_query(...) -> UserListQuery` construye el schema Pydantic seguro desde parámetros FastAPI `Query`, con límites de paginación, búsqueda acotada y allowlists de ordenación ya definidas por `UserListQuery`.
+- **Dependency provisional de identidad:** `get_pilot_authenticated_user() -> PilotAuthenticatedUser` queda marcada explícitamente como provisional y devuelve `501` hasta integrar autenticación real. No acepta identidad, roles ni organización desde query/body; en tests o router futuro deberá sobrescribirse por auth real verificada.
+- **Dependency de TenantContext:** `get_tenant_context(organization_id, actor) -> TenantContext` recibe la organización solicitada desde path validado por FastAPI y la identidad resuelta desde la dependency de auth. Construye `TenantContext` mediante `build_tenant_context` y convierte errores controlados de tenant en `403` genérico sin filtrar detalles internos. No acepta `organization_id` desde query/body.
+- **Dependency de service:** `get_list_organization_users_service(session) -> ListOrganizationUsersService` construye `SqlAlchemyOrganizationUsersRepository` con una sesión SQLAlchemy real del proyecto y lo inyecta en el service sin ejecutar queries.
+- **Sesión DB:** se añade `get_db_session()` con engine/factoría SQLAlchemy cacheados y `DATABASE_URL` obligatoria, usando `hide_parameters=True`. Esta solución es mínima para el piloto porque el proyecto todavía no tiene una dependency centralizada de sesión DB.
+- **Tests añadidos:** `backend/tests/test_iam_users_dependencies.py` cubre defaults de query, valores válidos, validaciones Pydantic inválidas, factory de service con repository SQLAlchemy, dependency auth provisional, construcción de `TenantContext`, denegación cross-tenant non-platform, ausencia de `organization_id` por query/body en la firma, límite arquitectónico de imports FastAPI y ausencia de literales sensibles básicos en dependencies.
+- **Resultados:** `cd backend && uv run pytest tests/test_iam_users_dependencies.py` queda en verde con `15 passed`. `make postgres-up` deja `guakamole_postgres` en estado `Running`. Tras formatear el test y levantar PostgreSQL local, la validación completa `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test` queda en verde contra PostgreSQL real: Ruff OK, format OK, mypy strict OK y pytest OK con `289 passed`. La contraseña se mantiene enmascarada en la documentación.
+- **Cierre QA:** aprobado. QA confirma que T7.1, T7.2, T7.3 y T7.4 quedan completadas; que los query params aplican límites server-side coherentes; que la auth provisional no acepta identidad, roles ni organización desde query/body; que `TenantContext` usa `organization_id` de path y actor resuelto por dependency; que los errores de tenant se traducen a `403` genérico; que la dependency de service construye `ListOrganizationUsersService` con `SqlAlchemyOrganizationUsersRepository` sin ejecutar queries; que `services.py`, `policies.py` y `repositories.py` siguen sin FastAPI; y que no se han añadido secretos.
+- **Alcance respetado:** no se implementa router/API funcional, no se registra endpoint, no se implementa auditoría real, no se modifican migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend, y no se mueven modelos SQLAlchemy existentes.
+- **Riesgos/limitaciones aceptados:** la autenticación real sigue pendiente para Task 8+ y la dependency provisional debe ser sustituida/sobrescrita por un mecanismo que derive identidad y roles de credenciales verificadas. La dependency de base de datos queda definida localmente en `dependencies.py` por ausencia de infraestructura central actual; QA lo acepta para el piloto, con la deuda de migrarla a una infraestructura común cuando exista. La validación completa sigue dependiendo de PostgreSQL real para los tests de repository heredados.
 
 ### Task 8 — Router/API piloto
 
@@ -653,7 +674,7 @@ Pendiente.
 
 ## Riesgos o deuda técnica
 
-- Tasks 0 a 6 están implementadas y validadas; quedan pendientes Task 7 en adelante para completar dependencies FastAPI, router/API, auditoría mínima, tests de límites arquitectónicos y cierre final de fase.
+- Tasks 0 a 7 están implementadas y validadas; quedan pendientes Task 8 en adelante para completar router/API, auditoría mínima, tests de límites arquitectónicos y cierre final de fase.
 - La auditoría final dependerá del estado actual del módulo de auditoría backend; si no existe integración real suficiente, se deberá documentar el uso de fake/stub y su deuda asociada.
 - La policy IAM y el `TenantContext` serán puntos críticos: un error puede afectar al aislamiento multiempresa.
 - Los tests de límites arquitectónicos deberán equilibrar utilidad y mantenimiento para no bloquear refactors legítimos.
