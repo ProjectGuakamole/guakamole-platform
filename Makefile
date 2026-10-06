@@ -1,4 +1,4 @@
-.PHONY: help install setup backend-install backend-lint backend-format-check backend-mypy backend-pytest backend-test backend-check backend-run docker-config docker-up docker-down docker-ps docker-logs postgres-up postgres-logs postgres-down psql db-upgrade db-current db-history db-downgrade health-check ready-check
+.PHONY: help install setup backend-install backend-lint backend-format-check backend-mypy backend-pytest backend-test backend-check backend-run backend-seed backend-seed-clear docker-config docker-up docker-down docker-ps docker-logs postgres-up postgres-logs postgres-down psql db-upgrade db-current db-history db-downgrade health-check ready-check
 
 BACKEND_DIR := backend
 ENV_FILE ?= .env.example
@@ -16,6 +16,8 @@ help: ## Muestra los comandos disponibles.
 	@printf '  make backend-test          Ejecuta lint, formato, mypy y pytest en backend.\n'
 	@printf '  make backend-check         Consulta health y ready del backend levantado.\n'
 	@printf '  make backend-run           Arranca FastAPI local con recarga.\n'
+	@printf '  make backend-seed          DESTRUCTIVO: trunca sch_iam gestionado e inserta seed demo con $$(ENV_FILE).\n'
+	@printf '  make backend-seed-clear    DESTRUCTIVO: trunca sch_iam gestionado sin reinsertar con $$(ENV_FILE).\n'
 	@printf '  make docker-up             Levanta Docker Compose con build.\n'
 	@printf '  make docker-down           Detiene y elimina servicios de Docker Compose.\n'
 	@printf '  make docker-logs           Muestra logs de Docker Compose.\n'
@@ -51,6 +53,12 @@ backend-check: health-check ready-check ## Comprueba el servicio backend levanta
 
 backend-run: ## Arranca el servidor FastAPI local en primer plano.
 	cd $(BACKEND_DIR) && uv run uvicorn app.main:app --reload
+
+backend-seed: ## DESTRUCTIVO: trunca tablas IAM gestionadas e inserta datos demo usando $(ENV_FILE).
+	set -a; . $(ENV_FILE_PATH); set +a; cd $(BACKEND_DIR) && uv run python scripts/seed_demo_iam.py --yes
+
+backend-seed-clear: ## DESTRUCTIVO: trunca tablas IAM gestionadas sin reinsertar usando $(ENV_FILE).
+	set -a; . $(ENV_FILE_PATH); set +a; cd $(BACKEND_DIR) && uv run python scripts/seed_demo_iam.py --clear --yes
 
 docker-config: ## Renderiza la configuración Compose usando $(ENV_FILE).
 	$(COMPOSE) config
