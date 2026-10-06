@@ -358,11 +358,11 @@ make db-current
 - [x] T8.6 Tests API 401/403/404.
 - [x] T8.7 Tests API 422.
 - [x] T8.8 Test API no `password_hash`.
-- [ ] T9.1 Definir evento/s IAM piloto.
-- [ ] T9.2 Implementar audit fake/real según estado backend.
-- [ ] T9.3 Auditar PLATFORM_ADMIN cross-tenant.
-- [ ] T9.4 Auditar denegaciones sensibles si procede.
-- [ ] T9.5 Tests audit.
+- [x] T9.1 Definir evento/s IAM piloto.
+- [x] T9.2 Implementar audit fake/real según estado backend.
+- [x] T9.3 Auditar PLATFORM_ADMIN cross-tenant.
+- [x] T9.4 Auditar denegaciones sensibles si procede.
+- [x] T9.5 Tests audit.
 - [ ] T10.1 Test router no importa SQLAlchemy directo.
 - [ ] T10.2 Test router no importa Docker/Guacamole/GitHub.
 - [ ] T10.3 Test models no importan routers/services.
@@ -516,6 +516,19 @@ Revalidación real posterior de Task 8 con `DATABASE_URL` PostgreSQL explícita 
 - `make postgres-up`: OK. El contenedor `guakamole_postgres` permanece `Running` usando `.env.example`, sin modificar Docker ni ficheros de entorno.
 - `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: OK final contra PostgreSQL real con URL explícita. Ruff OK, format OK, mypy strict OK y pytest OK con `299 passed`.
 - `cd backend && uv run pytest tests/test_iam_users_router.py`: OK final del test router específico, `10 passed`.
+
+Validación real ejecutada durante Task 9:
+
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `git status --short`: OK al inicio de Task 9, sin cambios pendientes.
+- Búsqueda de auditoría existente en `backend/app` y `backend/tests`: no se encuentra infraestructura `AuditEvent` usable; solo aparece un mixin de timestamps de auditoría en `backend/app/db/mixins.py`.
+- `cd backend && uv run pytest tests/test_iam_users_audit.py tests/test_iam_list_users_service.py`: OK, `12 passed`.
+- `cd backend && uv run ruff check app/domain/iam/users/services.py tests/test_iam_users_audit.py && uv run ruff format --check app/domain/iam/users/services.py tests/test_iam_users_audit.py && uv run mypy --strict app/domain/iam/users/services.py tests/test_iam_users_audit.py`: primer intento FALLA por orden de imports/línea larga/formato en el nuevo test; se corrige con Ruff y ajuste manual de línea.
+- `cd backend && uv run ruff format tests/test_iam_users_audit.py`: OK, `1 file reformatted`.
+- `cd backend && uv run ruff check app/domain/iam/users/services.py tests/test_iam_users_audit.py && uv run ruff format --check app/domain/iam/users/services.py tests/test_iam_users_audit.py && uv run mypy --strict app/domain/iam/users/services.py tests/test_iam_users_audit.py`: OK final. Ruff OK, formato OK y mypy strict OK en los ficheros afectados.
+- `make postgres-up`: OK. El contenedor `guakamole_postgres` queda `Running` usando `.env.example`, sin modificar Docker ni ficheros de entorno.
+- `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: primer intento FALLA en pytest por autenticación PostgreSQL local (`password authentication failed` para `guakamole_user`) por entorno/credenciales locales desalineadas; Ruff OK, format OK y mypy strict OK antes del fallo.
+- Revalidación arquitectónica con PostgreSQL levantado mediante `make postgres-up` y `DATABASE_URL` explícita válida: `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: OK final. Ruff OK, format OK, mypy strict OK y pytest OK con `304 passed`.
 
 ## Registro de resultados por task
 
@@ -690,7 +703,23 @@ Task 8 completada, validada en verde y aprobada por QA. La suite completa queda 
 
 ### Task 9 — Auditoría mínima
 
-Pendiente.
+Task 9 implementada, corregida tras revisión QA y aprobada en la revalidación final de QA. Se añade auditoría mínima del listado IAM/users sin migraciones, sin auth real completa y sin backend persistente de auditoría porque no existe infraestructura `AuditEvent` usable en `backend/app` más allá de mixins de timestamps.
+
+- **Evento definido:** `IAM_ORGANIZATION_USERS_LISTED`.
+- **Puerto de auditoría:** se añade `AuditLogger` como `Protocol`, `AuditEvent` como dataclass congelada y `NoopAuditLogger` como implementación segura por defecto. La integración real con PostgreSQL/observabilidad queda fuera de alcance hasta que exista infraestructura común de auditoría.
+- **Corrección QA de inmutabilidad real:** `AuditEvent.metadata` se expone como `Mapping[str, AuditMetadataValue]` y se congela en `__post_init__` con `MappingProxyType(dict(...))`. Esto evita que el `dict` recibido en construcción pueda mutarse a través del evento y hace que asignaciones como `event.metadata["actor_user_id"] = 999` fallen con `TypeError`.
+- **Emisión:** `ListOrganizationUsersService.list_users(...)` emite el evento después de autorizar con policy y después de obtener respuesta correcta del repository. Si la policy deniega antes del repository, no se emite evento de éxito y el repository no se ejecuta.
+- **Metadata segura:** incluye `requested_organization_id`, `effective_organization_id`, `actor_user_id`, `actor_platform_role`, `actor_organization_role`, `cross_tenant`, `result_count`, `limit`, `offset`, `search_present`, `sort_by` y `sort_dir`. No incluye emails, nombres, `password_hash`, tokens, secretos, respuesta completa, items ni query SQL. El texto crudo de `search` no se audita; solo se registra `search_present`.
+- **PLATFORM_ADMIN cross-tenant:** el evento marca `cross_tenant=True` cuando `requested_organization_id != effective_organization_id`, cubriendo el caso autorizado de `PLATFORM_ADMIN` entre organizaciones.
+- **Tests añadidos:** `backend/tests/test_iam_users_audit.py` cubre emisión en caso permitido, acción esperada, IDs de actor/organización, `cross_tenant=False` same-org, `cross_tenant=True` para `PLATFORM_ADMIN`, no emisión de éxito cuando la policy deniega, ausencia de metadatos sensibles/personales, inmutabilidad real de `AuditEvent.metadata` con `TypeError` al intentar mutarla y uso de `NoopAuditLogger` por defecto sin romper el service.
+- **Archivos modificados/creados:**
+  - `backend/app/domain/iam/users/services.py`.
+  - `backend/tests/test_iam_users_audit.py`.
+  - `docs/backend/BACK-ARCH-HEX-001-implementation.md`.
+- **Resultados actualizados tras corrección QA:** `cd backend && uv run pytest tests/test_iam_users_audit.py tests/test_iam_list_users_service.py` queda en verde con `13 passed`. `make postgres-up` confirma el contenedor PostgreSQL en `Running`. La primera ejecución de `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test` detecta únicamente imports modernizables por Ruff (`Mapping`/`MutableMapping` desde `collections.abc`); se corrigen y se repite la validación. La revalidación completa con `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test` queda en verde: Ruff OK, format OK (`81 files already formatted`), mypy strict OK (`80 source files`) y pytest OK con `305 passed`. La URL queda enmascarada.
+- **Cierre QA:** aprobado. QA confirma que T9.1-T9.5 quedan completadas, que la corrección de inmutabilidad real de `AuditEvent.metadata` evita mutaciones posteriores del mapping, que se emite `IAM_ORGANIZATION_USERS_LISTED` solo tras policy OK y repository OK, que no se emite evento de éxito cuando la policy deniega, que el repository no se ejecuta si la policy deniega, que `cross_tenant=True` queda cubierto para `PLATFORM_ADMIN` cross-tenant autorizado y que la metadata auditada no contiene datos personales, secretos ni respuestas completas.
+- **Alcance respetado:** no se implementa autenticación real, no se crean endpoints nuevos, no se modifican migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend, no se mueven modelos SQLAlchemy existentes y no se introducen secretos en el repositorio.
+- **Riesgos/limitaciones:** la auditoría actual es un puerto con `NoopAuditLogger` por defecto; no persiste eventos hasta que se implemente la infraestructura real de auditoría. La suite completa requiere PostgreSQL real para tests heredados de repository; queda revalidada usando `make postgres-up` y `DATABASE_URL` explícita válida con contraseña enmascarada.
 
 ### Task 10 — Tests de límites arquitectónicos
 
@@ -706,8 +735,8 @@ Pendiente.
 
 ## Riesgos o deuda técnica
 
-- Tasks 0 a 8 están implementadas y Task 8 queda aprobada por QA tras revalidar la suite completa con PostgreSQL real mediante `DATABASE_URL` explícita válida y contraseña enmascarada. Quedan pendientes Task 9 en adelante para completar auditoría mínima, tests de límites arquitectónicos y cierre final de fase.
-- La auditoría final dependerá del estado actual del módulo de auditoría backend; si no existe integración real suficiente, se deberá documentar el uso de fake/stub y su deuda asociada.
+- Tasks 0 a 9 están implementadas y Task 9 queda aprobada por QA tras revalidar la suite completa con PostgreSQL real mediante `DATABASE_URL` explícita válida y contraseña enmascarada. Quedan pendientes Task 10 en adelante para completar tests de límites arquitectónicos, documentación única de fase y cierre final.
+- Riesgo residual aceptado de Task 9: la auditoría mínima queda integrada mediante el puerto `AuditLogger` y `NoopAuditLogger` por defecto, pero todavía no existe infraestructura audit real/persistente. La persistencia de eventos y su envío a observabilidad deberán abordarse en una fase posterior.
 - La policy IAM y el `TenantContext` serán puntos críticos: un error puede afectar al aislamiento multiempresa.
 - Los tests de límites arquitectónicos deberán equilibrar utilidad y mantenimiento para no bloquear refactors legítimos.
 - El repository de Task 5 usa el IAM simplificado actual (`User.id_organization`, roles/status directos en usuario). Cuando existan `OrganizationMembership`, memberships/roles múltiples y scopes por grupo, deberá evolucionar manteniendo el filtro obligatorio por tenant y la ausencia de fugas cross-tenant.
