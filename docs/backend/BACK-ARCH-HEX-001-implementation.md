@@ -569,6 +569,12 @@ Corrección de cierre ejecutada tras Task 12 por desalineación de `DATABASE_URL
 - `make backend-test`: OK final directo sin exportar `DATABASE_URL`. Ruff OK, format OK (`82 files already formatted`), mypy strict OK (`81 source files`) y pytest OK con `314 passed`.
 - **Estado Task 12 tras corrección:** lista para nueva QA final con validación completa en verde en este entorno.
 
+Corrección de CI para PR #20 por tests de repository contra PostgreSQL real:
+
+- **Causa raíz:** el workflow `Backend CI / Ruff, mypy y pytest (pull_request)` ejecutaba la suite sin levantar PostgreSQL en GitHub Actions ni exportar `TEST_DATABASE_URL`; los tests `tests/test_iam_users_repository.py` requieren PostgreSQL real y fallaban con `connection refused` hacia `localhost:5432`.
+- **Cambio aplicado:** `.github/workflows/backend-ci.yml` añade un servicio efímero `postgres:16` al job `backend-quality`, con base `guakamole_db`, usuario `guakamole_user`, contraseña no sensible de CI `guakamole_test_password`, puerto `5432:5432` y healthcheck `pg_isready`. El job exporta `TEST_DATABASE_URL` y `DATABASE_URL` apuntando a ese servicio mediante `postgresql+psycopg`.
+- **Garantías mantenidas:** los tests de repository siguen usando PostgreSQL real; no se introduce SQLite, skips ni secretos reales. No se modifican código productivo backend, tests, migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend.
+
 ## Registro de resultados por task
 
 ### Task 0 — Baseline y preparación
