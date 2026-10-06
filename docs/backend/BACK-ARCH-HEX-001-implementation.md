@@ -238,7 +238,7 @@ Centralizar la planificación de `BACK-ARCH-HEX-001` en un único documento perm
 - T10.1 Test router no importa SQLAlchemy directo.
 - T10.2 Test router no importa Docker/Guacamole/GitHub.
 - T10.3 Test models no importan routers/services.
-- T10.4 Test policies no importan FastAPI.
+- T10.4 Test services/policies/repositories respetan dependencias permitidas.
 - T10.5 Documentar excepciones si las hubiera.
 
 **Criterios de cierre:** límites arquitectónicos cubiertos por tests y excepciones justificadas explícitamente si existen.
@@ -363,11 +363,11 @@ make db-current
 - [x] T9.3 Auditar PLATFORM_ADMIN cross-tenant.
 - [x] T9.4 Auditar denegaciones sensibles si procede.
 - [x] T9.5 Tests audit.
-- [ ] T10.1 Test router no importa SQLAlchemy directo.
-- [ ] T10.2 Test router no importa Docker/Guacamole/GitHub.
-- [ ] T10.3 Test models no importan routers/services.
-- [ ] T10.4 Test policies no importan FastAPI.
-- [ ] T10.5 Documentar excepciones si las hubiera.
+- [x] T10.1 Test router no importa SQLAlchemy directo.
+- [x] T10.2 Test router no importa Docker/Guacamole/GitHub.
+- [x] T10.3 Test models no importan routers/services.
+- [x] T10.4 Test services/policies/repositories respetan dependencias permitidas.
+- [x] T10.5 Documentar excepciones si las hubiera.
 - [ ] T11.1 Documentar estructura implementada.
 - [ ] T11.2 Documentar endpoint piloto.
 - [ ] T11.3 Documentar decisiones de seguridad.
@@ -529,6 +529,26 @@ Validación real ejecutada durante Task 9:
 - `make postgres-up`: OK. El contenedor `guakamole_postgres` queda `Running` usando `.env.example`, sin modificar Docker ni ficheros de entorno.
 - `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: primer intento FALLA en pytest por autenticación PostgreSQL local (`password authentication failed` para `guakamole_user`) por entorno/credenciales locales desalineadas; Ruff OK, format OK y mypy strict OK antes del fallo.
 - Revalidación arquitectónica con PostgreSQL levantado mediante `make postgres-up` y `DATABASE_URL` explícita válida: `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: OK final. Ruff OK, format OK, mypy strict OK y pytest OK con `304 passed`.
+
+Validación real ejecutada durante Task 10:
+
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `git status --short`: OK al inicio de Task 10, sin cambios pendientes.
+- `cd backend && uv run pytest tests/architecture`: OK inicial, `8 passed`.
+- `make postgres-up`: OK. El contenedor PostgreSQL local queda en estado `Running` usando `.env.example`, sin modificar Docker ni ficheros de entorno.
+- `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: primer intento FALLA en `ruff check .` por una línea larga en el nuevo test arquitectónico; se corrige partiendo el docstring.
+- `cd backend && uv run ruff format tests/architecture/test_iam_users_boundaries.py`: OK, `1 file left unchanged`.
+- `cd backend && uv run pytest tests/architecture`: OK final, `8 passed`.
+- `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: FALLA en pytest por autenticación PostgreSQL local (`password authentication failed` para `guakamole_user`) en `tests/test_iam_users_repository.py`. Antes del fallo de pytest, `ruff check`, `ruff format --check` y `mypy --strict` pasan. Pytest reporta `305 passed, 6 errors`, todos por conexión PostgreSQL de repository tests. La contraseña se enmascara en la documentación.
+- `cd backend && uv run ruff check tests/architecture/test_iam_users_boundaries.py && uv run ruff format --check tests/architecture/test_iam_users_boundaries.py && uv run mypy --strict tests/architecture/test_iam_users_boundaries.py`: OK. Ruff OK, formato OK y mypy strict OK en el nuevo test arquitectónico.
+
+Revalidación real posterior de Task 10 con PostgreSQL explícito válido:
+
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `git status --short`: OK. Se observan cambios pendientes propios de Task 10 y de este documento; no se observan cambios en frontend, migraciones, Docker, Makefile, `.env` ni `.env.example`.
+- `make postgres-up`: OK. El contenedor `guakamole_postgres` permanece `Running` usando `.env.example`, sin modificar Docker ni ficheros de entorno.
+- `cd backend && uv run pytest tests/architecture`: OK final, `8 passed`.
+- `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: OK final contra PostgreSQL real con URL explícita. Ruff OK, format OK (`82 files already formatted`), mypy strict OK (`81 source files`) y pytest OK con `311 passed`. La contraseña queda enmascarada.
 
 ## Registro de resultados por task
 
@@ -723,7 +743,26 @@ Task 9 implementada, corregida tras revisión QA y aprobada en la revalidación 
 
 ### Task 10 — Tests de límites arquitectónicos
 
-Pendiente.
+Task 10 implementada, revalidada en verde y aprobada por QA. Las microtasks T10.1-T10.5 quedan completadas. Los tests arquitectónicos específicos quedan en verde, no se han requerido correcciones productivas y la suite completa queda validada contra PostgreSQL real usando `DATABASE_URL` explícita con contraseña enmascarada.
+
+- **Tests arquitectónicos añadidos:** se crea `backend/tests/architecture/test_iam_users_boundaries.py` con helpers AST para inspeccionar imports reales (`import` y `from ... import ...`) sin depender de texto en comentarios o docstrings.
+- **Límites protegidos:**
+  - `routers.py` no puede importar SQLAlchemy directo ni `app.domain.iam.users.repositories`.
+  - `routers.py` no puede importar Docker, Guacamole, GitHub, providers/labs, contenido ni integraciones externas directas.
+  - `models.py` no puede importar capas superiores del subdominio IAM/users: routers, services, dependencies, policies ni repositories.
+  - `services.py` y `policies.py` no pueden importar FastAPI ni SQLAlchemy directo.
+  - `repositories.py` no puede importar FastAPI; SQLAlchemy sigue permitido al ser adapter de persistencia.
+  - `dependencies.py` se valida explícitamente como frontera HTTP/infra donde FastAPI y SQLAlchemy están permitidos, sin exigir que esos imports existan.
+- **Archivos creados/modificados:**
+  - `backend/tests/architecture/test_iam_users_boundaries.py`.
+  - `docs/backend/BACK-ARCH-HEX-001-implementation.md`.
+- **Correcciones productivas:** ninguna. Los límites actuales del piloto IAM/users cumplen los tests añadidos.
+- **Resultados:** `cd backend && uv run pytest tests/architecture` queda en verde con `8 passed`. Ruff, format y mypy strict pasan sobre el nuevo test arquitectónico. El primer `make backend-test` detectó una línea larga en el nuevo test y se corrigió. Una ejecución posterior con credenciales PostgreSQL locales desalineadas falló en `tests/test_iam_users_repository.py` (`305 passed, 6 errors`). La revalidación final con `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test` queda en verde contra PostgreSQL real: Ruff OK, format OK (`82 files already formatted`), mypy strict OK (`81 source files`) y pytest OK con `311 passed`.
+- **Excepciones documentadas:** `dependencies.py` puede importar FastAPI y SQLAlchemy porque actúa como frontera HTTP/infra del piloto. `repositories.py` puede importar SQLAlchemy porque es adapter de persistencia, pero no FastAPI.
+- **Ajuste menor post-QA:** se relaja el test arquitectónico de `dependencies.py` para que documente y valide la frontera permitida HTTP/infra sin exigir imports concretos de FastAPI ni SQLAlchemy. Esto evita fragilidad ante futuros desacoplamientos manteniendo las reglas estrictas de `services.py`, `policies.py` y `repositories.py`.
+- **Revalidación post-QA del ajuste menor:** QA revalida y aprueba Task 10 tras el ajuste de `dependencies.py`. `cd backend && uv run pytest tests/architecture` queda en verde con `8 passed`; `cd backend && uv run ruff check tests/architecture/test_iam_users_boundaries.py`, `cd backend && uv run ruff format --check tests/architecture/test_iam_users_boundaries.py` y `cd backend && uv run mypy --strict tests/architecture/test_iam_users_boundaries.py` quedan en verde. `make postgres-up` confirma `guakamole_postgres` en estado `Running`. `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test` queda en verde contra PostgreSQL real: Ruff OK, format OK (`82 files already formatted`), mypy strict OK (`81 source files`) y pytest OK con `311 passed`.
+- **Alcance respetado:** no se modifican endpoints, lógica productiva, migraciones, Docker, Makefile, `.env`, `.env.example` ni frontend; no se introducen secretos.
+- **Riesgos/limitaciones:** la protección es estática y basada en imports directos; no sustituye revisión arquitectónica de diseño ni detecta acoplamientos dinámicos. La suite completa queda revalidada con una `DATABASE_URL` PostgreSQL válida y explícita del entorno local; si se ejecuta sin sobrescribir la URL, el `.env` local desalineado puede reproducir fallos de autenticación en tests heredados de repository.
 
 ### Task 11 — Documentación única de fase
 
@@ -735,10 +774,10 @@ Pendiente.
 
 ## Riesgos o deuda técnica
 
-- Tasks 0 a 9 están implementadas y Task 9 queda aprobada por QA tras revalidar la suite completa con PostgreSQL real mediante `DATABASE_URL` explícita válida y contraseña enmascarada. Quedan pendientes Task 10 en adelante para completar tests de límites arquitectónicos, documentación única de fase y cierre final.
+- Tasks 0 a 10 están implementadas. Task 10 añade tests de límites arquitectónicos y queda revalidada con `cd backend && uv run pytest tests/architecture` en verde y `make backend-test` en verde contra PostgreSQL real mediante `DATABASE_URL` explícita enmascarada. Quedan pendientes Task 11 y Task 12 para documentación/cierre final.
 - Riesgo residual aceptado de Task 9: la auditoría mínima queda integrada mediante el puerto `AuditLogger` y `NoopAuditLogger` por defecto, pero todavía no existe infraestructura audit real/persistente. La persistencia de eventos y su envío a observabilidad deberán abordarse en una fase posterior.
 - La policy IAM y el `TenantContext` serán puntos críticos: un error puede afectar al aislamiento multiempresa.
-- Los tests de límites arquitectónicos deberán equilibrar utilidad y mantenimiento para no bloquear refactors legítimos.
+- Los tests de límites arquitectónicos de Task 10 son estáticos por AST y protegen imports directos; deberán mantenerse si se reorganiza el paquete IAM/users para no bloquear refactors legítimos.
 - El repository de Task 5 usa el IAM simplificado actual (`User.id_organization`, roles/status directos en usuario). Cuando existan `OrganizationMembership`, memberships/roles múltiples y scopes por grupo, deberá evolucionar manteniendo el filtro obligatorio por tenant y la ausencia de fugas cross-tenant.
 - El `.env` local usado sin sobrescribir `DATABASE_URL` está desalineado con el PostgreSQL real del contenedor local; por ello `cd backend && uv run pytest tests/test_iam_users_repository.py` falla en ese entorno. No bloquea Task 5 porque la validación aprobada por QA se ejecutó contra PostgreSQL real mediante `DATABASE_URL` explícita y enmascarada.
 
