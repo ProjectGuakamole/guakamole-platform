@@ -71,6 +71,14 @@ addopts = [
     "--strict-config",
     "--strict-markers",
 ]
+markers = [
+    "test_unit: tests unitarios sin servicios externos",
+    "integration: tests con DB/API/servicios",
+    "db: tests que requieren PostgreSQL real",
+    "security: tests de seguridad, RBAC, auth y tenant isolation",
+    "architecture: tests de límites arquitectónicos",
+    "slow: tests lentos o de alto coste",
+]
 filterwarnings = [
     'ignore:Using `httpx` with `starlette\.testclient` is deprecated; install `httpx2` instead\.:starlette.exceptions.StarletteDeprecationWarning:fastapi\.testclient',
     'ignore:The anyio\.abc\.BlockingPortal alias is deprecated, use anyio\.from_thread\.BlockingPortal instead\.:DeprecationWarning:starlette\.testclient',
