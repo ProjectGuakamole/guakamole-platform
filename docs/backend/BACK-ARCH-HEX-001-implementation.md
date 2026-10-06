@@ -374,11 +374,11 @@ make db-current
 - [x] T11.4 Documentar tests.
 - [x] T11.5 Documentar limitaciones.
 - [x] T11.6 Documentar riesgos residuales.
-- [ ] T12.1 Revisar `git status`.
-- [ ] T12.2 Revisar `git diff`.
-- [ ] T12.3 Ejecutar checks.
-- [ ] T12.4 QA security review.
-- [ ] T12.5 Documentar cierre en archivo único.
+- [x] T12.1 Revisar `git status`.
+- [x] T12.2 Revisar `git diff`.
+- [x] T12.3 Ejecutar checks.
+- [x] T12.4 QA security review.
+- [x] T12.5 Documentar cierre en archivo único.
 
 ## Tests ejecutados
 
@@ -549,6 +549,25 @@ Revalidación real posterior de Task 10 con PostgreSQL explícito válido:
 - `make postgres-up`: OK. El contenedor `guakamole_postgres` permanece `Running` usando `.env.example`, sin modificar Docker ni ficheros de entorno.
 - `cd backend && uv run pytest tests/architecture`: OK final, `8 passed`.
 - `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: OK final contra PostgreSQL real con URL explícita. Ruff OK, format OK (`82 files already formatted`), mypy strict OK (`81 source files`) y pytest OK con `311 passed`. La contraseña queda enmascarada.
+
+Validación final ejecutada durante Task 12:
+
+- `git branch --show-current`: OK. Rama actual confirmada: `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`.
+- `git status --short`: OK al inicio de Task 12, sin cambios pendientes.
+- `git log --oneline -15`: OK. Último commit observado: `159406d BACK-ARCH-HEX-001 docs: consolidate implementation phase`.
+- `git diff --stat`: OK antes de modificar documentación, sin salida; el diff inicial estaba limpio.
+- `make postgres-up`: FALLA por entorno local. El comando intenta ejecutar `docker compose --env-file .env.example up -d postgres`, pero Docker no está disponible en esta distro WSL 2 (`The command 'docker' could not be found in this WSL 2 distro`). No se modifica Docker, Makefile ni ficheros de entorno.
+- `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: FALLA por autenticación PostgreSQL local. Antes del fallo de pytest, Ruff, format y mypy pasan; pytest reporta `305 passed, 6 errors`, todos en `tests/test_iam_users_repository.py`, por `password authentication failed for user "guakamole_user"`. La contraseña queda enmascarada.
+- Resultado de checks de Task 12: no queda una validación completa nueva en verde por limitaciones reales del entorno local de QA (`docker` no disponible y credenciales PostgreSQL locales no válidas). Se mantiene como referencia el último `make backend-test` en verde documentado en Task 10, ejecutado contra PostgreSQL real con URL explícita válida y `311 passed`.
+
+Corrección de cierre ejecutada tras Task 12 por desalineación de `DATABASE_URL` local:
+
+- **Causa raíz:** los tests de repository priorizaban `DATABASE_URL` del entorno local. En este entorno esa variable apuntaba a PostgreSQL real pero con contraseña desalineada (`***`) para `guakamole_user`, por lo que SQLAlchemy fallaba en autenticación antes de ejecutar los casos de repository.
+- **Cambio aplicado:** `backend/tests/test_iam_users_repository.py` prioriza ahora `TEST_DATABASE_URL` para sobrescrituras explícitas de test, después construye una URL PostgreSQL desde variables `POSTGRES_*` coherentes y, si no existen, usa la URL PostgreSQL validada de `.env.example` del Compose local conocido. Solo al final considera `DATABASE_URL`, evitando que una variable local desalineada rompa accidentalmente `make backend-test`.
+- **Garantías mantenidas:** no se vuelve a SQLite; los dialectos no PostgreSQL siguen rechazados; se rechazan URLs con marcadores placeholder; los tests de repository siguen ejecutándose contra PostgreSQL real; no se modifican `.env`, `.env.example`, Docker, Makefile, migraciones ni frontend.
+- `cd backend && uv run pytest tests/test_iam_users_repository.py`: OK final, `11 passed`.
+- `make backend-test`: OK final directo sin exportar `DATABASE_URL`. Ruff OK, format OK (`82 files already formatted`), mypy strict OK (`81 source files`) y pytest OK con `314 passed`.
+- **Estado Task 12 tras corrección:** lista para nueva QA final con validación completa en verde en este entorno.
 
 ## Registro de resultados por task
 
@@ -827,7 +846,7 @@ OrganizationUserListResponse
 
 **Auditoría mínima y limitación `Noop`:** Task 9 define el evento `IAM_ORGANIZATION_USERS_LISTED`, `AuditEvent` con metadata inmutable y el puerto `AuditLogger`. El service emite auditoría de éxito después de policy OK y repository OK. La metadata evita datos personales y secretos: registra IDs, roles efectivos, `cross_tenant`, conteo, paginación, presencia de búsqueda y ordenación, pero no emails, nombres, texto crudo de búsqueda, `password_hash`, tokens, payload completo ni SQL. La implementación por defecto sigue siendo `NoopAuditLogger`, por lo que los eventos no se persisten ni se envían a observabilidad hasta que exista infraestructura común de auditoría.
 
-**Tests principales y resultados finales documentados:** la fase añade/cubre tests de schemas, `TenantContext`, policy, repository PostgreSQL real, service, dependencies, router/API, auditoría y límites arquitectónicos. El último resultado completo documentado en Task 10 es `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`: Ruff OK, format OK (`82 files already formatted`), mypy strict OK (`81 source files`) y pytest OK con `311 passed`. En Task 11 no se ha ejecutado la suite completa por ser una task solo documental; no se han añadido tests nuevos ni se han modificado tests existentes. QA aprobó Task 11 y la validación mínima realizada queda limitada a revisión de estado/diff del documento, sin detectar secretos reales ni URLs con contraseña sin enmascarar.
+**Tests principales y resultados finales documentados:** la fase añade/cubre tests de schemas, `TenantContext`, policy, repository PostgreSQL real, service, dependencies, router/API, auditoría y límites arquitectónicos. El resultado completo final aprobado en Task 12 es `make backend-test` directo, sin exportar manualmente `DATABASE_URL`: Ruff OK, format OK (`82 files already formatted`), mypy strict OK (`81 source files`) y pytest OK con `314 passed`. QA aprobó el cierre tras revalidar también `cd backend && uv run pytest tests/test_iam_users_repository.py` con `11 passed`. No se detectan secretos reales ni URLs con contraseña sin enmascarar.
 
 **Limitaciones actuales:**
 
@@ -837,30 +856,41 @@ OrganizationUserListResponse
 - La estrategia anti-enumeración queda simplificada a `403` para denegaciones controladas del piloto; no se ha cerrado una política completa `403`/`404` por recurso visible/no visible.
 - La auditoría no persiste por el uso de `NoopAuditLogger` por defecto.
 - Los tests de límites arquitectónicos son estáticos y basados en imports directos; no sustituyen revisión humana de diseño ni detectan acoplamientos dinámicos.
-- La suite completa depende de PostgreSQL real y de una `DATABASE_URL` coherente; el `.env` local desalineado puede reproducir fallos de autenticación en tests de repository si no se sobrescribe la URL.
+- La suite completa depende de PostgreSQL real. Tras Task 12, el helper de tests de repository evita que un `DATABASE_URL` local desalineado tenga prioridad sobre `TEST_DATABASE_URL`, `POSTGRES_*` o la configuración Compose local conocida validada desde `.env.example`.
 
 **Riesgos residuales:**
 
 - Riesgo de evolución del modelo IAM: al introducir memberships, roles múltiples y grupos, el contrato y repository deberán cambiar sin romper aislamiento multi-tenant.
 - Riesgo de auditoría insuficiente hasta implementar persistencia real de `AuditEvent` y envío a observabilidad.
 - Riesgo de auth provisional: el endpoint no debe considerarse listo para uso real sin integración con autenticación/autorización verificadas.
-- Riesgo operativo de entorno: credenciales locales desalineadas pueden provocar falsos negativos si no se usa una `DATABASE_URL` PostgreSQL válida y enmascarada.
+- Riesgo operativo de entorno: si no existe PostgreSQL accesible mediante `TEST_DATABASE_URL`, variables `POSTGRES_*`, configuración Compose local conocida o un `DATABASE_URL` PostgreSQL válido, los tests de repository fallarán de forma explícita. Este riesgo se acepta porque los tests deben ejecutarse contra PostgreSQL real y no contra SQLite.
 - Riesgo de anti-enumeración pendiente: la fase no decide completamente cuándo ocultar recursos con `404` frente a denegar con `403`.
 
-**Qué queda para Task 12:** revisión final de `git status`, `git diff`, checks aplicables, security review, confirmación de ausencia de secretos y cierre QA/documental de la fase. Task 12 deberá decidir si reejecuta la suite completa o si acepta como suficiente la validación completa ya documentada en Task 10 más el diff exclusivamente documental de Task 11.
+**Cierre de fase:** Task 12 queda aprobada por QA. La fase `BACK-ARCH-HEX-001` queda lista para commit final/cierre de implementación, manteniendo documentados los riesgos residuales aceptados.
 
 ### Task 12 — QA final de fase
 
-Pendiente.
+Task 12 completada y aprobada por QA como cierre final de fase, sin implementar nueva funcionalidad productiva y sin modificar código productivo.
+
+- **Estado git inicial:** rama confirmada como `backend/BACK-ARCH-HEX-001-implantacion-hexagonal`; `git status --short` sin cambios pendientes al inicio; `git diff --stat` inicial sin salida. El historial reciente muestra como último commit `159406d BACK-ARCH-HEX-001 docs: consolidate implementation phase`.
+- **Checks ejecutados:** `make postgres-up`, `DATABASE_URL='postgresql+psycopg://guakamole_user:***@localhost:5432/guakamole_db' make backend-test`, `cd backend && uv run pytest tests/test_iam_users_repository.py` y `make backend-test` directo tras la corrección del helper de tests.
+- **Resultado de `make postgres-up`:** falla por entorno local porque Docker no está disponible en la distro WSL 2. No se corrige en esta task por estar fuera del alcance y por la restricción de no modificar Docker/Makefile/env.
+- **Resultado inicial de `backend-test`:** falla por autenticación PostgreSQL local (`password authentication failed for user "guakamole_user"`) en los tests de repository porque el helper priorizaba un `DATABASE_URL` local desalineado. Antes del fallo de pytest pasan Ruff, format y mypy strict; pytest alcanza `305 passed, 6 errors`, todos en `tests/test_iam_users_repository.py`. La URL queda documentada con contraseña enmascarada.
+- **Causa raíz y corrección aplicada en tests:** el helper de `backend/tests/test_iam_users_repository.py` priorizaba `DATABASE_URL` local, lo que hacía que `make backend-test` directo no fuese reproducible cuando esa variable apuntaba a un PostgreSQL real pero con credenciales desalineadas. La corrección prioriza `TEST_DATABASE_URL`, después `POSTGRES_*`, después `.env.example` validado para el Compose local conocido y solo finalmente `DATABASE_URL`; además mantiene rechazo de SQLite/dialectos no PostgreSQL y de placeholders.
+- **Resultado final de `backend-test`:** OK directo sin export manual. Ruff OK, format OK (`82 files already formatted`), mypy strict OK (`81 source files`) y pytest OK con `314 passed`.
+- **Security review final:** QA confirma que solo quedan modificados los 2 archivos esperados de Task 12 (`backend/tests/test_iam_users_repository.py` y este documento), sin cambios en `frontend/`, migraciones, Docker, Makefile, `.env`, `.env.example` ni código productivo. El helper mantiene PostgreSQL real, rechazo de SQLite/dialectos no PostgreSQL y `hide_parameters=True`. No se añaden secretos reales. El endpoint piloto mantiene autenticación provisional y no debe considerarse listo para producción real; el `organization_id` de aislamiento tenant procede de path y actor resuelto, no de query/body; las respuestas del piloto no exponen `password_hash`; la auditoría mínima evita emails, nombres, texto crudo de búsqueda, tokens, secretos y payloads sensibles; la implementación por defecto de auditoría sigue siendo `NoopAuditLogger`, sin persistencia real.
+- **Tests arquitectónicos:** la última validación específica documentada en Task 10 dejó `cd backend && uv run pytest tests/architecture` en verde con `8 passed`. El `make backend-test` final de Task 12 ejecuta también la suite completa y queda en verde.
+- **Riesgos residuales aceptados:** autenticación real pendiente, auditoría persistente pendiente, modelo IAM simplificado pendiente de evolucionar a memberships/roles múltiples/grupos y estrategia anti-enumeración pendiente.
+- **Cierre QA:** QA aprueba Task 12 y confirma T12.1-T12.5 completadas. La fase `BACK-ARCH-HEX-001` queda lista para commit final/cierre de implementación con `make backend-test` directo en verde (`314 passed`).
 
 ## Riesgos o deuda técnica
 
-- Tasks 0 a 11 están implementadas/documentadas. Task 10 añade tests de límites arquitectónicos y queda revalidada con `cd backend && uv run pytest tests/architecture` en verde y `make backend-test` en verde contra PostgreSQL real mediante `DATABASE_URL` explícita enmascarada. Task 11 consolida estructura, contrato, seguridad, tests, limitaciones y riesgos residuales en este documento. Queda pendiente Task 12 para QA final y cierre de fase.
+- Tasks 0 a 12 están implementadas/documentadas. Task 10 añade tests de límites arquitectónicos y queda revalidada con `cd backend && uv run pytest tests/architecture` en verde y `make backend-test` en verde contra PostgreSQL real mediante `DATABASE_URL` explícita enmascarada. Task 11 consolida estructura, contrato, seguridad, tests, limitaciones y riesgos residuales en este documento. Task 12 queda revalidada con `make backend-test` directo en verde tras corregir el helper de tests de repository para no priorizar un `DATABASE_URL` local desalineado.
 - Riesgo residual aceptado de Task 9: la auditoría mínima queda integrada mediante el puerto `AuditLogger` y `NoopAuditLogger` por defecto, pero todavía no existe infraestructura audit real/persistente. La persistencia de eventos y su envío a observabilidad deberán abordarse en una fase posterior.
 - La policy IAM y el `TenantContext` serán puntos críticos: un error puede afectar al aislamiento multiempresa.
 - Los tests de límites arquitectónicos de Task 10 son estáticos por AST y protegen imports directos; deberán mantenerse si se reorganiza el paquete IAM/users para no bloquear refactors legítimos.
 - El repository de Task 5 usa el IAM simplificado actual (`User.id_organization`, roles/status directos en usuario). Cuando existan `OrganizationMembership`, memberships/roles múltiples y scopes por grupo, deberá evolucionar manteniendo el filtro obligatorio por tenant y la ausencia de fugas cross-tenant.
-- El `.env` local usado sin sobrescribir `DATABASE_URL` está desalineado con el PostgreSQL real del contenedor local; por ello `cd backend && uv run pytest tests/test_iam_users_repository.py` falla en ese entorno. No bloquea Task 5 porque la validación aprobada por QA se ejecutó contra PostgreSQL real mediante `DATABASE_URL` explícita y enmascarada.
+- El riesgo operativo de entorno queda reducido tras Task 12: `make backend-test` directo ya no depende de un `DATABASE_URL` local desalineado si existen `TEST_DATABASE_URL`, variables `POSTGRES_*` coherentes o la configuración Compose local conocida validada desde `.env.example`. Se mantiene como deuda aceptada que los tests de repository requieren PostgreSQL real y fallarán explícitamente ante dialectos no PostgreSQL, placeholders o ausencia de configuración válida.
 
 ## Relación con el backend
 

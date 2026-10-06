@@ -17,6 +17,7 @@ from app.domain.iam.users.schemas import UserListQuery
 
 SAFE_HASH = "argon2id" + "-repository-test"
 DATABASE_URL_ENV_VAR = "DATABASE_URL"
+TEST_DATABASE_URL_ENV_VAR = "TEST_DATABASE_URL"
 POSTGRES_ENV_VARS = (
     "POSTGRES_HOST",
     "POSTGRES_PORT",
@@ -30,6 +31,7 @@ POSTGRESQL_DATABASE_URL_PREFIXES = (
     "postgresql+psycopg2://",
     "postgres://",
 )
+PLACEHOLDER_MARKERS = ("change-me", "example", "placeholder")
 TEST_ORGANIZATION_IDS = (10_001, 10_002)
 TEST_USER_IDS = (20_001, 20_002, 20_003, 20_004)
 TEST_STATUS_ID = 30_001
@@ -84,25 +86,74 @@ def ensure_postgresql_database_url(database_url: str) -> str:
     )
 
 
-def get_test_database_url() -> str:
-    database_url = os.environ.get(DATABASE_URL_ENV_VAR)
-    if database_url:
-        return ensure_postgresql_database_url(database_url)
+def ensure_not_placeholder_database_url(database_url: str) -> str:
+    normalized_url = database_url.lower()
+    if any(marker in normalized_url for marker in PLACEHOLDER_MARKERS):
+        raise RuntimeError(
+            "Los tests de repository IAM/users no aceptan URLs de base de datos "
+            "con valores placeholder. Define TEST_DATABASE_URL o variables "
+            "POSTGRES_* coherentes para PostgreSQL real."
+        )
 
-    repository_root = Path(__file__).resolve().parents[2]
-    environment = read_environment_file(repository_root / ".env")
-    database_url = environment.get(DATABASE_URL_ENV_VAR)
+    return database_url
+
+
+def ensure_valid_test_database_url(database_url: str) -> str:
+    return ensure_not_placeholder_database_url(
+        ensure_postgresql_database_url(database_url)
+    )
+
+
+def get_repository_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def get_database_url_from_environment(
+    environment: dict[str, str],
+) -> str | None:
+    database_url = environment.get(TEST_DATABASE_URL_ENV_VAR)
     if database_url:
-        return ensure_postgresql_database_url(database_url)
+        return ensure_valid_test_database_url(database_url)
 
     database_url = build_postgresql_url_from_environment(environment)
     if database_url:
-        return ensure_postgresql_database_url(database_url)
+        return ensure_valid_test_database_url(database_url)
+
+    return None
+
+
+def get_test_database_url() -> str:
+    database_url = os.environ.get(TEST_DATABASE_URL_ENV_VAR)
+    if database_url:
+        return ensure_valid_test_database_url(database_url)
+
+    database_url = build_postgresql_url_from_environment(dict(os.environ))
+    if database_url:
+        return ensure_valid_test_database_url(database_url)
+
+    repository_root = get_repository_root()
+    example_environment = read_environment_file(repository_root / ".env.example")
+    database_url = example_environment.get(DATABASE_URL_ENV_VAR)
+    if database_url:
+        return ensure_valid_test_database_url(database_url)
+
+    database_url = get_database_url_from_environment(example_environment)
+    if database_url:
+        return database_url
+
+    environment = read_environment_file(repository_root / ".env")
+    database_url = get_database_url_from_environment(environment)
+    if database_url:
+        return database_url
+
+    database_url = os.environ.get(DATABASE_URL_ENV_VAR)
+    if database_url:
+        return ensure_valid_test_database_url(database_url)
 
     raise RuntimeError(
-        f"La variable {DATABASE_URL_ENV_VAR} debe estar definida para ejecutar "
-        "los tests de repository contra PostgreSQL real. No se usa .env.example "
-        "porque puede contener valores placeholder o dialectos no válidos."
+        f"La variable {TEST_DATABASE_URL_ENV_VAR} o una configuración POSTGRES_* "
+        "coherente debe estar definida para ejecutar los tests de repository "
+        "contra PostgreSQL real."
     )
 
 
@@ -146,7 +197,46 @@ def cleanup_repository_test_data(session: Session) -> None:
 
 def test_database_url_helper_rejects_sqlite() -> None:
     with pytest.raises(RuntimeError, match="PostgreSQL real"):
-        ensure_postgresql_database_url("sqlite:///repository-test.db")
+        ensure_valid_test_database_url("sqlite:///repository-test.db")
+
+
+def test_database_url_helper_prioritizes_test_database_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected_url = "postgresql+psycopg://test_user:test_pass@localhost:5432/test_db"
+    monkeypatch.setenv(TEST_DATABASE_URL_ENV_VAR, expected_url)
+    monkeypatch.setenv(
+        DATABASE_URL_ENV_VAR,
+        "postgresql+psycopg://guakamole_user:wrong@localhost:5432/guakamole_db",
+    )
+
+    assert get_test_database_url() == expected_url
+
+
+def test_database_url_helper_uses_postgres_environment_before_database_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(TEST_DATABASE_URL_ENV_VAR, raising=False)
+    monkeypatch.setenv(
+        DATABASE_URL_ENV_VAR,
+        "postgresql+psycopg://guakamole_user:wrong@localhost:5432/guakamole_db",
+    )
+    monkeypatch.setenv("POSTGRES_HOST", "localhost")
+    monkeypatch.setenv("POSTGRES_PORT", "5432")
+    monkeypatch.setenv("POSTGRES_DB", "guakamole_db")
+    monkeypatch.setenv("POSTGRES_USER", "guakamole_user")
+    monkeypatch.setenv("POSTGRES_PASSWORD", "postgre")
+
+    assert get_test_database_url() == (
+        "postgresql+psycopg://guakamole_user:postgre@localhost:5432/guakamole_db"
+    )
+
+
+def test_database_url_helper_rejects_placeholders() -> None:
+    with pytest.raises(RuntimeError, match="placeholder"):
+        ensure_valid_test_database_url(
+            "postgresql+psycopg://guakamole_user:change-me@localhost:5432/db"
+        )
 
 
 def seed_catalogs(session: Session) -> None:
