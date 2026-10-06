@@ -7,7 +7,7 @@ interface MainProps {
 
 function Main({ children }: MainProps) {
   return (
-    <Box as="main" bg="gray.800" flex="1" px={4} py={10}>
+    <Box as="main" background="#0b1018" flex="1">
       {children}
     </Box>
   );
