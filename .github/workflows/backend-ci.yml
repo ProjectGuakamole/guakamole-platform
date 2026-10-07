@@ -103,6 +103,9 @@ jobs:
       - name: Levantar PostgreSQL
         run: make postgres-up ENV_FILE=.env.example
 
+      - name: Esperar readiness de PostgreSQL
+        run: docker compose --env-file .env.example exec -T postgres sh -c 'until pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do sleep 1; done'
+
       - name: Aplicar migraciones
         run: make db-upgrade ENV_FILE=.env.example
 
@@ -168,6 +171,9 @@ jobs:
 
       - name: Levantar PostgreSQL
         run: make postgres-up ENV_FILE=.env.example
+
+      - name: Esperar readiness de PostgreSQL
+        run: docker compose --env-file .env.example exec -T postgres sh -c 'until pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do sleep 1; done'
 
       - name: Aplicar migraciones
         run: make db-upgrade ENV_FILE=.env.example
