@@ -48,4 +48,40 @@ Estructura obligatoria del documento:
 
 La documentacion debe explicar que se ha hecho en el commit o PR, por que se ha hecho y que impacto tiene sobre el backend.
 
+Requisitos adicionales de claridad documental:
+
+- Cuando documentes una fase, task o subtask backend, añade ejemplos de output esperados cuando aporten claridad.
+- Usa bloques JSON/HTTP/texto para mostrar responses, payloads, comandos o salidas esperadas.
+- Añade diagramas Mermaid cuando ayuden a entender entidades, flujos, dependencias o secuencias.
+- El diagrama debe corresponder a la task/subtask documentada, no ser decorativo.
+- Para flujos HTTP o autenticación, prioriza `sequenceDiagram`.
+- Para entidades/modelo de datos, prioriza `erDiagram` o `classDiagram`.
+- Para planificación de tareas, prioriza `flowchart TD`.
+- Si una task/subtask no necesita gráfico, indícalo brevemente en vez de forzarlo.
+
+Ejemplo mínimo esperado en una task:
+
+```markdown
+### Task X — Nombre
+
+Objetivo de la task.
+
+#### Output esperado
+
+```json
+{
+  "status": "ok"
+}
+```
+
+#### Flujo
+
+```mermaid
+sequenceDiagram
+    Frontend->>Backend: POST /api/v1/...
+    Backend-->>Frontend: 200 OK
+```
+```
+
+
 Si no existe informacion suficiente para completar alguna seccion, indicalo de forma explicita y concreta, sin inventar resultados.
