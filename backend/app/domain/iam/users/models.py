@@ -5,6 +5,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKeyConstraint,
+    Identity,
     Index,
     PrimaryKeyConstraint,
     String,
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
+from app.domain.auth.public_ids import PublicIdPrefix, generate_public_id
 from app.domain.iam.constants import IAM_SCHEMA
 
 
@@ -73,6 +75,7 @@ class User(TimestampMixin, Base):
             onupdate="CASCADE",
         ),
         UniqueConstraint("email", name="uq_tbl_users_email"),
+        UniqueConstraint("public_id", name="uq_tbl_users_public_id"),
         Index("ix_tbl_users_id_organization", "id_organization"),
         Index("ix_tbl_users_id_platform_role", "id_platform_role"),
         Index("ix_tbl_users_id_country", "id_country"),
@@ -83,7 +86,12 @@ class User(TimestampMixin, Base):
         {"schema": IAM_SCHEMA},
     )
 
-    id_user: Mapped[int] = mapped_column(BigInteger)
+    id_user: Mapped[int] = mapped_column(BigInteger, Identity())
+    public_id: Mapped[str] = mapped_column(
+        String(40),
+        nullable=False,
+        default=lambda: generate_public_id(PublicIdPrefix.USER),
+    )
     id_organization: Mapped[int] = mapped_column(BigInteger, nullable=False)
     id_platform_role: Mapped[int] = mapped_column(BigInteger, nullable=False)
     id_country: Mapped[int] = mapped_column(BigInteger, nullable=False)

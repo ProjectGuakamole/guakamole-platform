@@ -25,6 +25,10 @@ class AuthSettings(BaseSettings):
     cors_allow_credentials: bool = True
     cors_allow_authorization_header: bool = True
     auth_enable_password_bearer_token: bool = True
+    default_registered_organization_status: str = "ACTIVE"
+    default_registered_user_status: str = "ACTIVE"
+    default_platform_role: str = "USER"
+    default_organization_role: str = "COMPANY_ADMIN"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

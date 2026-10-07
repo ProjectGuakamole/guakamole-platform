@@ -27,6 +27,17 @@ def auth_settings() -> AuthSettings:
 
 
 @pytest.mark.test_unit
+def test_auth_settings_requires_jwt_secret_without_input(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+
+    with pytest.raises(ValidationError):
+        AuthSettings.model_validate({})
+
+
+@pytest.mark.test_unit
 def test_auth_settings_accepts_legacy_jwt_secret_alias() -> None:
     settings = AuthSettings.model_validate(
         {"JWT_SECRET": "legacy-test-secret-not-for-production"},
