@@ -24,6 +24,8 @@ from app.domain.iam.users.services import (
     ListOrganizationUsersService,
 )
 
+pytestmark = pytest.mark.security
+
 
 class FakeAuditLogger:
     def __init__(self) -> None:

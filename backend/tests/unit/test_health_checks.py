@@ -3,6 +3,8 @@ import pytest
 from app.core.health import checks
 from app.core.health.schemas import DependencyStatus, ReadinessStatus
 
+pytestmark = pytest.mark.test_unit
+
 
 def _successful_probe() -> None:
     return None

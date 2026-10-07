@@ -1,8 +1,12 @@
 import re
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.integration
+
 MIGRATION_PATH = (
-    Path(__file__).resolve().parents[1]
+    Path(__file__).resolve().parents[2]
     / "alembic"
     / "versions"
     / "0012_seed_initial_iam_catalogs.py"

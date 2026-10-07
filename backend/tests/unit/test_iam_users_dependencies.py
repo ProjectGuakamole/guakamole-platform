@@ -19,6 +19,8 @@ from app.domain.iam.users.repositories import SqlAlchemyOrganizationUsersReposit
 from app.domain.iam.users.schemas import UserListQuery
 from app.domain.iam.users.services import ListOrganizationUsersService
 
+pytestmark = pytest.mark.test_unit
+
 
 def test_user_list_query_dependency_creates_defaults() -> None:
     query = get_user_list_query()
@@ -116,7 +118,7 @@ def test_tenant_context_dependency_does_not_accept_query_or_body_org_id() -> Non
 
 
 def test_fastapi_imports_remain_limited_to_dependencies_module() -> None:
-    users_module = Path(__file__).resolve().parents[1] / "app/domain/iam/users"
+    users_module = Path(__file__).resolve().parents[2] / "app/domain/iam/users"
     modules_without_fastapi = ("services.py", "policies.py", "repositories.py")
 
     for module_name in modules_without_fastapi:
@@ -139,7 +141,7 @@ def test_fastapi_imports_remain_limited_to_dependencies_module() -> None:
 
 def test_dependencies_do_not_contain_secret_literals() -> None:
     dependencies_path = (
-        Path(__file__).resolve().parents[1] / "app/domain/iam/users/dependencies.py"
+        Path(__file__).resolve().parents[2] / "app/domain/iam/users/dependencies.py"
     )
     source = dependencies_path.read_text(encoding="utf-8").lower()
 

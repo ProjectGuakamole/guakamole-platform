@@ -15,6 +15,8 @@ from app.domain.iam.users.models import User
 from app.domain.iam.users.repositories import SqlAlchemyOrganizationUsersRepository
 from app.domain.iam.users.schemas import UserListQuery
 
+pytestmark = [pytest.mark.integration, pytest.mark.db]
+
 SAFE_HASH = "argon2id" + "-repository-test"
 DATABASE_URL_ENV_VAR = "DATABASE_URL"
 TEST_DATABASE_URL_ENV_VAR = "TEST_DATABASE_URL"
@@ -105,7 +107,7 @@ def ensure_valid_test_database_url(database_url: str) -> str:
 
 
 def get_repository_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    return Path(__file__).resolve().parents[3]
 
 
 def get_database_url_from_environment(

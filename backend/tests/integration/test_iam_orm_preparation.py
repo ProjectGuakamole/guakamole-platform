@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from sqlalchemy import Integer, inspect
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.schema import Column, Table
@@ -8,6 +9,8 @@ from sqlalchemy.sql.sqltypes import DateTime
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
 from app.domain.iam.constants import IAM_SCHEMA
+
+pytestmark = pytest.mark.integration
 
 
 class _TimestampModel(TimestampMixin, Base):
@@ -136,14 +139,19 @@ def test_makefile_exposes_alembic_database_targets_with_env_file() -> None:
 
 def test_makefile_groups_backend_quality_targets() -> None:
     makefile_content = Path("../Makefile").read_text(encoding="utf-8")
+    expected_targets = {
+        "backend-quality: backend-lint backend-format-check backend-mypy",
+        (
+            "backend-test: backend-quality backend-test-unit "
+            "backend-test-db backend-test-security"
+        ),
+        'cd $(BACKEND_DIR) && uv run pytest -m "test_unit or architecture"',
+        'cd $(BACKEND_DIR) && uv run pytest -m "db or integration"',
+        'cd $(BACKEND_DIR) && uv run pytest -m "security and not db"',
+    }
 
-    expected_dependency_chain = (
-        "backend-test: backend-lint backend-format-check backend-mypy backend-pytest"
-    )
-
-    assert expected_dependency_chain in makefile_content
-    assert "backend-pytest:" in makefile_content
-    assert "cd $(BACKEND_DIR) && uv run pytest" in makefile_content
+    for expected_target in expected_targets:
+        assert expected_target in makefile_content
 
 
 def test_makefile_keeps_hidden_install_aliases() -> None:

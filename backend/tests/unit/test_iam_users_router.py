@@ -18,6 +18,8 @@ from app.domain.iam.users.schemas import (
 )
 from app.main import app
 
+pytestmark = pytest.mark.test_unit
+
 
 class FakeListOrganizationUsersService:
     def __init__(self, *, allowed: bool = True) -> None:

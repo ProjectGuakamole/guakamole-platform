@@ -20,6 +20,8 @@ from app.domain.iam.organizations.schemas import (
     OrganizationUpdate,
 )
 
+pytestmark = pytest.mark.test_unit
+
 EXPECTED_COLUMNS = {
     "id_organization",
     "id_country",

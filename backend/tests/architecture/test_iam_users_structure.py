@@ -4,7 +4,10 @@ from collections.abc import Iterator
 from importlib import import_module
 from types import ModuleType
 
+import pytest
 from fastapi import APIRouter
+
+pytestmark = pytest.mark.architecture
 
 IAM_USERS_MODULES: tuple[str, ...] = (
     "app.domain.iam.users.routers",

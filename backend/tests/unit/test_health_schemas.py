@@ -1,3 +1,5 @@
+import pytest
+
 from app.core.health.schemas import (
     DependencyStatus,
     HealthResponse,
@@ -6,6 +8,8 @@ from app.core.health.schemas import (
     ReadinessResponse,
     ReadinessStatus,
 )
+
+pytestmark = pytest.mark.test_unit
 
 
 def test_health_response_serializes_status_ok() -> None:

@@ -9,34 +9,19 @@ on:
       - "chore/**"
       - "docs/**"
       - "spike/**"
+      - "backend/**"
+      - "refactor/**"
   pull_request:
     branches:
       - main
 
 jobs:
-  backend-quality:
-    name: Ruff, mypy y pytest
+  quality:
+    name: Backend Quality
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: guakamole_db
-          POSTGRES_USER: guakamole_user
-          POSTGRES_PASSWORD: guakamole_test_password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U guakamole_user -d guakamole_db"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     defaults:
       run:
         working-directory: backend
-    env:
-      DATABASE_URL: postgresql+psycopg://guakamole_user:guakamole_test_password@localhost:5432/guakamole_db
-      TEST_DATABASE_URL: postgresql+psycopg://guakamole_user:guakamole_test_password@localhost:5432/guakamole_db
 
     steps:
       - name: Checkout
@@ -56,9 +41,6 @@ jobs:
       - name: Instalar dependencias
         run: uv sync --all-groups
 
-      - name: Aplicar migraciones Alembic
-        run: uv run alembic upgrade head
-
       - name: Ruff lint
         run: uv run ruff check .
 
@@ -68,5 +50,137 @@ jobs:
       - name: Mypy strict
         run: uv run mypy --strict .
 
-      - name: Pytest
-        run: uv run pytest
+  test-unit:
+    name: Backend Test Unit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: uv sync --all-groups
+
+      - name: Pytest unitarios y arquitectura
+        run: uv run pytest -m "test_unit or architecture"
+
+  db:
+    name: Backend DB Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias backend
+        run: cd backend && uv sync --all-groups
+
+      - name: Levantar PostgreSQL
+        run: make postgres-up ENV_FILE=.env.example
+
+      - name: Esperar readiness de PostgreSQL
+        run: docker compose --env-file .env.example exec -T postgres sh -c 'until pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do sleep 1; done'
+
+      - name: Aplicar migraciones
+        run: make db-upgrade ENV_FILE=.env.example
+
+      - name: Pytest DB e integración
+        run: cd backend && uv run pytest -m "db or integration"
+
+      - name: Parar PostgreSQL
+        if: always()
+        run: make postgres-down ENV_FILE=.env.example
+
+  security:
+    name: Backend Security Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: uv sync --all-groups
+
+      - name: Pytest seguridad
+        run: uv run pytest -m "security and not db"
+
+  compose:
+    name: Backend Docker Compose
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias backend
+        run: cd backend && uv sync --all-groups
+
+      - name: Validar Docker Compose
+        run: make docker-config ENV_FILE=.env.example
+
+      - name: Levantar PostgreSQL
+        run: make postgres-up ENV_FILE=.env.example
+
+      - name: Esperar readiness de PostgreSQL
+        run: docker compose --env-file .env.example exec -T postgres sh -c 'until pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do sleep 1; done'
+
+      - name: Aplicar migraciones
+        run: make db-upgrade ENV_FILE=.env.example
+
+      - name: Consultar migración actual
+        run: make db-current ENV_FILE=.env.example
+
+      - name: Parar PostgreSQL
+        if: always()
+        run: make postgres-down ENV_FILE=.env.example

@@ -1,4 +1,4 @@
-.PHONY: help install setup backend-install backend-lint backend-format-check backend-mypy backend-pytest backend-test backend-check backend-run backend-seed backend-seed-clear docker-config docker-up docker-down docker-ps docker-logs postgres-up postgres-logs postgres-down psql db-upgrade db-current db-history db-downgrade health-check ready-check
+.PHONY: help install setup backend-install backend-lint backend-format-check backend-mypy backend-quality backend-pytest backend-test-unit backend-test-db backend-test-security backend-test backend-check backend-run backend-seed backend-seed-clear docker-config docker-up docker-down docker-ps docker-logs postgres-up postgres-logs postgres-down psql db-upgrade db-current db-history db-downgrade health-check ready-check
 
 BACKEND_DIR := backend
 ENV_FILE ?= .env.example
@@ -13,7 +13,11 @@ help: ## Muestra los comandos disponibles.
 	@printf '  REVISION ?= -1\n'
 	@printf '  API_BASE_URL ?= http://localhost:8000\n'
 	@printf '  make install               Instala/prepara dependencias del backend.\n'
-	@printf '  make backend-test          Ejecuta lint, formato, mypy y pytest en backend.\n'
+	@printf '  make backend-quality       Ejecuta lint, formato y mypy en backend.\n'
+	@printf '  make backend-test-unit     Ejecuta tests unitarios y de arquitectura en backend.\n'
+	@printf '  make backend-test-db       Ejecuta tests de base de datos e integración en backend. Requiere PostgreSQL disponible y migrado.\n'
+	@printf '  make backend-test-security Ejecuta tests de seguridad sin dependencia de base de datos en backend.\n'
+	@printf '  make backend-test          Ejecuta quality y grupos de tests backend alineados con CI.\n'
 	@printf '  make backend-check         Consulta health y ready del backend levantado.\n'
 	@printf '  make backend-run           Arranca FastAPI local con recarga.\n'
 	@printf '  make backend-seed          DESTRUCTIVO: trunca sch_iam gestionado e inserta seed demo con $$(ENV_FILE).\n'
@@ -44,10 +48,21 @@ backend-format-check: ## Comprueba formato del backend.
 backend-mypy: ## Ejecuta mypy strict del backend.
 	cd $(BACKEND_DIR) && uv run mypy --strict .
 
+backend-quality: backend-lint backend-format-check backend-mypy ## Ejecuta lint, formato y mypy del backend.
+
 backend-pytest: ## Ejecuta pytest del backend.
 	cd $(BACKEND_DIR) && uv run pytest
 
-backend-test: backend-lint backend-format-check backend-mypy backend-pytest ## Ejecuta todas las comprobaciones de calidad backend.
+backend-test-unit: ## Ejecuta tests unitarios y de arquitectura del backend.
+	cd $(BACKEND_DIR) && uv run pytest -m "test_unit or architecture"
+
+backend-test-db: ## Ejecuta tests de base de datos e integración del backend.
+	cd $(BACKEND_DIR) && uv run pytest -m "db or integration"
+
+backend-test-security: ## Ejecuta tests de seguridad sin dependencia de base de datos del backend.
+	cd $(BACKEND_DIR) && uv run pytest -m "security and not db"
+
+backend-test: backend-quality backend-test-unit backend-test-db backend-test-security ## Ejecuta quality y grupos de tests backend alineados con CI.
 
 backend-check: health-check ready-check ## Comprueba el servicio backend levantado.
 

@@ -17,6 +17,8 @@ from app.domain.iam.users.schemas import (
 )
 from app.domain.iam.users.services import ListOrganizationUsersService
 
+pytestmark = pytest.mark.test_unit
+
 
 class FakePolicy:
     def __init__(self, *, allowed: bool, calls: list[str] | None = None) -> None:

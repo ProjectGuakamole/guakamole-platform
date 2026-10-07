@@ -10,6 +10,8 @@ from app.domain.iam.users.schemas import (
     UserListQuery,
 )
 
+pytestmark = pytest.mark.test_unit
+
 
 def valid_organization_user_payload() -> dict[str, object]:
     now = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
