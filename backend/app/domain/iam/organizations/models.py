@@ -1,6 +1,7 @@
 from sqlalchemy import (
     BigInteger,
     ForeignKeyConstraint,
+    Identity,
     Index,
     PrimaryKeyConstraint,
     String,
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
+from app.domain.auth.public_ids import PublicIdPrefix, generate_public_id
 from app.domain.iam.constants import IAM_SCHEMA
 
 
@@ -54,6 +56,7 @@ class Organization(TimestampMixin, Base):
             name="uq_tbl_organization_org_registered_name",
         ),
         UniqueConstraint("org_tax", name="uq_tbl_organization_org_tax"),
+        UniqueConstraint("public_id", name="uq_tbl_organization_public_id"),
         Index("ix_tbl_organization_id_country", "id_country"),
         Index("ix_tbl_organization_id_state", "id_state"),
         Index("ix_tbl_organization_id_city", "id_city"),
@@ -61,7 +64,12 @@ class Organization(TimestampMixin, Base):
         {"schema": IAM_SCHEMA},
     )
 
-    id_organization: Mapped[int] = mapped_column(BigInteger)
+    id_organization: Mapped[int] = mapped_column(BigInteger, Identity())
+    public_id: Mapped[str] = mapped_column(
+        String(40),
+        nullable=False,
+        default=lambda: generate_public_id(PublicIdPrefix.ORGANIZATION),
+    )
     id_country: Mapped[int] = mapped_column(BigInteger, nullable=False)
     id_state: Mapped[int] = mapped_column(BigInteger, nullable=False)
     id_city: Mapped[int] = mapped_column(BigInteger, nullable=False)

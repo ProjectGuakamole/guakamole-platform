@@ -20,6 +20,7 @@ pytestmark = pytest.mark.test_unit
 
 EXPECTED_COLUMNS = {
     "id_user",
+    "public_id",
     "id_organization",
     "id_platform_role",
     "id_country",
@@ -90,6 +91,7 @@ def test_user_model_has_exact_expected_columns() -> None:
     ("column_name", "expected_type", "nullable", "length"),
     [
         ("id_user", BigInteger, False, None),
+        ("public_id", String, False, 40),
         ("id_organization", BigInteger, False, None),
         ("id_platform_role", BigInteger, False, None),
         ("id_country", BigInteger, False, None),
@@ -164,7 +166,7 @@ def test_user_unique_email_constraint_has_explicit_name() -> None:
         if isinstance(constraint, UniqueConstraint)
     }
 
-    assert unique_names == {"uq_tbl_users_email"}
+    assert unique_names == {"uq_tbl_users_email", "uq_tbl_users_public_id"}
 
 
 def test_user_has_foreign_key_indexes() -> None:

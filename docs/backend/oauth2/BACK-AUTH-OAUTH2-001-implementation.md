@@ -182,3 +182,98 @@ QA aprobado según las validaciones indicadas.
 ## 11. Impacto backend
 
 Este cambio establece las bases internas de autenticación del backend. Reduce acoplamiento futuro al separar configuración, hashing, emisión/verificación de tokens, cookies e identificadores públicos antes de exponer flujos HTTP. También prepara el terreno para aplicar seguridad server-side sin colocar lógica crítica en frontend.
+
+---
+
+# BACK-AUTH-OAUTH2-003 — Registro inicial de organización
+
+**Estado:** QA aprobado  
+**Ámbito:** `backend/`  
+**Endpoint:** `POST /api/v1/organizations/register`
+
+## 1. Resumen de cambios
+
+Se ha incorporado el registro inicial de organización y usuario administrador mediante un endpoint HTTP específico. El flujo crea la organización y el usuario inicial, pero no realiza login ni entrega token de acceso.
+
+El objetivo es habilitar el alta inicial desde backend manteniendo una frontera clara entre registro, autenticación y sesiones.
+
+## 2. Contrato HTTP
+
+```http
+POST /api/v1/organizations/register
+Content-Type: application/json
+```
+
+Request esperado:
+
+```json
+{
+  "organization_name": "ACME SOC",
+  "admin_email": "admin@acme.example",
+  "admin_password": "ChangeMe123!",
+  "admin_display_name": "Admin ACME"
+}
+```
+
+Response esperado:
+
+```json
+{
+  "organization": {
+    "public_id": "org_...",
+    "name": "ACME SOC"
+  },
+  "user": {
+    "public_id": "usr_...",
+    "email": "admin@acme.example",
+    "display_name": "Admin ACME"
+  }
+}
+```
+
+## 3. Decisiones de seguridad
+
+- No se devuelve token en el registro.
+- No se crea login ni cookie de sesión en esta task.
+- No se exponen IDs internos de base de datos.
+- Se usan public IDs `org_...` y `usr_...`.
+- La contraseña se hashea mediante Auth Core.
+- `jwt_secret_key` sigue siendo obligatorio y sin fallback.
+- Los errores por duplicados son genéricos para reducir enumeración.
+
+## 4. Arquitectura modular
+
+La implementación se estructura en piezas separadas:
+
+- `schemas`: contrato de entrada/salida y validación.
+- `router`: exposición de `POST /api/v1/organizations/register`.
+- `service`: caso de uso de registro, testable sin FastAPI.
+- `repository`: encapsulación de SQLAlchemy.
+- `exceptions`: errores propios del flujo traducibles a HTTP.
+
+Esta división mantiene el endpoint fino, reduce acoplamiento y facilita pruebas unitarias de la lógica de registro.
+
+## 5. Migración
+
+- `public_id` único y no nulo para organización y usuario.
+- Secuencias de base de datos para IDs internos con rango alto reservado `1000000000`.
+- Se evita el uso de `MAX(id)+1` para no introducir condiciones de carrera ni lógica frágil de asignación de identificadores.
+
+Nota de validación: la base de datos local del entorno quedó contaminada con una revisión antigua `0014_add_iam_registration_id_sequences`. La validación de migración debe repetirse en una base de datos limpia o en CI.
+
+## 6. Validaciones ejecutadas
+
+- `make backend-quality` ✅
+- `make backend-test-unit` ✅ (`313 passed, 56 deselected`)
+- `make backend-test-db` ✅ tras levantar PostgreSQL (`34 passed`), según ejecución previa del implementer.
+- QA final ✅
+
+## 7. Riesgos pendientes
+
+- Repetir validación de migración en base de datos limpia por contaminación local de Alembic.
+- Rate limiting pendiente fuera del alcance de esta task.
+- El registro no implementa login, cookie ni emisión de tokens.
+
+## 8. Impacto backend
+
+El backend gana el primer flujo de alta de organización y usuario administrador dentro del módulo OAuth2/Auth. El diseño mantiene la separación entre registro y autenticación, reutiliza Auth Core para hashing y preserva una superficie de respuesta segura mediante public IDs.

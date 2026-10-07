@@ -24,6 +24,7 @@ pytestmark = pytest.mark.test_unit
 
 EXPECTED_COLUMNS = {
     "id_organization",
+    "public_id",
     "id_country",
     "id_state",
     "id_city",
@@ -65,6 +66,7 @@ def test_organization_model_has_exact_expected_columns() -> None:
     ("column_name", "expected_type", "nullable", "length"),
     [
         ("id_organization", BigInteger, False, None),
+        ("public_id", String, False, 40),
         ("id_country", BigInteger, False, None),
         ("id_state", BigInteger, False, None),
         ("id_city", BigInteger, False, None),
@@ -137,6 +139,7 @@ def test_organization_unique_constraints_have_explicit_names() -> None:
         "uq_tbl_organization_slug",
         "uq_tbl_organization_org_registered_name",
         "uq_tbl_organization_org_tax",
+        "uq_tbl_organization_public_id",
     }
 
 
