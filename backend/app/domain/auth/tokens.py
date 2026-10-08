@@ -16,7 +16,7 @@ ACCESS_CLAIM_VALUE = "access"
 class TokenIssuer(Protocol):
     """Puerto para emisión de access tokens."""
 
-    def issue_access_token(self, subject: str) -> str:
+    def issue_access_token(self, subject: str, organization: str | None = None) -> str:
         """Emite un access token para el sujeto autenticado."""
 
 
@@ -43,7 +43,7 @@ class JwtAccessTokenService:
     def __init__(self, settings: AuthSettings) -> None:
         self._settings = settings
 
-    def issue_access_token(self, subject: str) -> str:
+    def issue_access_token(self, subject: str, organization: str | None = None) -> str:
         issued_at = datetime.now(UTC)
         expires_at = issued_at + timedelta(
             minutes=self._settings.access_token_expire_minutes,
@@ -55,6 +55,8 @@ class JwtAccessTokenService:
             "iat": issued_at,
             "exp": expires_at,
         }
+        if organization is not None:
+            payload["org"] = organization
         return jwt.encode(
             payload,
             self._settings.jwt_secret_key,

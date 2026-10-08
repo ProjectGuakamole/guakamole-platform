@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.domain.auth.config import AuthSettings
+from app.domain.auth.dependencies import build_auth_settings
 from app.domain.auth.password_hasher import PwdlibPasswordHasher
 from app.domain.iam.organizations.registration_exceptions import (
     DuplicateRegistrationError,
@@ -20,13 +21,6 @@ from app.domain.iam.organizations.registration_services import RegistrationServi
 from app.domain.iam.users.dependencies import get_db_session
 
 router = APIRouter()
-
-
-def build_auth_settings() -> AuthSettings:
-    """Carga settings de auth mediante Pydantic Settings sin fallback inseguro."""
-
-    # Pydantic Settings resuelve el secreto obligatorio desde las fuentes configuradas.
-    return AuthSettings()  # type: ignore[call-arg]
 
 
 def get_registration_service(

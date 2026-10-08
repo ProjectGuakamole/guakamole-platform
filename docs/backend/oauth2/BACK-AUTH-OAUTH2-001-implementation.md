@@ -331,3 +331,105 @@ DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgre
 ## 8. Impacto backend
 
 El backend gana el primer flujo de alta de organización y usuario administrador dentro del módulo OAuth2/Auth. El diseño mantiene la separación entre registro y autenticación, reutiliza Auth Core para hashing y preserva una superficie de respuesta segura mediante public IDs.
+
+---
+
+# BACK-AUTH-OAUTH2-004 — Login con cookie HttpOnly
+
+**Estado:** QA aprobado  
+**Ámbito:** `backend/`  
+**Endpoint:** `POST /api/v1/auth/login`
+
+## 1. Resumen
+
+Se ha incorporado el login OAuth2 inicial mediante el endpoint `POST /api/v1/auth/login`.
+
+El flujo autentica por `email` y `password`, emite un JWT access token y lo entrega exclusivamente mediante cookie `HttpOnly`. La respuesta HTTP no incluye el token en el cuerpo y devuelve únicamente el estado de autenticación:
+
+```json
+{
+  "status": "authenticated"
+}
+```
+
+## 2. Contrato HTTP
+
+```http
+POST /api/v1/auth/login
+Content-Type: application/json
+```
+
+Request esperado:
+
+```json
+{
+  "email": "ana@empresa.com",
+  "password": "PasswordSeguro123!"
+}
+```
+
+Response `200 OK`:
+
+```json
+{
+  "status": "authenticated"
+}
+```
+
+Cookie emitida:
+
+- Nombre: `guak_access_token`.
+- `HttpOnly`.
+- `Path=/api`.
+- `SameSite` desde settings.
+- `Secure` desde settings.
+- `Max-Age` coherente con la expiración del access token.
+
+## 3. Decisiones de seguridad
+
+- No se devuelve token en el body.
+- No se expone `password_hash`.
+- No se exponen IDs internos, roles ni claims sensibles.
+- Los errores son genéricos: `Credenciales inválidas.` para usuario inexistente, password incorrecto o usuario inactivo.
+- La request es strict con `extra="forbid"`.
+- No se acepta `organization_id` en el login.
+- `jwt_secret_key` sigue siendo obligatorio y sin fallback inseguro.
+- Los claims JWT son mínimos:
+  - `sub`: public user ID `usr_...`.
+  - `org`: public organization ID `org_...`.
+  - `type`.
+  - `jti`.
+  - `iat`.
+  - `exp`.
+- El JWT no incluye IDs internos ni roles.
+
+## 4. Arquitectura
+
+- `auth/dependencies.py`: factory compartida `build_auth_settings`.
+- `login_schemas.py`: request, response y DTO interno.
+- `login_repositories.py`: consulta SQLAlchemy de usuario por email.
+- `login_services.py`: validación de credenciales, auditoría conceptual y emisión del token.
+- `login_routers.py`: endpoint HTTP y `set-cookie`.
+- `login_exceptions.py`: error controlado de credenciales inválidas.
+- `tokens.py`: ampliación retrocompatible de `issue_access_token(..., organization=...)`.
+
+El login ya no depende del router de registro. El registro también usa la dependency común para construir la configuración de autenticación.
+
+## 5. Validaciones ejecutadas
+
+- `make backend-quality` ✅
+- `make backend-test-unit` ✅ (`325 passed, 59 deselected`)
+- `make backend-test-db` ✅ (`37 passed, 347 deselected`)
+- QA final ✅
+
+## 6. Riesgos pendientes
+
+- `NoOpLoginAuditAdapter`: queda pendiente implementar auditoría persistente.
+- Rate limiting y protección anti fuerza bruta pendientes antes de exposición pública.
+- `auth_cookie_secure=False` por defecto es aceptable en desarrollo, pero debe ser `true` en staging/producción con TLS.
+- `/auth/me`, `/auth/logout`, `/auth/csrf` y `/auth/token` quedan fuera de esta task.
+- Si en el futuro una cuenta puede pertenecer a múltiples organizaciones activas, habrá que rediseñar la selección de organización y el tenant context del login.
+
+## 7. Impacto backend
+
+El backend incorpora el primer flujo de login real sobre el Auth Core y el registro ya existente. La decisión de emitir el access token únicamente en cookie `HttpOnly` reduce exposición en cliente, mantiene el contrato HTTP simple y prepara la base para endpoints protegidos posteriores sin trasladar lógica sensible al frontend.
