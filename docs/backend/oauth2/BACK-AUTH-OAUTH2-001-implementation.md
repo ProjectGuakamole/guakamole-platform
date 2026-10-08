@@ -433,3 +433,98 @@ El login ya no depende del router de registro. El registro también usa la depen
 ## 7. Impacto backend
 
 El backend incorpora el primer flujo de login real sobre el Auth Core y el registro ya existente. La decisión de emitir el access token únicamente en cookie `HttpOnly` reduce exposición en cliente, mantiene el contrato HTTP simple y prepara la base para endpoints protegidos posteriores sin trasladar lógica sensible al frontend.
+
+---
+
+# BACK-AUTH-OAUTH2-005 — Consulta de identidad autenticada
+
+**Estado:** QA aprobado  
+**Ámbito:** `backend/`  
+**Endpoint:** `GET /api/v1/auth/me`
+
+## 1. Resumen
+
+Se ha incorporado el endpoint `GET /api/v1/auth/me` para consultar la identidad autenticada a partir de la cookie `HttpOnly` `guak_access_token`.
+
+El endpoint lee la cookie usando `AuthSettings.auth_cookie_name`, valida el JWT access token, verifica que el usuario está activo y comprueba que pertenece a la organización indicada en el claim `org`. La respuesta devuelve únicamente una identidad pública mínima.
+
+## 2. Contrato HTTP
+
+```http
+GET /api/v1/auth/me
+Cookie: guak_access_token=<access-token>
+```
+
+Request:
+
+- Sin body.
+- Cookie `guak_access_token`.
+
+Response `200 OK`:
+
+```json
+{
+  "authenticated": true,
+  "user_id": "usr_<uuid-v4>",
+  "organization_id": "org_<uuid-v4>"
+}
+```
+
+Response `401 Unauthorized`:
+
+```json
+{
+  "detail": "No autenticado."
+}
+```
+
+Casos que devuelven `401`:
+
+- Sin cookie.
+- Token inválido.
+- Token expirado.
+- Token con `type` incorrecto.
+- Falta el claim `org`.
+- Usuario inexistente.
+- Usuario inactivo.
+- La organización del token no coincide con la base de datos.
+
+## 3. Decisiones de seguridad
+
+- No expone el token.
+- No expone email completo.
+- No expone `password_hash`.
+- No expone IDs internos.
+- No expone roles todavía.
+- No acepta `organization_id` ni otro identificador desde frontend.
+- Valida `sub + org` contra PostgreSQL.
+- No resuelve usuario solo por `sub`.
+- `JwtAccessTokenService.verify_access_token` ahora devuelve `organization` opcional de forma retrocompatible; `/auth/me` exige que exista.
+
+## 4. Arquitectura
+
+- `me_schemas.py`: response público mínimo.
+- `me_services.py`: validación token y resolución de identidad.
+- `me_repositories.py`: consulta SQLAlchemy por public IDs y status activo.
+- `me_routers.py`: lectura cookie y mapeo HTTP `401`.
+- `me_exceptions.py`: error controlado.
+- `tokens.py`: `VerifiedAccessToken` ampliado con `organization`.
+- Router incluido bajo `/api/v1/auth`.
+
+## 5. Validaciones ejecutadas
+
+- `make backend-quality` ✅ PASS.
+- `make backend-test-unit` ✅ PASS: `333 passed, 63 deselected`.
+- `make backend-test-db` ✅ PASS: `41 passed, 355 deselected`.
+- QA final ✅ PASS.
+
+## 6. Riesgos pendientes
+
+- Auditoría `AUTH_ME_SUCCESS` / `AUTH_ME_FAILED` no implementada todavía.
+- Tests HTTP no cubren override de nombre de cookie, aunque la implementación usa settings.
+- Fixtures DB compartidas podrían extraerse a `conftest.py` en futura limpieza.
+- `/auth/logout`, `/auth/csrf`, `/auth/token`, RBAC/roles y rate limiting quedan fuera de esta task.
+
+## 7. Impacto backend
+
+El backend dispone ya de un endpoint protegido capaz de resolver la identidad autenticada desde cookie `HttpOnly`, validando el token y el vínculo usuario-organización contra PostgreSQL. Esto refuerza el aislamiento multiempresa y prepara la base para rutas protegidas, tenant context, RBAC y flujos de sesión posteriores.
