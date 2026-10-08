@@ -610,3 +610,134 @@ Headers:
 ## 7. Impacto backend
 
 El backend completa el cierre básico del ciclo de sesión basado en cookie `HttpOnly`: login emite la cookie, `/auth/me` resuelve la identidad autenticada y logout elimina la cookie del navegador. La decisión mantiene el token fuera del cuerpo de respuesta y evita trasladar lógica sensible al frontend.
+
+---
+
+# BACK-AUTH-OAUTH2-007 — CSRF básico para sesiones con cookie HttpOnly
+
+**Estado:** QA aprobado  
+**Ámbito:** `backend/`  
+**Endpoints:** `GET /api/v1/auth/csrf`, `POST /api/v1/auth/logout`
+
+## 1. Resumen
+
+Se ha incorporado protección CSRF básica para sesiones autenticadas mediante cookie HttpOnly.
+
+- `GET /api/v1/auth/csrf` emite un token CSRF firmado ligado al access token actual.
+- `POST /api/v1/auth/logout` requiere cookie access válida y header `X-CSRF-Token` válido.
+- Login y registro siguen excluidos de CSRF.
+- `/auth/me` no requiere CSRF por ser `GET`.
+- No hay middleware global; se usa una dependencia explícita reutilizable.
+
+## 2. Contrato HTTP
+
+### `GET /api/v1/auth/csrf`
+
+Request:
+
+- Sin body.
+- Cookie obligatoria `guak_access_token`.
+
+Response `200 OK`:
+
+```json
+{
+  "csrf_token": "<signed-token>"
+}
+```
+
+Response `401 Unauthorized`:
+
+```json
+{
+  "detail": "No autenticado."
+}
+```
+
+### `POST /api/v1/auth/logout`
+
+Request:
+
+- Cookie obligatoria `guak_access_token`.
+- Header obligatorio `X-CSRF-Token`.
+- Sin body.
+
+Response `200 OK`:
+
+```json
+{
+  "status": "logged_out"
+}
+```
+
+Response `401 Unauthorized`:
+
+```json
+{
+  "detail": "No autenticado."
+}
+```
+
+Response `403 Forbidden`:
+
+```json
+{
+  "detail": "CSRF inválido."
+}
+```
+
+## 3. Diseño del token CSRF
+
+- JWT separado firmado server-side.
+- Claim `type = "csrf"`.
+- Claims mínimos:
+  - `sub`;
+  - `access_jti`;
+  - `iat`;
+  - `exp`.
+- `exp` se toma del access token, por tanto no expira después de la sesión.
+- Se valida contra `sub + jti` del access token actual.
+- No se persiste en base de datos en esta task.
+
+## 4. Decisiones de seguridad
+
+- No expone access token.
+- No expone usuario, email, roles, IDs internos ni `organization_id`.
+- No acepta `organization_id` desde frontend.
+- Error auth genérico: `No autenticado.`.
+- Error CSRF genérico: `CSRF inválido.`.
+- Logout deja de ser idempotente sin cookie/header porque ahora es mutación autenticada protegida.
+- Login y register quedan excluidos por ser bootstrap público de esta fase.
+- Futuras mutaciones autenticadas deben añadir la dependencia CSRF explícitamente.
+
+## 5. Arquitectura
+
+- `csrf_schemas.py`: response.
+- `csrf_services.py`: emisión/validación de CSRF.
+- `csrf_dependencies.py`: dependencia `require_valid_csrf_token` y validación de access cookie.
+- `csrf_routers.py`: endpoint `/csrf`.
+- `csrf_exceptions.py`: excepción controlada.
+- `logout_routers.py`: ahora depende de `require_valid_csrf_token`.
+- Router incluido bajo `/api/v1/auth`.
+
+## 6. Tests y validación
+
+- `make backend-quality` ✅ PASS.
+- `make backend-test-unit` ✅ PASS: `347 passed, 63 deselected`.
+- `make backend-test-db` ✅ PASS: `41 passed, 369 deselected`.
+- QA final ✅ PASS.
+
+Aviso conocido: warnings de PyJWT por secretos de test de 30 bytes. Se documenta como deuda no bloqueante.
+
+## 7. Riesgos pendientes
+
+- Protección CSRF manual por dependencia; futuras mutaciones deben revisarse.
+- Sin revocación/persistencia server-side de CSRF.
+- Faltan tests HTTP adicionales opcionales para cookie inválida/expirada, CSRF malformado y header vacío.
+- Auditoría de fallos CSRF no implementada.
+- CORS queda fuera si no está implementado en esta task.
+- `/auth/token`, refresh tokens, RBAC/roles y rate limiting quedan fuera.
+
+## 8. Impacto backend
+
+El backend incorpora una defensa CSRF inicial compatible con sesiones en cookie HttpOnly. La solución mantiene el token de acceso fuera del frontend, conserva errores genéricos y ofrece una dependencia reutilizable para proteger futuras mutaciones autenticadas sin introducir todavía un middleware global.
