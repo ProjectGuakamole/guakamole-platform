@@ -32,6 +32,7 @@ class VerifiedAccessToken:
     """Datos mínimos confiables extraídos de un access token válido."""
 
     subject: str
+    organization: str | None
     jti: str
     issued_at: datetime
     expires_at: datetime
@@ -69,6 +70,7 @@ class JwtAccessTokenService:
             raise InvalidTokenError("El token no es de tipo access.")
         return VerifiedAccessToken(
             subject=self._required_str(payload, "sub"),
+            organization=self._optional_str(payload, "org"),
             jti=self._required_str(payload, "jti"),
             issued_at=self._required_datetime(payload, "iat"),
             expires_at=self._required_datetime(payload, "exp"),
@@ -86,6 +88,15 @@ class JwtAccessTokenService:
     @staticmethod
     def _required_str(payload: dict[str, object], claim: str) -> str:
         value = payload.get(claim)
+        if not isinstance(value, str) or not value:
+            raise InvalidTokenError(f"Claim inválido: {claim}.")
+        return value
+
+    @staticmethod
+    def _optional_str(payload: dict[str, object], claim: str) -> str | None:
+        value = payload.get(claim)
+        if value is None:
+            return None
         if not isinstance(value, str) or not value:
             raise InvalidTokenError(f"Claim inválido: {claim}.")
         return value
