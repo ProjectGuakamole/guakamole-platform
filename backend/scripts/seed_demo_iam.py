@@ -540,10 +540,11 @@ def upsert_organizations(
             connection.execute(
                 text("""
                 INSERT INTO sch_iam.tbl_organization
-                (id_organization, id_country, id_state, id_city, id_status, name, slug,
-                 org_registered_name, org_tax, org_address, org_zipcode)
-                VALUES (:id, :id_country, :id_state, :id_city, :id_status, :name, :slug,
-                        :registered, :tax, :address, :zipcode)
+                (id_organization, public_id, id_country, id_state, id_city, id_status,
+                 name, slug, org_registered_name, org_tax, org_address, org_zipcode)
+                VALUES (:id, 'org_' || gen_random_uuid(), :id_country, :id_state,
+                        :id_city, :id_status, :name, :slug, :registered, :tax,
+                        :address, :zipcode)
             """),
                 params,
             )
@@ -619,13 +620,13 @@ def upsert_users(
             connection.execute(
                 text("""
                 INSERT INTO sch_iam.tbl_users
-                (id_user, id_organization, id_platform_role, id_country, id_state,
-                 id_city, id_org_role, id_status, email, password_hash, first_name,
-                 last_name, birthdate, user_address, user_zipcode)
-                VALUES (:id, :id_organization, :id_platform_role, :id_country,
-                        :id_state, :id_city, :id_org_role, :id_status, :email,
-                        :password_hash, :first_name, :last_name, :birthdate,
-                        :address, :zipcode)
+                (id_user, public_id, id_organization, id_platform_role, id_country,
+                 id_state, id_city, id_org_role, id_status, email, password_hash,
+                 first_name, last_name, birthdate, user_address, user_zipcode)
+                VALUES (:id, 'usr_' || gen_random_uuid(), :id_organization,
+                        :id_platform_role, :id_country, :id_state, :id_city,
+                        :id_org_role, :id_status, :email, :password_hash,
+                        :first_name, :last_name, :birthdate, :address, :zipcode)
             """),
                 params,
             )
