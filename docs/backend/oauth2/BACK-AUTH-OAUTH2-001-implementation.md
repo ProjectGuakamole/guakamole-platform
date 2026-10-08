@@ -528,3 +528,85 @@ Casos que devuelven `401`:
 ## 7. Impacto backend
 
 El backend dispone ya de un endpoint protegido capaz de resolver la identidad autenticada desde cookie `HttpOnly`, validando el token y el vínculo usuario-organización contra PostgreSQL. Esto refuerza el aislamiento multiempresa y prepara la base para rutas protegidas, tenant context, RBAC y flujos de sesión posteriores.
+
+---
+
+# BACK-AUTH-OAUTH2-006 — Logout con eliminación de cookie HttpOnly
+
+**Estado:** QA aprobado  
+**Ámbito:** `backend/`  
+**Endpoint:** `POST /api/v1/auth/logout`
+
+## 1. Resumen
+
+Se ha incorporado el cierre de sesión mediante el endpoint `POST /api/v1/auth/logout`.
+
+El endpoint cierra la sesión del navegador borrando la cookie `HttpOnly` `guak_access_token`. Es idempotente: devuelve `200 OK` aunque la cookie no exista, el token sea inválido o el token esté expirado.
+
+No valida el JWT y no revoca server-side el token en esta task.
+
+## 2. Contrato HTTP
+
+```http
+POST /api/v1/auth/logout
+```
+
+Request:
+
+- Sin body.
+- Cookie `guak_access_token` opcional.
+
+Response `200 OK`:
+
+```json
+{
+  "status": "logged_out"
+}
+```
+
+Headers:
+
+- `Set-Cookie` para eliminar la cookie de autenticación con:
+  - nombre desde `AuthSettings.auth_cookie_name`;
+  - `path` desde settings, `/api` por defecto;
+  - `domain` si aplica;
+  - `SameSite` desde settings;
+  - `Secure` desde settings;
+  - `HttpOnly=true`;
+  - `Max-Age=0` o expiración pasada.
+
+## 3. Decisiones de seguridad
+
+- No devuelve token.
+- No devuelve usuario, email, roles, IDs internos ni `organization_id`.
+- No acepta `organization_id` ni datos del frontend.
+- No necesita validar el token porque su responsabilidad es borrar la cookie del navegador.
+- Mantiene una respuesta mínima para evitar filtraciones.
+- Reutiliza settings de cookie de login para evitar discrepancias entre emisión y borrado.
+- Limitación consciente: sin blacklist ni revocación server-side; un token copiado fuera de la cookie seguiría siendo válido hasta expirar.
+
+## 4. Arquitectura
+
+- `logout_schemas.py`: response mínimo.
+- `logout_routers.py`: endpoint fino, idempotente y responsable de borrar la cookie.
+- Router incluido bajo `/api/v1/auth`.
+- No se crea servicio porque no hay lógica de dominio compleja.
+
+## 5. Validaciones ejecutadas
+
+- `make backend-quality` ✅ PASS.
+- `make backend-test-unit` ✅ PASS: `337 passed, 63 deselected`.
+- `make backend-test-db` ✅ PASS: `41 passed, 359 deselected`.
+- QA final ✅ PASS.
+
+## 6. Riesgos pendientes
+
+- Auditoría `LOGOUT` no implementada todavía.
+- Sin revocación server-side de JWT.
+- Podría añadirse test de body arbitrario como mejora no bloqueante.
+- Podría añadirse test de `expires` explícito como mejora no bloqueante.
+- `/auth/csrf`, `/auth/token`, refresh tokens, RBAC/roles y rate limiting quedan fuera de esta task.
+
+## 7. Impacto backend
+
+El backend completa el cierre básico del ciclo de sesión basado en cookie `HttpOnly`: login emite la cookie, `/auth/me` resuelve la identidad autenticada y logout elimina la cookie del navegador. La decisión mantiene el token fuera del cuerpo de respuesta y evita trasladar lógica sensible al frontend.
