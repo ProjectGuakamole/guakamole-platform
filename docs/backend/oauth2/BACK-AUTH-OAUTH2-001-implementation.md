@@ -265,13 +265,67 @@ Nota de validación: la base de datos local del entorno quedó contaminada con u
 
 - `make backend-quality` ✅
 - `make backend-test-unit` ✅ (`313 passed, 56 deselected`)
-- `make backend-test-db` ✅ tras levantar PostgreSQL (`34 passed`), según ejecución previa del implementer.
+- `make backend-test-db` ✅ (`34 passed, 335 deselected`)
+- `make db-current ENV_FILE=.env.example` ✅ `0013_registration_public_ids (head)`
+- `curl /api/health` ✅ `200 OK`
+- `POST /api/v1/organizations/register` desde Swagger ✅ `201 Created`
+- `make backend-seed ENV_FILE=.env.example` ✅ tras corregir `public_id` en el seed demo
+- `make backend-seed-clear ENV_FILE=.env.example` ✅ tras corregir `public_id` en el seed demo
 - QA final ✅
+
+## 6.1 Cierre funcional Task 3
+
+- El endpoint `POST /api/v1/organizations/register` ha sido validado manualmente desde Swagger.
+- El flujo crea correctamente la organización y el primer usuario administrador.
+- La request no envía IDs internos; estos son responsabilidad exclusiva de la base de datos.
+- La base de datos genera los IDs internos automáticamente mediante secuencia.
+- La respuesta de la API devuelve public IDs con formato `org_...` y `usr_...`.
+- Los IDs internos observados empiezan en rango alto `1000000000` por decisión de migración, no por error.
+- El frontend/cliente no debe depender de IDs internos y debe trabajar con los identificadores públicos expuestos por el contrato HTTP.
+
+## 6.2 Problemas encontrados durante testeo manual y solución
+
+1. `/api/ready` devolvía `not_ready`.
+   - Motivo: el readiness probe de DB aún no implementa `SELECT 1`; falla cerrado por diseño actual.
+   - Impacto: no bloquea el endpoint de registro.
+   - Acción pendiente: crear ticket futuro para implementar readiness real contra PostgreSQL.
+
+2. Swagger devolvía `500` al hacer `POST /api/v1/organizations/register`.
+   - Primer problema: `DATABASE_URL` no estaba disponible dentro del contenedor backend.
+   - Solución: pasar `DATABASE_URL` y `JWT_SECRET_KEY` al servicio backend en `docker-compose.yml`.
+
+3. Diferencia host vs Docker para `DATABASE_URL`.
+   - Comandos Make ejecutados desde host (`make db-current`, `make backend-seed`): deben usar `localhost`.
+   - Backend dentro de Docker: debe usar el nombre de servicio `postgres`.
+   - Solución documentada:
+
+```dotenv
+DATABASE_URL=postgresql+psycopg://guakamole_user:postgre@localhost:5432/guakamole_db
+```
+
+```yaml
+DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+```
+
+4. `backend-seed` fallaba tras migración `0013`.
+   - Motivo: `public_id` es ahora `NOT NULL` en `tbl_organization` y `tbl_users`, pero el seed demo insertaba sin `public_id`.
+   - Solución: actualizar `backend/scripts/seed_demo_iam.py` para insertar `public_id` con `org_` / `usr_` + `gen_random_uuid()`.
+   - Validado con:
+     - `make backend-seed ENV_FILE=.env.example`
+     - `make backend-seed-clear ENV_FILE=.env.example`
+     - Nueva ejecución de `make backend-seed ENV_FILE=.env.example`
+
+5. `requirements.txt` y Docker.
+   - Motivo: Docker instala desde `backend/requirements.txt`; faltaban dependencias nuevas `pwdlib`/`pyjwt` inicialmente.
+   - Solución: regenerar/actualizar `backend/requirements.txt` para incluirlas.
+   - Estado: ya quedó incluido en PR #29.
 
 ## 7. Riesgos pendientes
 
-- Repetir validación de migración en base de datos limpia por contaminación local de Alembic.
-- Rate limiting pendiente fuera del alcance de esta task.
+- Implementar readiness real contra PostgreSQL (`SELECT 1`).
+- Implementar auditoría persistente para `ORGANIZATION_REGISTERED` y `USER_REGISTERED`.
+- Rate limiting del registro antes de exposición pública/staging real.
+- Valorar renombrar respuesta a `organization_public_id` / `user_public_id` si se quiere evitar ambigüedad futura.
 - El registro no implementa login, cookie ni emisión de tokens.
 
 ## 8. Impacto backend
