@@ -18,7 +18,7 @@
 11. BACK-AUTH-OAUTH2-012 — Validación y cierre final
 
 > [!WARNING]
-> En esta iteración quedan desarrollados los puntos 1, 2, 3, 4 y 5. Los puntos 6-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
+> En esta iteración quedan desarrollados los puntos 1, 2, 3, 4, 5 y 6. Los puntos 7-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
 
 ---
 
@@ -1090,7 +1090,238 @@ En resumen: **BACK-AUTH-OAUTH2-006 añade el cierre de sesión backend para cook
 
 ## 6. BACK-AUTH-OAUTH2-007 — CSRF
 
-Pendiente de redactar en una ejecución posterior.
+### Qué problema resuelve
+
+Las tareas anteriores dejaron el backend con una sesión de navegador basada en cookie `HttpOnly`. Esa decisión es buena para proteger el access token frente a lectura directa desde JavaScript, pero tiene una consecuencia importante: **el navegador envía la cookie automáticamente** cuando hace peticiones al backend dentro de su ámbito.
+
+Ese comportamiento es justo lo que permite que `/auth/me` o `/auth/logout` funcionen sin que el cliente tenga que leer el JWT. Pero también abre la puerta a CSRF en operaciones que modifican estado.
+
+CSRF significa **Cross-Site Request Forgery**. Dicho de forma sencilla: un atacante intenta conseguir que el navegador de una víctima autenticada envíe una petición al backend sin que la víctima lo haya decidido conscientemente. Como el navegador adjunta las cookies por sí solo, el backend podría recibir una petición con una cookie válida aunque la petición haya sido provocada desde otro sitio.
+
+Ejemplo conceptual:
+
+```text
+Ana está autenticada en Guakamole
+   │
+   ├── su navegador conserva guak_access_token como cookie HttpOnly
+   │
+   ▼
+Ana visita una web maliciosa
+   │
+   ▼
+La web intenta provocar una petición POST al backend
+   │
+   ▼
+El navegador podría adjuntar la cookie automáticamente
+```
+
+Por eso, cuando se usan cookies para autenticar, no basta con decir “el token está en `HttpOnly`”. Para métodos mutantes hace falta una defensa adicional que demuestre que la petición no solo trae una cookie válida, sino que también viene de un cliente que conoce un token CSRF emitido por el backend.
+
+> [!IMPORTANT]
+> `HttpOnly` reduce la exposición del JWT ante XSS, pero no evita por sí solo que el navegador envíe cookies automáticamente. CSRF cubre esa parte del riesgo.
+
+### Qué hace esta task
+
+Esta task añade una primera protección CSRF para sesiones autenticadas con cookie `guak_access_token`.
+
+Se implementa el endpoint:
+
+```http
+GET /api/v1/auth/csrf
+```
+
+Su función es emitir un token CSRF firmado y separado del access token. Para obtenerlo, la petición debe incluir una cookie de acceso válida. La respuesta contiene únicamente el token CSRF:
+
+```json
+{
+  "csrf_token": "<signed-token>"
+}
+```
+
+Ese token no sustituye al JWT de sesión. Es una credencial complementaria pensada para acompañar peticiones mutantes autenticadas mediante la cabecera:
+
+```http
+X-CSRF-Token: <signed-token>
+```
+
+En esta task, la primera mutación protegida es:
+
+```http
+POST /api/v1/auth/logout
+```
+
+A partir de este cambio, `POST /api/v1/auth/logout` requiere dos cosas:
+
+- cookie `guak_access_token` válida;
+- header `X-CSRF-Token` válido.
+
+Si falta autenticación, el backend responde de forma controlada como no autenticado. Si el problema es el token CSRF, responde con error controlado de tipo `403 Forbidden` y mensaje genérico.
+
+### Estrategia implementada
+
+La estrategia aplicada no guarda el token CSRF en una cookie adicional. En esta implementación, el cliente obtiene el token llamando a `GET /api/v1/auth/csrf` y lo reenvía explícitamente en el header `X-CSRF-Token` cuando llama a endpoints mutantes protegidos.
+
+El token CSRF es independiente del access token, pero queda ligado a él. Técnicamente se emite como un JWT firmado server-side con propósito específico de CSRF. Incluye claims mínimos:
+
+- `type = "csrf"`;
+- `sub`, asociado al usuario del access token;
+- `access_jti`, asociado al identificador único del access token actual;
+- `iat`, instante de emisión;
+- `exp`, expiración.
+
+La expiración se toma del access token, de modo que el token CSRF no vive más que la sesión autenticada a la que acompaña.
+
+La validación compara el token CSRF recibido en `X-CSRF-Token` contra la cookie de acceso actual. En concreto, comprueba que el `sub` y el `access_jti` encajen con el access token que el navegador está enviando en ese momento. Esto evita que un token CSRF emitido para otra sesión pueda reutilizarse con un access token distinto.
+
+Conceptualmente:
+
+```text
+Cookie guak_access_token
+   ├── sub = usr_...
+   └── jti = access-token-123
+
+Header X-CSRF-Token
+   ├── sub = usr_...
+   └── access_jti = access-token-123
+
+Validación backend
+   └── ambos deben coincidir
+```
+
+### Qué requests se protegen
+
+La regla de diseño para esta fase es:
+
+- las mutaciones autenticadas con cookie deben protegerse con CSRF;
+- los métodos seguros de lectura no deberían requerir CSRF.
+
+En términos HTTP, las peticiones candidatas a protección son:
+
+- `POST`;
+- `PUT`;
+- `PATCH`;
+- `DELETE`.
+
+No se exige CSRF para `GET`, porque `GET` debe ser una operación segura de lectura. Por eso `GET /api/v1/auth/me` no requiere token CSRF: valida sesión, pero no cambia estado.
+
+En el estado de esta task:
+
+| Endpoint | Método | CSRF | Motivo |
+| --- | --- | --- | --- |
+| `/api/v1/auth/csrf` | `GET` | No como header | Emite el token CSRF tras validar la cookie de sesión. |
+| `/api/v1/auth/logout` | `POST` | Sí | Es una mutación autenticada que borra la cookie de sesión. |
+| `/api/v1/auth/me` | `GET` | No | Es lectura de identidad autenticada. |
+| `/api/v1/auth/login` | `POST` | No | Flujo público de autenticación inicial, sin sesión previa por cookie. |
+| `/api/v1/organizations/register` | `POST` | No | Flujo público de bootstrap en esta fase. |
+
+La decisión importante es que futuras mutaciones autenticadas deberán añadir explícitamente esta protección.
+
+### Cómo se implantó
+
+No se añadió un middleware global. Se eligió una dependencia explícita reutilizable para que cada endpoint mutante protegido declare claramente que necesita CSRF.
+
+La estructura conceptual queda así:
+
+```text
+csrf_routers.py
+   └── expone GET /auth/csrf
+
+csrf_services.py
+   ├── emite token CSRF firmado
+   └── valida token CSRF frente al access token actual
+
+csrf_dependencies.py
+   ├── obtiene y valida la cookie de acceso
+   └── define require_valid_csrf_token
+
+logout_routers.py
+   └── protege POST /auth/logout con require_valid_csrf_token
+```
+
+La dependencia `require_valid_csrf_token` lee el header `X-CSRF-Token`, verifica que exista y delega la validación criptográfica y de claims en el servicio CSRF. Si algo falla, la petición se corta en backend antes de ejecutar la lógica del endpoint protegido.
+
+Este enfoque tiene una ventaja didáctica y de seguridad: la protección no queda escondida. Al leer un router, se puede ver si la mutación exige CSRF o no.
+
+### Relación con login, logout y `/auth/me`
+
+La relación con las piezas anteriores queda así:
+
+- **Login**: emite el access token y lo guarda en la cookie `HttpOnly`. No requiere CSRF porque todavía no existe una sesión previa basada en cookie que proteger en ese flujo.
+- **`/auth/me`**: lee la cookie, valida el access token y devuelve identidad mínima. No requiere CSRF porque es `GET` y no modifica estado.
+- **`/auth/csrf`**: necesita una cookie válida y emite un token CSRF separado, ligado a esa sesión.
+- **Logout**: pasa a requerir cookie válida y `X-CSRF-Token` válido antes de borrar la cookie de sesión.
+
+Esto modifica ligeramente la idea inicial de logout idempotente sin credenciales. Con CSRF activado, logout se trata como una mutación autenticada protegida: si no hay cookie válida o no hay CSRF válido, el backend puede rechazar la petición antes de borrar la cookie.
+
+### Beneficios
+
+La protección CSRF aporta varios beneficios al backend:
+
+- **Hace viables las cookies `HttpOnly` para mutaciones autenticadas**: ya no dependemos solo de que el navegador envíe la cookie.
+- **Mantiene el JWT fuera del frontend**: el access token no se expone en body ni en JavaScript.
+- **Separa responsabilidades**: access token para autenticación; token CSRF para demostrar intención en mutaciones con cookie.
+- **Reduce riesgo CSRF**: un atacante no debería poder fabricar una mutación válida solo consiguiendo que el navegador adjunte cookies.
+- **Liga el CSRF a la sesión real**: el token CSRF se valida contra `sub` y `jti` del access token actual.
+- **Evita persistencia innecesaria en esta fase**: no se añade tabla de tokens CSRF ni estado server-side adicional.
+- **Prepara endpoints futuros**: queda una dependencia reutilizable para proteger nuevas mutaciones autenticadas.
+
+### Limitaciones o compromisos
+
+La solución es suficiente como defensa inicial, pero tiene límites claros:
+
+- **Protección manual por dependencia**: si en el futuro se crea una mutación autenticada y se olvida añadir `require_valid_csrf_token`, esa ruta podría quedar sin protección CSRF.
+- **Sin persistencia server-side del token CSRF**: el token se valida criptográficamente y contra la sesión, pero no hay lista de tokens revocados.
+- **Requiere que el cliente envíe el header**: las llamadas mutantes protegidas deben incluir `X-CSRF-Token`.
+- **`SameSite` ayuda, pero no sustituye CSRF**: configurar cookies con `SameSite=Lax` o políticas similares reduce escenarios de riesgo, pero no debe ser la única defensa.
+- **No protege frente a XSS por sí solo**: si un atacante ejecuta JavaScript dentro del propio origen legítimo, el problema pasa a ser XSS y necesita otras defensas.
+- **Sin auditoría específica de fallos CSRF**: los errores se controlan, pero no se documenta todavía un evento persistente específico de auditoría para cada fallo.
+- **CORS queda separado**: CORS controla qué orígenes pueden leer respuestas del backend desde navegador, pero no reemplaza la validación CSRF.
+
+### Qué NO hace
+
+Para evitar malentendidos, CSRF no sustituye otras capas de seguridad:
+
+- no sustituye la autenticación;
+- no sustituye la autorización RBAC;
+- no valida permisos ni tenant por sí mismo;
+- no es rate limiting;
+- no cifra datos;
+- no revoca JWT;
+- no evita fuerza bruta;
+- no convierte una request no autenticada en autenticada;
+- no arregla vulnerabilidades XSS.
+
+CSRF responde a una pregunta concreta: “esta petición mutante autenticada con cookie, ¿incluye además una prueba explícita emitida por el backend para esta sesión?”.
+
+### Resultado de la task
+
+El resultado es que la autenticación browser con cookie `HttpOnly` queda reforzada para operaciones mutantes.
+
+El flujo conceptual pasa a ser:
+
+```text
+Login correcto
+   │
+   ▼
+Backend setea guak_access_token como HttpOnly
+   │
+   ▼
+Cliente pide GET /api/v1/auth/csrf
+   │
+   ▼
+Backend emite csrf_token ligado al access token actual
+   │
+   ▼
+Cliente llama a una mutación protegida
+   │
+   ├── Cookie: guak_access_token
+   └── X-CSRF-Token: csrf_token
+   │
+   ▼
+Backend valida access token + CSRF
+```
+
+En resumen: **BACK-AUTH-OAUTH2-007 hace que las cookies `HttpOnly` sean una base más viable para mutaciones autenticadas, porque añade una defensa CSRF server-side sin exponer el JWT al cliente y dejando una dependencia reutilizable para futuras rutas protegidas**.
 
 ## 7. BACK-AUTH-OAUTH2-008 — `/auth/token`
 
