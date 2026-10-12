@@ -18,7 +18,7 @@
 11. BACK-AUTH-OAUTH2-012 — Validación y cierre final
 
 > [!WARNING]
-> En esta iteración quedan desarrollados los puntos 1, 2, 3, 4, 5, 6, 7, 8 y 9. Los puntos 10-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
+> En esta iteración quedan desarrollados los puntos 1, 2, 3, 4, 5, 6, 7, 8, 9 y 10. El punto 11 permanece como índice de trabajo para completar el documento en ejecuciones posteriores.
 
 ---
 
@@ -2139,7 +2139,254 @@ En resumen: **BACK-AUTH-OAUTH2-010 cierra la fase OAuth2 desde el punto de vista
 
 ## 10. BACK-AUTH-OAUTH2-011 — Rate limiting
 
-Pendiente de redactar en una ejecución posterior.
+### Qué problema resuelve
+
+Los endpoints públicos de autenticación y registro son una de las superficies más sensibles del backend. Aunque las contraseñas estén hasheadas, los tokens estén bien firmados y los errores sean genéricos, un atacante puede intentar abusar de esos endpoints enviando muchas peticiones seguidas.
+
+El problema principal es el abuso básico contra operaciones como:
+
+- probar muchas combinaciones de email y contraseña contra el login;
+- solicitar repetidamente tokens bearer en el endpoint OAuth2;
+- automatizar altas de organizaciones para hacer scraping, spam o consumo innecesario de recursos;
+- forzar trabajo caro del backend, como verificación de contraseñas o creación de entidades.
+
+Sin rate limiting, cada petición llegaría directamente al caso de uso correspondiente. Eso significa que el backend tendría que procesar intentos abusivos igual que procesa intentos legítimos.
+
+> [!IMPORTANT]
+> El rate limiting no convierte un endpoint inseguro en seguro por sí solo. Su función es reducir la exposición ante abuso repetitivo y fuerza bruta básica. Sigue siendo necesario mantener contraseñas seguras, errores genéricos, MFA cuando exista, auditoría, CSRF, CORS correcto y validación server-side.
+
+### Qué hace esta task
+
+Esta task añade un rate limiting backend básico, implementado en memoria, para endpoints públicos sensibles de la fase OAuth2.
+
+La pieza central es:
+
+```text
+backend/app/core/rate_limit.py
+```
+
+Desde ahí se definen:
+
+- `RateLimitSettings`, con la configuración del rate limiter;
+- `RateLimitRule`, que representa una regla de límite y ventana temporal;
+- `InMemoryRateLimiter`, que guarda contadores en memoria;
+- dependencias específicas para aplicar límites a login, token y registro.
+
+La protección se integra como dependencia de FastAPI en los routers. Esto es importante porque el límite se evalúa antes de ejecutar los servicios de negocio. Si una petición supera el límite, no llega a validar credenciales, no ejecuta hashing de contraseña, no emite tokens y no crea entidades de registro.
+
+Conceptualmente:
+
+```text
+Request HTTP
+   │
+   ▼
+Dependencia de rate limit
+   │
+   ├── permitido → continúa al router y al servicio
+   │
+   └── excedido  → responde 429 Too Many Requests
+```
+
+### Endpoints protegidos
+
+La implementación protege estos endpoints:
+
+| Endpoint | Motivo | Límite por defecto |
+| --- | --- | --- |
+| `POST /api/v1/auth/login` | Reducir fuerza bruta contra email/password. | 5 peticiones cada 60 segundos. |
+| `POST /api/v1/auth/token` | Reducir abuso del flujo bearer OAuth2 para clientes técnicos. | 5 peticiones cada 60 segundos. |
+| `POST /api/v1/organizations/register` | Reducir registros automatizados, spam o scraping de alta. | 3 peticiones cada 300 segundos. |
+
+Quedan fuera de esta task:
+
+- `GET /api/v1/auth/me`;
+- `GET /api/v1/auth/csrf`;
+- `POST /api/v1/auth/logout`.
+
+La decisión es práctica: se priorizan los endpoints públicos que reciben credenciales o crean datos nuevos. `/auth/me`, `/auth/csrf` y `/auth/logout` tienen otros perfiles de riesgo y no forman parte del alcance concreto de esta protección inicial.
+
+### Clave de rate limit
+
+La clave usada por el limiter es simple y explícita:
+
+```text
+scope:path:client_host
+```
+
+En la implementación real se construye con:
+
+- el `scope` de la regla, por ejemplo `auth_login`, `auth_token` o `registration`;
+- la ruta HTTP real, por ejemplo `/api/v1/auth/login`;
+- `request.client.host`, es decir, la IP cliente vista directamente por FastAPI.
+
+Ejemplo conceptual:
+
+```text
+auth_login:/api/v1/auth/login:127.0.0.1
+```
+
+No se usan como parte de la clave:
+
+- email;
+- username;
+- password;
+- token;
+- payload completo;
+- `organization_id`.
+
+Esto evita que el rate limiter dependa de datos sensibles o de campos enviados por el cliente. También mantiene los errores genéricos: el backend no debe dar pistas sobre si un email existe o no existe.
+
+> [!WARNING]
+> La implementación no confía todavía en cabeceras como `X-Forwarded-For`. Eso queda pendiente de una estrategia segura con reverse proxy y proxies de confianza. Confiar en esa cabecera sin control puede permitir que un cliente falsee su IP.
+
+### Respuesta cuando se supera el límite
+
+Cuando una petición excede el límite configurado, el backend responde con:
+
+```http
+429 Too Many Requests
+```
+
+El cuerpo de respuesta es genérico:
+
+```json
+{
+  "detail": "Demasiadas solicitudes. Inténtalo más tarde."
+}
+```
+
+Esta respuesta no incluye email, usuario, organización, token ni ningún dato que ayude a enumerar cuentas.
+
+Si el tiempo restante de espera es calculable, se devuelve también la cabecera:
+
+```http
+Retry-After: <segundos>
+```
+
+No se documentan otros headers de rate limit porque la implementación no los emite. En este punto no existen cabeceras tipo límite total, peticiones restantes o reset de ventana.
+
+### Configuración por settings y entorno
+
+La configuración se carga desde `RateLimitSettings`, separada de la configuración JWT. Esto evita mezclar secretos de autenticación con política de limitación de tráfico.
+
+Variables principales:
+
+```dotenv
+RATE_LIMIT_ENABLED=true
+
+AUTH_LOGIN_RATE_LIMIT_REQUESTS=5
+AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS=60
+
+AUTH_TOKEN_RATE_LIMIT_REQUESTS=5
+AUTH_TOKEN_RATE_LIMIT_WINDOW_SECONDS=60
+
+REGISTRATION_RATE_LIMIT_REQUESTS=3
+REGISTRATION_RATE_LIMIT_WINDOW_SECONDS=300
+```
+
+`RATE_LIMIT_ENABLED` permite activar o desactivar la protección. En la implementación real su valor por defecto es `true`. En entornos de desarrollo o pruebas puede desactivarse de forma explícita si hace falta aislar un caso concreto, pero la política segura para staging y producción debe ser mantenerlo activado y ajustar los límites con cuidado.
+
+La diferencia importante entre entornos no está en que el código cambie, sino en la configuración:
+
+- en desarrollo puede interesar relajar o desactivar temporalmente el límite para depuración;
+- en tests se puede limpiar el estado del limiter para aislar casos;
+- en staging y producción debe estar activo y revisado según tráfico real;
+- en producción futura debería migrarse a una solución distribuida si hay múltiples workers o instancias.
+
+### Por qué se implementó in-memory
+
+El limiter actual es deliberadamente sencillo: guarda los contadores en memoria dentro del proceso del backend y usa una ventana fija.
+
+Esto encaja con el objetivo de la fase MVP porque:
+
+- reduce riesgo básico sin introducir todavía Redis como dependencia obligatoria;
+- mantiene la implementación fácil de entender para el equipo;
+- permite proteger login, token y registro sin rediseñar la arquitectura;
+- evita acoplar los servicios de dominio a una herramienta externa.
+
+Además, se añadió protección de concurrencia mediante `threading.Lock` para que el contador in-memory no quede expuesto a condiciones de carrera dentro del mismo proceso.
+
+### Beneficios
+
+El cambio aporta una capa defensiva útil sobre la fase OAuth2:
+
+- reduce la fuerza bruta básica contra `POST /api/v1/auth/login`;
+- reduce el abuso del endpoint `POST /api/v1/auth/token`;
+- dificulta el scraping o spam de `POST /api/v1/organizations/register`;
+- evita ejecutar lógica cara cuando una IP ya ha superado el límite;
+- mantiene respuestas genéricas que no filtran existencia de usuarios;
+- centraliza la política de límites en `backend/app/core/rate_limit.py`;
+- deja los endpoints OAuth2 públicos menos expuestos ante abuso automatizado simple.
+
+### Limitaciones asumidas
+
+La solución tiene límites claros y deben entenderse como deuda técnica aceptada para MVP/desarrollo:
+
+- **In-memory**: el estado se pierde al reiniciar el proceso.
+- **No distribuido**: no comparte contadores entre varios procesos, workers o instancias.
+- **No usa Redis**: por tanto no es todavía la solución adecuada para una arquitectura escalada.
+- **Clave por IP vista por FastAPI**: si hay proxy delante, hace falta una estrategia segura para obtener la IP real.
+- **Bypass con IP rotativas**: un atacante con muchas IPs puede repartir el tráfico.
+- **Ventana fija simple**: puede permitir ráfagas cerca del borde de una ventana temporal.
+- **No es adaptativo**: no cambia límites según reputación, comportamiento o riesgo.
+- **No limita por cuenta concreta**: la clave no incluye email ni usuario para no introducir filtrado de datos sensibles en esta fase.
+
+Estas limitaciones no hacen inútil la protección. Simplemente delimitan qué problema resuelve: abuso básico y repetitivo contra endpoints públicos sensibles.
+
+### Relación con otras medidas de seguridad
+
+El rate limiting complementa, pero no sustituye, otras defensas.
+
+Sigue siendo importante:
+
+- mantener errores genéricos en login y token;
+- no revelar si un email existe;
+- hashear contraseñas con Argon2id;
+- mantener cookies `HttpOnly` para el flujo browser;
+- proteger mutaciones con CSRF cuando usen cookie;
+- configurar CORS de forma explícita;
+- añadir MFA cuando la fase lo contemple;
+- evaluar lockout temporal de cuentas si se diseña con cuidado;
+- registrar auditoría de eventos relevantes;
+- usar WAF, reverse proxy y controles perimetrales cuando existan.
+
+> [!NOTE]
+> Bloquear demasiadas peticiones desde una IP ayuda, pero no debe convertirse en la única defensa. Un sistema de autenticación robusto combina varias capas.
+
+### Qué NO hace
+
+Para evitar sobreinterpretar el alcance, esta task no hace lo siguiente:
+
+- no bloquea cuentas permanentemente;
+- no implementa lockout por usuario;
+- no detecta bots avanzados;
+- no implementa captcha;
+- no sustituye MFA;
+- no sustituye auditoría de seguridad;
+- no sustituye un WAF;
+- no sustituye controles del reverse proxy;
+- no resuelve por sí sola ataques distribuidos;
+- no añade cabeceras avanzadas de cuota aparte de `Retry-After` cuando aplica;
+- no cambia la semántica funcional de login, token o registro salvo por la posible respuesta `429`.
+
+### Resultado de la task
+
+El resultado es que los endpoints públicos más sensibles de OAuth2 y registro quedan menos expuestos a abuso básico.
+
+La fase pasa de tener endpoints funcionales y endurecidos a tener también una primera barrera de volumen:
+
+```text
+Login
+   └── limitado por IP/ruta/scope antes de validar credenciales
+
+Token OAuth2
+   └── limitado por IP/ruta/scope antes de emitir bearer token
+
+Registro
+   └── limitado por IP/ruta/scope antes de crear organización y usuario
+```
+
+En resumen: **BACK-AUTH-OAUTH2-011 añade rate limiting backend configurable para login, token y registro. Es una protección in-memory inicial, útil para MVP y desarrollo, que reduce fuerza bruta y abuso básico sin sustituir MFA, lockout, auditoría, WAF ni una futura solución distribuida con Redis**.
 
 ## 11. BACK-AUTH-OAUTH2-012 — Validación y cierre final
 
