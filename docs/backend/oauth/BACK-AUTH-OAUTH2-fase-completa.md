@@ -18,7 +18,7 @@
 11. BACK-AUTH-OAUTH2-012 — Validación y cierre final
 
 > [!WARNING]
-> En esta iteración quedan desarrollados los puntos 1, 2, 3, 4, 5, 6, 7 y 8. Los puntos 9-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
+> En esta iteración quedan desarrollados los puntos 1, 2, 3, 4, 5, 6, 7, 8 y 9. Los puntos 10-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
 
 ---
 
@@ -1838,7 +1838,304 @@ En resumen: **BACK-AUTH-OAUTH2-009 configura CORS de forma centralizada, explíc
 
 ## 9. BACK-AUTH-OAUTH2-010 — Hardening final
 
-Pendiente de redactar en una ejecución posterior.
+### Qué problema resuelve
+
+Antes de cerrar la fase OAuth2 no bastaba con que los endpoints funcionasen. Había que revisar si la configuración de autenticación, cookies, JWT, CORS y CSRF estaba suficientemente endurecida para no depender de defaults inseguros ni de decisiones dispersas.
+
+El problema principal era evitar situaciones como estas:
+
+- arrancar un entorno real con un secreto JWT ausente, vacío o gestionado de forma accidental;
+- emitir cookies con atributos distintos entre login y logout;
+- dejar CORS demasiado abierto por comodidad;
+- aceptar parámetros de autenticación no previstos;
+- devolver errores demasiado informativos ante credenciales o tokens inválidos;
+- mezclar configuración de desarrollo con configuración esperada para staging o producción.
+
+Esta task actúa como cierre de seguridad de la fase: revisa lo ya construido y consolida las reglas que deben mantenerse en los siguientes módulos.
+
+> [!IMPORTANT]
+> Hardening no significa añadir muchas funcionalidades nuevas. Significa reducir superficie de ataque, eliminar ambigüedades y asegurarse de que las piezas críticas fallan de forma segura cuando la configuración no es válida.
+
+### Qué hace esta task
+
+El hardening final revisa y centraliza la configuración real de:
+
+- autenticación;
+- cookies de sesión;
+- JWT de acceso;
+- CORS;
+- CSRF;
+- errores de credenciales y tokens;
+- diferencias entre entorno local, test, staging y producción.
+
+No cambia el objetivo funcional de la fase. El flujo principal sigue siendo:
+
+```text
+POST /api/v1/auth/login
+   └── JWT en cookie HttpOnly
+
+GET /api/v1/auth/me
+   └── identidad pública mínima
+
+POST /api/v1/auth/logout
+   └── borrado de cookie
+
+POST /api/v1/auth/token
+   └── bearer token para Swagger/clientes técnicos
+```
+
+Por tanto, cuando se habla de mantener el token fuera del body se refiere al flujo browser principal con `POST /api/v1/auth/login`: ese endpoint autentica al navegador mediante cookie `HttpOnly` y no devuelve el JWT en la respuesta JSON. En cambio, `POST /api/v1/auth/token` sí devuelve un bearer token de forma intencionada para Swagger y clientes técnicos; ese token debe tratarse como un secreto y no almacenarse ni registrarse de forma insegura.
+
+Lo que hace esta task es reforzar que esos flujos usen configuración coherente y no se degraden por defaults cómodos pero peligrosos.
+
+### Secretos y configuración sensible
+
+La regla principal es que los secretos no deben estar hardcodeados en el código ni guardados como valores reales en el repositorio.
+
+En la implementación actual, `AuthSettings` exige `JWT_SECRET_KEY` para poder construir la configuración completa de autenticación. También acepta el alias legado `JWT_SECRET`, pero da prioridad a `JWT_SECRET_KEY`. Esto permite compatibilidad durante la fase sin convertir un nombre antiguo en la referencia principal.
+
+La decisión importante implementada es esta:
+
+```text
+Sin `JWT_SECRET_KEY` configurado de forma suficiente para pasar la validación actual
+   └── la configuración de auth debe fallar
+```
+
+La implementación actual exige que `JWT_SECRET_KEY` exista y cumpla la validación básica configurada, pero no debe interpretarse como un control completo de calidad criptográfica del secreto. En concreto, no se documenta como enforcement implementado el rechazo específico de valores débiles conocidos como `secret`, `changeme` o `dev-secret`. Evitar esos valores sigue siendo una responsabilidad de configuración del entorno y queda como recomendación/deuda de hardening adicional si se quiere automatizar con una denylist o una política de entropía más estricta.
+
+Es preferible que un entorno mal configurado no arranque a firmar tokens sin un secreto explícito, y que staging/producción utilicen secretos reales gestionados fuera del repositorio.
+
+Separación esperada por entorno:
+
+| Entorno | Criterio |
+| --- | --- |
+| Test | Puede usar secretos de prueba, explícitos y no reutilizables fuera de tests. |
+| Desarrollo local | Puede relajar TLS/cookie `Secure`, pero debe seguir usando configuración explícita. |
+| Staging | Debe parecerse a producción: secretos reales, origins concretos y cookies seguras si hay HTTPS. |
+| Producción | Debe usar secretos gestionados fuera del repositorio, TLS y configuración estricta. |
+
+> [!WARNING]
+> Los valores de ejemplo sirven para documentar variables, no para operar entornos reales. Un secreto de test o local no debe promocionarse a staging o producción.
+
+### Cookies de autenticación
+
+El flujo browser usa una cookie de autenticación para transportar el access token. Por eso la configuración de cookies es una parte crítica del hardening.
+
+La cookie se construye de forma centralizada mediante `build_auth_cookie_settings`, a partir de `AuthSettings`. Esto evita que cada endpoint decida atributos por su cuenta.
+
+Atributos relevantes:
+
+| Atributo | Decisión |
+| --- | --- |
+| `HttpOnly` | Activado para que JavaScript no pueda leer directamente el token. |
+| `SameSite` | Configurable y restringido a valores válidos: `lax`, `strict` o `none`. |
+| `Secure` | Configurable: puede relajarse en local, debe activarse con HTTPS en entornos reales. |
+| `Path` | Por defecto `/api`, coherente con la API backend. |
+| `Domain` | Opcional, solo si el despliegue lo necesita. |
+| `Max-Age` | Derivado de la expiración del access token. |
+
+Esta centralización es importante por dos motivos:
+
+- login y logout usan los mismos atributos relevantes;
+- la expiración de cookie acompaña a la expiración del token y no queda como un valor suelto.
+
+Ejemplo conceptual:
+
+```text
+ACCESS_TOKEN_EXPIRE_MINUTES=15
+   └── Max-Age cookie = 900 segundos
+```
+
+La cookie `HttpOnly` reduce exposición ante XSS porque el token no queda accesible mediante `document.cookie`. Aun así, al usar cookies, el backend necesita CSRF en mutaciones autenticadas y CORS bien acotado.
+
+### JWT de acceso
+
+El JWT de la fase OAuth2 se mantiene deliberadamente pequeño. No se usa como contenedor de perfil, permisos o datos personales.
+
+Claims usados en el token:
+
+```json
+{
+  "sub": "usr_...",
+  "org": "org_...",
+  "type": "access",
+  "jti": "...",
+  "iat": 1760000000,
+  "exp": 1760000900
+}
+```
+
+La task refuerza estas reglas:
+
+- expiración corta, controlada por `ACCESS_TOKEN_EXPIRE_MINUTES`;
+- tipo de token obligatorio mediante `type=access`;
+- `sub` como usuario público, no ID interno;
+- `org` como organización pública cuando el flujo autenticado lo requiere;
+- `jti` preparado para trazabilidad o revocación futura;
+- `iat` y `exp` obligatorios;
+- algoritmo restringido a los permitidos por configuración del MVP;
+- sin contraseñas, emails, roles completos, permisos detallados ni datos sensibles en el payload.
+
+> [!NOTE]
+> Un JWT firmado permite confiar en que el backend lo emitió, pero no sustituye la autorización. Cada endpoint debe seguir validando usuario, organización, permisos y alcance real en backend.
+
+En esta fase no se documenta `issuer` o `audience` como requisito implementado. Si el sistema evoluciona hacia múltiples emisores, clientes o servicios consumidores, esos claims deberían añadirse como parte de un diseño posterior de tokens.
+
+### CORS y CSRF
+
+El hardening confirma que CORS y CSRF trabajan juntos, pero resuelven problemas distintos.
+
+CORS:
+
+- se configura en `backend/app/core/cors.py`;
+- usa origins explícitos;
+- rechaza `*` como origin permitido;
+- permite credenciales cuando el flujo browser necesita cookies;
+- acota métodos y headers;
+- permite `X-CSRF-Token` para mutaciones protegidas;
+- permite `Authorization` de forma configurable para Swagger/clientes técnicos.
+
+CSRF:
+
+- protege mutaciones autenticadas con cookie;
+- exige intención explícita mediante header `X-CSRF-Token` cuando aplica;
+- no sustituye autenticación, autorización ni validación de tenant.
+
+La regla de seguridad es sencilla:
+
+```text
+Cookie automática del navegador
+   +
+Mutación autenticada
+   └── requiere protección CSRF
+
+Frontend en otro origin
+   └── requiere CORS explícito, no wildcard
+```
+
+En local se permiten origins de desarrollo como `localhost` o `127.0.0.1` con puertos habituales. En staging y producción deben configurarse dominios concretos. No debe usarse una lista abierta para ahorrar configuración.
+
+### Errores y respuestas públicas
+
+El hardening mantiene la regla de no dar pistas innecesarias cuando fallan credenciales o tokens.
+
+Ejemplos de errores que deben parecer genéricos desde fuera:
+
+- email inexistente;
+- contraseña incorrecta;
+- usuario inactivo;
+- cookie ausente;
+- token expirado;
+- token manipulado;
+- token con tipo incorrecto;
+- token sin claims obligatorios.
+
+Para el cliente, todos esos casos significan algo parecido:
+
+```text
+No hay una sesión válida usable.
+```
+
+El backend puede registrar internamente más detalle cuando exista auditoría completa, pero la respuesta pública no debe ayudar a enumerar usuarios, distinguir estados de cuenta o descubrir reglas internas de validación.
+
+### Configuración por entorno
+
+La configuración no debe ser idéntica en todos los entornos, pero sí debe ser explícita y razonada.
+
+En desarrollo local se aceptan algunas concesiones:
+
+- `AUTH_COOKIE_SECURE=false` si no hay HTTPS local;
+- origins locales concretos para Vite u otros servidores de desarrollo;
+- secretos de desarrollo no reales y no compartidos con entornos superiores.
+
+En staging y producción se espera endurecimiento:
+
+- `AUTH_COOKIE_SECURE=true` detrás de TLS;
+- origins CORS exactos;
+- secretos externos al repositorio;
+- expiraciones coherentes con el riesgo de sesión;
+- ningún wildcard en CORS;
+- ningún secreto de ejemplo;
+- configuración revisable y reproducible.
+
+Esto permite que el equipo trabaje en local sin bloquearse, pero deja clara la diferencia entre comodidad de desarrollo y política segura para entornos expuestos.
+
+### Beneficios
+
+El hardening final aporta beneficios concretos al backend:
+
+- reduce el riesgo de firmar tokens sin un secreto explícito, aunque la detección automática de secretos débiles concretos queda pendiente como hardening adicional;
+- evita atributos de cookie inconsistentes entre endpoints;
+- mantiene el access token fuera del body en el flujo browser principal;
+- reduce exposición del token frente a JavaScript mediante `HttpOnly`;
+- limita CORS a origins explícitos;
+- evita aceptar comodines peligrosos con credenciales;
+- mantiene respuestas genéricas ante credenciales o tokens inválidos;
+- conserva un JWT mínimo y sin datos sensibles;
+- separa configuración de test, desarrollo y entornos reales;
+- deja la fase OAuth2 preparada para módulos posteriores de autorización, tenant context y auditoría.
+
+### Limitaciones o deuda técnica
+
+Este cierre mejora la seguridad de la fase OAuth2, pero no convierte la autenticación en un sistema completo de seguridad empresarial.
+
+Limitaciones asumidas:
+
+- no sustituye MFA/TOTP;
+- no implementa rotación de claves JWT;
+- no añade refresh tokens;
+- no añade revocación server-side de tokens;
+- no completa auditoría persistente de todos los eventos;
+- no implementa gestión avanzada de secretos si la infraestructura todavía no la aporta;
+- no rechaza de forma específica valores débiles conocidos para `JWT_SECRET_KEY` como `secret`, `changeme` o `dev-secret`; esa política debe aplicarse por configuración del entorno o añadirse en una validación futura;
+- no resuelve por sí solo rate limiting, que queda como punto específico posterior;
+- no sustituye revisiones de seguridad de despliegue, TLS, proxy o cabeceras HTTP globales.
+
+También queda pendiente evolucionar el modelo si aparecen necesidades como `issuer`, `audience`, múltiples clientes OAuth2, sesiones revocables o rotación automática de secretos.
+
+### Qué NO hace
+
+Para evitar confusiones, esta task no hace lo siguiente:
+
+- no implementa RBAC completo;
+- no cambia el modelo multi-tenant;
+- no añade frontend;
+- no cambia el contrato principal de login, logout, `/auth/me` o `/auth/token`;
+- no introduce MFA;
+- no añade refresh tokens;
+- no implementa blacklist de JWT;
+- no convierte CORS en autorización;
+- no sustituye CSRF;
+- no añade auditoría completa si todavía no existe;
+- no implementa rate limiting, que se documenta como punto separado de la fase.
+
+### Resultado de la task
+
+El resultado es que la fase OAuth2 queda más segura y configurable para los siguientes módulos del backend.
+
+La fase mantiene una estrategia clara:
+
+```text
+Secretos
+   └── no hardcodeados y obligatorios para auth real
+
+Cookies
+   └── HttpOnly, Path coherente, SameSite validado, Secure configurable, Max-Age derivado
+
+JWT
+   └── expiración corta, claims mínimos, sin datos sensibles
+
+CORS
+   └── origins explícitos, sin wildcard, compatible con credenciales
+
+CSRF
+   └── protección para mutaciones con cookie
+
+Errores
+   └── respuestas genéricas ante credenciales o tokens inválidos
+```
+
+En resumen: **BACK-AUTH-OAUTH2-010 cierra la fase OAuth2 desde el punto de vista de hardening, evitando defaults inseguros y dejando autenticación, cookies, JWT, CORS y CSRF con una configuración centralizada y revisable. El flujo browser principal con `/auth/login` mantiene el token fuera del body, mientras que `/auth/token` expone un bearer token de forma intencionada para clientes técnicos y debe tratarse como secreto**.
 
 ## 10. BACK-AUTH-OAUTH2-011 — Rate limiting
 
