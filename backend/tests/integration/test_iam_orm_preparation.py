@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.schema import Column, Table
 from sqlalchemy.sql.sqltypes import DateTime
 
+import app.db.model_registry as model_registry
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
 from app.domains.iam.constants import IAM_SCHEMA
@@ -48,6 +49,24 @@ def test_base_metadata_is_available() -> None:
     assert Base.metadata is not None
     assert isinstance(model_table, Table)
     assert model_table.metadata is Base.metadata
+
+
+def test_model_registry_loads_current_iam_models() -> None:
+    expected_tables = {
+        "sch_iam.tbl_city",
+        "sch_iam.tbl_country",
+        "sch_iam.tbl_department",
+        "sch_iam.tbl_department_relations",
+        "sch_iam.tbl_organization",
+        "sch_iam.tbl_organization_role",
+        "sch_iam.tbl_platform_role",
+        "sch_iam.tbl_state",
+        "sch_iam.tbl_status",
+        "sch_iam.tbl_users",
+    }
+
+    assert model_registry.access_models.Status.__tablename__ == "tbl_status"
+    assert expected_tables.issubset(Base.metadata.tables.keys())
 
 
 def test_initial_iam_migration_creates_schema_without_tables() -> None:
