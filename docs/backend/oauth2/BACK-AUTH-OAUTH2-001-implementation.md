@@ -991,3 +991,95 @@ Aviso conocido: siguen apareciendo warnings de PyJWT por secretos de test cortos
 ## 7. Impacto backend
 
 El backend cierra la fase de hardening OAuth2/CORS con regresiones específicas para evitar relajaciones accidentales. Se refuerza que CORS mantenga origins explícitos y que `/auth/token` continúe siendo un endpoint bearer de desarrollo/Swagger sin cookies, sin aceptación de tenant desde cliente y con expiración derivada de configuración backend.
+
+---
+
+# BACK-AUTH-OAUTH2-011 — Rate limiting básico auth/registro
+
+**Estado:** QA aprobado  
+**Ámbito:** `backend/`  
+**Tipo de cambio:** Rate limiting in-memory para endpoints públicos sensibles
+
+## 1. Resumen
+
+Se ha incorporado rate limiting básico in-memory para MVP/dev sobre endpoints públicos sensibles:
+
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/token`
+- `POST /api/v1/organizations/register`
+
+No se protege en esta fase:
+
+- `/auth/me`
+- `/auth/csrf`
+- `/auth/logout`
+
+La implementación no usa Redis todavía y queda protegida frente a concurrencia mediante `threading.Lock`.
+
+## 2. Límites iniciales
+
+- Login: `5` requests / `60` segundos por IP+ruta.
+- Token: `5` requests / `60` segundos por IP+ruta.
+- Registro: `3` requests / `300` segundos por IP+ruta.
+- `RATE_LIMIT_ENABLED=false` desactiva el limiter.
+
+## 3. Respuesta 429
+
+Cuando se supera el límite configurado, la API devuelve `429 Too Many Requests`:
+
+```json
+{
+  "detail": "Demasiadas solicitudes. Inténtalo más tarde."
+}
+```
+
+Además, se añade el header `Retry-After` cuando el tiempo restante es calculable.
+
+La respuesta no expone email, password, token ni `organization_id`.
+
+## 4. Decisiones de seguridad
+
+- La clave usa `scope + path + request.client.host`.
+- No se usa email, username, token, password, payload ni `organization_id` para limitar.
+- No se confía en `X-Forwarded-For` en esta fase.
+- El rate limit se evalúa antes de llamar a `LoginService` o `RegistrationService`.
+- El error es genérico y no indica si el usuario existe.
+- La thread-safety se corrigió tras QA mediante `threading.Lock`.
+
+## 5. Arquitectura
+
+- `backend/app/core/rate_limit.py`:
+  - `RateLimitSettings` independiente de JWT.
+  - `InMemoryRateLimiter`.
+  - `RateLimitRule`.
+  - Dependencias explícitas:
+    - `require_auth_login_rate_limit`.
+    - `require_auth_token_rate_limit`.
+    - `require_registration_rate_limit`.
+- Integración en routers de login, token y registro.
+- Fixture de tests para limpiar el estado del singleton entre casos.
+
+## 6. Tests y validación
+
+- `make backend-quality` ✅ PASS.
+- `make backend-test-unit` ✅ PASS: `381 passed, 63 deselected`.
+- `make backend-test-db` ✅ PASS: `41 passed, 403 deselected`.
+- QA inicial ❌ FAIL por thread-safety.
+- Corrección aplicada con lock y test concurrente.
+- QA final ✅ PASS.
+
+Aviso conocido: los warnings de PyJWT de tests siguen como deuda no bloqueante.
+
+## 7. Riesgos pendientes
+
+- In-memory no es distribuido ni válido para múltiples workers/instancias.
+- Futuro: sustituir por Redis para staging/productivo.
+- Futuro: estrategia de IP real con reverse proxy/trusted proxies.
+- La ventana fija simple puede permitir ráfagas en borde de ventana.
+- Sin rate limiting adaptativo.
+- Sin rate limiting por usuario.
+- Warnings PyJWT de tests como deuda no bloqueante.
+
+## 8. Impacto backend
+
+El backend añade una primera defensa contra abuso básico y fuerza bruta en los flujos públicos de autenticación y registro. La solución reduce carga innecesaria sobre servicios de login/registro, mantiene errores genéricos y preserva el desacoplamiento entre política HTTP de protección y lógica de dominio.
