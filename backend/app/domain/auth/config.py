@@ -5,9 +5,46 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ALLOWED_AUTH_COOKIE_SAMESITE_VALUES = frozenset({"lax", "strict", "none"})
 ALLOWED_JWT_ALGORITHMS = frozenset({"HS256"})
+DEFAULT_CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+]
 
 
-class AuthSettings(BaseSettings):
+class CorsSettings(BaseSettings):
+    """Settings CORS cargables sin depender de secretos de autenticación."""
+
+    cors_allow_credentials: bool = True
+    cors_allow_authorization_header: bool = True
+    cors_allowed_origins: list[str] = Field(
+        default_factory=lambda: DEFAULT_CORS_ALLOWED_ORIGINS.copy(),
+    )
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @field_validator("cors_allowed_origins", mode="before")
+    @classmethod
+    def parse_cors_allowed_origins(cls, value: object) -> object:
+        """Permite configurar origins CORS como lista o cadena separada por comas."""
+
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
+
+    @field_validator("cors_allowed_origins")
+    @classmethod
+    def validate_cors_allowed_origins(cls, value: list[str]) -> list[str]:
+        """Rechaza wildcards para evitar CORS permisivo con credenciales."""
+
+        if "*" in value:
+            msg = "cors_allowed_origins no puede contener '*'"
+            raise ValueError(msg)
+        return value
+
+
+class AuthSettings(CorsSettings):
     """Settings de auth cargables desde variables de entorno."""
 
     access_token_expire_minutes: int = Field(default=15, ge=1)
@@ -22,8 +59,6 @@ class AuthSettings(BaseSettings):
     auth_cookie_httponly: bool = True
     auth_cookie_secure: bool = False
     auth_cookie_samesite: str = "lax"
-    cors_allow_credentials: bool = True
-    cors_allow_authorization_header: bool = True
     auth_enable_password_bearer_token: bool = True
     default_registered_organization_status: str = "ACTIVE"
     default_registered_user_status: str = "ACTIVE"
