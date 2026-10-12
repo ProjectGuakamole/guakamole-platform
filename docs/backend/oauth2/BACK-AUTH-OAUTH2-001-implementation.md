@@ -839,3 +839,93 @@ Aviso conocido: warnings de PyJWT por secretos de test de 30 bytes. Se documenta
 ## 7. Impacto backend
 
 El backend incorpora un endpoint bearer mínimo para compatibilidad con Swagger y pruebas de desarrollo sin sustituir el flujo principal basado en cookie `HttpOnly`. La implementación mantiene la autenticación centralizada en `LoginService`, evita duplicar reglas de credenciales y reduce el acoplamiento entre el contrato OAuth2 form y la lógica de dominio.
+
+---
+
+# BACK-AUTH-OAUTH2-009 — CORS backend controlado
+
+**Estado:** QA aprobado  
+**Ámbito:** `backend/`  
+**Tipo de cambio:** Configuración CORS segura para frontend local/dev
+
+## 1. Resumen
+
+Se ha configurado `CORSMiddleware` en `create_app()` para permitir que el frontend local/dev pueda consumir la API del backend desde origins explícitos.
+
+La configuración mantiene `allow_credentials=True` por defecto para ser compatible con sesiones basadas en cookie `HttpOnly`, pero no utiliza wildcard en origins ni en headers. El header `Authorization` queda controlado mediante la opción `cors_allow_authorization_header`.
+
+CORS queda desacoplado de la configuración JWT mediante `CorsSettings`, por lo que `create_app()` puede construirse sin requerir `JWT_SECRET_KEY` únicamente para aplicar el middleware CORS.
+
+## 2. Origins por defecto
+
+```text
+http://localhost:3000
+http://localhost:5173
+http://127.0.0.1:3000
+http://127.0.0.1:5173
+```
+
+## 3. Métodos permitidos
+
+```text
+GET
+POST
+PUT
+PATCH
+DELETE
+OPTIONS
+```
+
+## 4. Headers permitidos
+
+Siempre:
+
+```text
+Content-Type
+X-CSRF-Token
+```
+
+Si `cors_allow_authorization_header=True`:
+
+```text
+Authorization
+```
+
+## 5. Decisiones de seguridad
+
+- No wildcard `*` en origins.
+- No wildcard en headers.
+- Origin `*` rechazado en settings.
+- `allow_credentials=True` no se combina con wildcard.
+- Solo origins explícitos reciben `access-control-allow-origin`.
+- CORS no autoriza por sí mismo; solo habilita navegador/frontend cuando el origin está permitido.
+- No se modifica autenticación, CSRF ni endpoints.
+
+## 6. Arquitectura
+
+- `backend/app/core/cors.py`:
+  - `configure_cors(app, settings)`.
+  - `build_allowed_cors_headers(settings)`.
+- `CorsSettings` separado de `AuthSettings` para no requerir secreto JWT al construir app.
+- `AuthSettings` hereda de `CorsSettings` para compatibilidad.
+- `create_app()` aplica `configure_cors(app, CorsSettings())`.
+
+## 7. Tests y validación
+
+- `make backend-quality` ✅ PASS.
+- `make backend-test-unit` ✅ PASS: `356 passed, 63 deselected`.
+- `make backend-test-db` ✅ PASS: `41 passed, 378 deselected`.
+- QA final ✅ PASS.
+- Validación adicional QA: `create_app()` funciona sin `JWT_SECRET_KEY`.
+
+## 8. Riesgos pendientes
+
+- Futuro: parametrizar tests para cubrir los 4 origins por defecto.
+- Futuro: añadir test unitario explícito para `create_app()` sin `JWT_SECRET_KEY`.
+- Rate limiting sigue pendiente antes de exposición pública.
+- CORS no reemplaza CSRF ni autorización backend.
+- `/auth/token`, refresh tokens, RBAC/roles y frontend quedan fuera de esta task.
+
+## 9. Impacto backend
+
+El backend queda preparado para integrarse con el frontend local/dev sin relajar la política de seguridad mediante comodines. La configuración CORS se aplica de forma centralizada en el arranque de FastAPI, mantiene compatibilidad con cookies `HttpOnly` y preserva la separación entre configuración de transporte navegador/API, autenticación, CSRF y autorización.
