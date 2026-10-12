@@ -5,12 +5,12 @@ from sqlalchemy.exc import IntegrityError
 
 from app.domains.auth.shared.config import AuthSettings
 from app.domains.iam.organizations.models import Organization
-from app.domains.iam.organizations.registration_exceptions import (
+from app.domains.iam.registration.exceptions import (
     DuplicateRegistrationError,
 )
-from app.domains.iam.organizations.registration_repositories import GeographyReference
-from app.domains.iam.organizations.registration_schemas import RegistrationRequest
-from app.domains.iam.organizations.registration_services import RegistrationService
+from app.domains.iam.registration.repository import GeographyReference
+from app.domains.iam.registration.schemas import RegistrationRequest
+from app.domains.iam.registration.service import RegistrationService
 from app.domains.iam.users.models import User
 
 pytestmark = pytest.mark.test_unit

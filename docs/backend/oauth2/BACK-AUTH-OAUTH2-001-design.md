@@ -95,11 +95,11 @@ Responsabilidades:
 ### 4.2 Registro de organización
 
 ```text
-app/domains/iam/organizations/
-├── registration_repositories.py
-├── registration_routers.py
-├── registration_schemas.py
-└── registration_services.py
+app/domains/iam/registration/
+├── repository.py
+├── router.py
+├── schemas.py
+└── service.py
 ```
 
 Responsabilidades:

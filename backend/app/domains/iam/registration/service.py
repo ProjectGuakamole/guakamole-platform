@@ -8,15 +8,15 @@ from app.domains.auth.shared.config import AuthSettings
 from app.domains.auth.shared.password_hasher import PasswordHasher
 from app.domains.auth.shared.public_ids import PublicIdPrefix, generate_public_id
 from app.domains.iam.organizations.models import Organization
-from app.domains.iam.organizations.registration_exceptions import (
+from app.domains.iam.registration.exceptions import (
     DuplicateRegistrationError,
     InvalidRegistrationReferenceError,
 )
-from app.domains.iam.organizations.registration_repositories import (
+from app.domains.iam.registration.repository import (
     GeographyReference,
     RegistrationRepository,
 )
-from app.domains.iam.organizations.registration_schemas import (
+from app.domains.iam.registration.schemas import (
     RegistrationRequest,
     RegistrationResponse,
 )
