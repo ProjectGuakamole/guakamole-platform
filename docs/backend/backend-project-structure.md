@@ -7,7 +7,7 @@ Crear la estructura base modular del backend FastAPI para separar el punto de en
 ## Cambios realizados
 
 - Se ha movido el punto de entrada desde `backend/main.py` a `backend/app/main.py`.
-- Se ha creado el paquete `app/` con subpaquetes `api`, `core`, `models`, `schemas`, `services` y `db`.
+- Se ha creado el paquete `app/` con subpaquetes `api`, `core`, `domains`, `models`, `schemas`, `services`, `db` y `shared`.
 - Se ha creado `app/api/v1/router.py` como router principal versionado.
 - Se ha creado `app/api/v1/health.py` con el endpoint `GET /api/v1/health`.
 - Se han actualizado los tests para validar el endpoint de salud mediante `TestClient`.
