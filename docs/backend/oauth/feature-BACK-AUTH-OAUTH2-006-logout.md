@@ -29,8 +29,8 @@ El objetivo funcional es permitir que el cliente cierre la sesión local del nav
   - `HttpOnly=true`;
   - `Max-Age=0` o expiración pasada.
 - La arquitectura documentada queda separada en:
-  - `logout_schemas.py`: response mínimo;
-  - `logout_routers.py`: endpoint fino, idempotente y responsable de borrar la cookie.
+  - `auth/logout/schemas.py`: response mínimo;
+  - `auth/logout/router.py`: endpoint fino, idempotente y responsable de borrar la cookie.
 - No se crea un servicio específico porque no existe lógica de dominio compleja en esta task.
 
 ## Justificacion tecnica

@@ -43,13 +43,14 @@ Content-Type: application/json
 
 ### Organización de la implementación
 
-- `auth/dependencies.py`: factory compartida `build_auth_settings`.
-- `login_schemas.py`: request, response y DTO interno.
-- `login_repositories.py`: consulta SQLAlchemy de usuario por email.
-- `login_services.py`: validación de credenciales, auditoría conceptual y emisión del token.
-- `login_routers.py`: endpoint HTTP y configuración de `set-cookie`.
-- `login_exceptions.py`: error controlado para credenciales inválidas.
-- `tokens.py`: ampliación retrocompatible de `issue_access_token(..., organization=...)`.
+- `auth/shared/dependencies.py`: factory/dependency compartida `build_auth_settings`.
+- `auth/shared/config.py`: settings de autenticación (`AuthSettings`, etc.).
+- `auth/login/schemas.py`: request, response y DTO interno.
+- `auth/login/repository.py`: consulta SQLAlchemy de usuario por email.
+- `auth/login/service.py`: validación de credenciales, auditoría conceptual y emisión del token.
+- `auth/login/router.py`: endpoint HTTP y configuración de `set-cookie`.
+- `auth/login/exceptions.py`: error controlado para credenciales inválidas.
+- `auth/shared/tokens.py`: ampliación retrocompatible de `issue_access_token(..., organization=...)`.
 
 Además, el login ya no depende del router de registro. El registro también pasa a usar la dependency común de autenticación.
 
@@ -59,7 +60,7 @@ El token se entrega mediante cookie `HttpOnly` para reducir la exposición frent
 
 La separación entre router, schemas, repositorio, servicio y excepciones mantiene el endpoint fino, permite probar la lógica de autenticación sin acoplarla a FastAPI y encapsula la consulta SQLAlchemy en una pieza específica.
 
-La configuración compartida `build_auth_settings` evita duplicidad entre registro y login, y mantiene una política única para parámetros sensibles como `jwt_secret_key`, cookies y expiración del token.
+La dependency compartida `build_auth_settings` evita duplicidad entre registro y login, y mantiene una política única para parámetros sensibles definidos en los settings, como `jwt_secret_key`, cookies y expiración del token.
 
 ## Decisiones tomadas
 

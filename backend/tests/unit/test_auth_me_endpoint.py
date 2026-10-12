@@ -3,8 +3,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.domains.auth.me_routers import get_auth_me_service
-from app.domains.auth.me_schemas import AuthMeResponse
+from app.domains.auth.me.router import get_auth_me_service
+from app.domains.auth.me.schemas import AuthMeResponse
 from app.main import create_app
 
 pytestmark = pytest.mark.test_unit

@@ -4,9 +4,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.rate_limit import reset_rate_limiter_state
-from app.domains.auth.login_routers import get_login_service
-from app.domains.auth.login_schemas import LoginRequest, LoginTokenData
-from app.domains.auth.me_routers import get_auth_me_service
+from app.domains.auth.login.router import get_login_service
+from app.domains.auth.login.schemas import LoginRequest, LoginTokenData
+from app.domains.auth.me.router import get_auth_me_service
 from app.domains.iam.organizations.registration_routers import get_registration_service
 from app.domains.iam.organizations.registration_schemas import (
     RegistrationRequest,

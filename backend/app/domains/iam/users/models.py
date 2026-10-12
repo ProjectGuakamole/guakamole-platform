@@ -15,7 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
-from app.domains.auth.public_ids import PublicIdPrefix, generate_public_id
+from app.domains.auth.shared.public_ids import PublicIdPrefix, generate_public_id
 from app.domains.iam.constants import IAM_SCHEMA
 
 

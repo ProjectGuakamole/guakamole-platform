@@ -89,11 +89,11 @@ flowchart TD
 - `backend/pyproject.toml`
 - `backend/uv.lock`
 - `backend/app/domains/auth/__init__.py`
-- `backend/app/domains/auth/config.py`
-- `backend/app/domains/auth/cookies.py`
-- `backend/app/domains/auth/password_hasher.py`
-- `backend/app/domains/auth/public_ids.py`
-- `backend/app/domains/auth/tokens.py`
+- `backend/app/domains/auth/shared/config.py`
+- `backend/app/domains/auth/shared/cookies.py`
+- `backend/app/domains/auth/shared/password_hasher.py`
+- `backend/app/domains/auth/shared/public_ids.py`
+- `backend/app/domains/auth/shared/tokens.py`
 - `backend/tests/unit/test_auth_core.py`
 
 ## 4. Endpoints añadidos
@@ -405,13 +405,14 @@ Cookie emitida:
 
 ## 4. Arquitectura
 
-- `auth/dependencies.py`: factory compartida `build_auth_settings`.
-- `login_schemas.py`: request, response y DTO interno.
-- `login_repositories.py`: consulta SQLAlchemy de usuario por email.
-- `login_services.py`: validación de credenciales, auditoría conceptual y emisión del token.
-- `login_routers.py`: endpoint HTTP y `set-cookie`.
-- `login_exceptions.py`: error controlado de credenciales inválidas.
-- `tokens.py`: ampliación retrocompatible de `issue_access_token(..., organization=...)`.
+- `auth/shared/dependencies.py`: factory/dependency compartida `build_auth_settings`.
+- `auth/shared/config.py`: settings de autenticación (`AuthSettings`, etc.).
+- `auth/login/schemas.py`: request, response y DTO interno.
+- `auth/login/repository.py`: consulta SQLAlchemy de usuario por email.
+- `auth/login/service.py`: validación de credenciales, auditoría conceptual y emisión del token.
+- `auth/login/router.py`: endpoint HTTP y `set-cookie`.
+- `auth/login/exceptions.py`: error controlado de credenciales inválidas.
+- `auth/shared/tokens.py`: ampliación retrocompatible de `issue_access_token(..., organization=...)`.
 
 El login ya no depende del router de registro. El registro también usa la dependency común para construir la configuración de autenticación.
 
@@ -503,12 +504,12 @@ Casos que devuelven `401`:
 
 ## 4. Arquitectura
 
-- `me_schemas.py`: response público mínimo.
-- `me_services.py`: validación token y resolución de identidad.
-- `me_repositories.py`: consulta SQLAlchemy por public IDs y status activo.
-- `me_routers.py`: lectura cookie y mapeo HTTP `401`.
-- `me_exceptions.py`: error controlado.
-- `tokens.py`: `VerifiedAccessToken` ampliado con `organization`.
+- `auth/me/schemas.py`: response público mínimo.
+- `auth/me/service.py`: validación token y resolución de identidad.
+- `auth/me/repository.py`: consulta SQLAlchemy por public IDs y status activo.
+- `auth/me/router.py`: lectura cookie y mapeo HTTP `401`.
+- `auth/me/exceptions.py`: error controlado.
+- `auth/shared/tokens.py`: `VerifiedAccessToken` ampliado con `organization`.
 - Router incluido bajo `/api/v1/auth`.
 
 ## 5. Validaciones ejecutadas
@@ -587,8 +588,8 @@ Headers:
 
 ## 4. Arquitectura
 
-- `logout_schemas.py`: response mínimo.
-- `logout_routers.py`: endpoint fino, idempotente y responsable de borrar la cookie.
+- `auth/logout/schemas.py`: response mínimo.
+- `auth/logout/router.py`: endpoint fino, idempotente y responsable de borrar la cookie.
 - Router incluido bajo `/api/v1/auth`.
 - No se crea servicio porque no hay lógica de dominio compleja.
 
@@ -712,12 +713,12 @@ Response `403 Forbidden`:
 
 ## 5. Arquitectura
 
-- `csrf_schemas.py`: response.
-- `csrf_services.py`: emisión/validación de CSRF.
-- `csrf_dependencies.py`: dependencia `require_valid_csrf_token` y validación de access cookie.
-- `csrf_routers.py`: endpoint `/csrf`.
-- `csrf_exceptions.py`: excepción controlada.
-- `logout_routers.py`: ahora depende de `require_valid_csrf_token`.
+- `auth/csrf/schemas.py`: response.
+- `auth/csrf/service.py`: emisión/validación de CSRF.
+- `auth/csrf/dependencies.py`: dependencia `require_valid_csrf_token` y validación de access cookie.
+- `auth/csrf/router.py`: endpoint `/csrf`.
+- `auth/csrf/exceptions.py`: excepción controlada.
+- `auth/logout/router.py`: ahora depende de `require_valid_csrf_token`.
 - Router incluido bajo `/api/v1/auth`.
 
 ## 6. Tests y validación
@@ -813,8 +814,8 @@ Response `403 Forbidden` si está deshabilitado:
 
 ## 4. Arquitectura
 
-- `token_schemas.py`: response bearer mínimo.
-- `token_routers.py`: endpoint `/token` y transformación form -> `LoginRequest`.
+- `auth/token/schemas.py`: response bearer mínimo.
+- `auth/token/router.py`: endpoint `/token` y transformación form -> `LoginRequest`.
 - Reutiliza `get_login_service` y `LoginService`.
 - Router incluido bajo `/api/v1/auth`.
 - Dependencia añadida `python-multipart` para formularios FastAPI.

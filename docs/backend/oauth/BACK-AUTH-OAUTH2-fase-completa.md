@@ -591,20 +591,20 @@ La implementación siguió la misma idea que las tasks anteriores: router fino, 
 La estructura conceptual queda así:
 
 ```text
-login_routers.py
+auth/login/router.py
    │
    ├── recibe POST /login
    ├── llama a LoginService
    ├── traduce errores a HTTP 401
    └── configura Set-Cookie
 
-login_schemas.py
+auth/login/schemas.py
    │
    ├── LoginRequest
    ├── LoginResponse
    └── LoginTokenData
 
-login_services.py
+auth/login/service.py
    │
    ├── valida credenciales
    ├── verifica usuario activo
@@ -787,12 +787,12 @@ También prepara una pieza clave para el resto de la API. A partir de aquí, otr
 La implementación se repartió en piezas pequeñas dentro del dominio de autenticación:
 
 ```text
-auth/me_routers.py        → router HTTP y lectura de cookie
-auth/me_schemas.py        → schema público de respuesta
-auth/me_services.py       → caso de uso de identidad actual
-auth/me_repositories.py   → consulta a base de datos
-auth/dependencies.py      → settings de autenticación
-auth/tokens.py            → verificación del JWT de acceso
+auth/me/router.py         → router HTTP y lectura de cookie
+auth/me/schemas.py        → schema público de respuesta
+auth/me/service.py        → caso de uso de identidad actual
+auth/me/repository.py     → consulta a base de datos
+auth/shared/config.py     → settings de autenticación
+auth/shared/tokens.py     → verificación del JWT de acceso
 ```
 
 El router obtiene el nombre real de la cookie desde la configuración de autenticación, por lo que no queda quemado como una constante suelta dentro del endpoint. Si no encuentra cookie, responde con `401 Unauthorized`.
@@ -988,10 +988,10 @@ La implementación se mantuvo intencionadamente sencilla. No se creó un servici
 La estructura queda separada en dos piezas principales:
 
 ```text
-logout_schemas.py
+auth/logout/schemas.py
    └── define la respuesta pública mínima
 
-logout_routers.py
+auth/logout/router.py
    └── expone POST /auth/logout y elimina la cookie en la Response
 ```
 
@@ -1223,18 +1223,18 @@ No se añadió un middleware global. Se eligió una dependencia explícita reuti
 La estructura conceptual queda así:
 
 ```text
-csrf_routers.py
+auth/csrf/router.py
    └── expone GET /auth/csrf
 
-csrf_services.py
+auth/csrf/service.py
    ├── emite token CSRF firmado
    └── valida token CSRF frente al access token actual
 
-csrf_dependencies.py
+auth/csrf/dependencies.py
    ├── obtiene y valida la cookie de acceso
    └── define require_valid_csrf_token
 
-logout_routers.py
+auth/logout/router.py
    └── protege POST /auth/logout con require_valid_csrf_token
 ```
 

@@ -2,10 +2,10 @@
 
 from jwt import InvalidTokenError
 
-from app.domains.auth.me_exceptions import NotAuthenticatedError
-from app.domains.auth.me_repositories import AuthMeRepository
-from app.domains.auth.me_schemas import AuthMeResponse
-from app.domains.auth.tokens import TokenVerifier
+from app.domains.auth.me.exceptions import NotAuthenticatedError
+from app.domains.auth.me.repository import AuthMeRepository
+from app.domains.auth.me.schemas import AuthMeResponse
+from app.domains.auth.shared.tokens import TokenVerifier
 
 
 class AuthMeService:

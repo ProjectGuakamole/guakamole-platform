@@ -5,11 +5,11 @@ from typing import Annotated
 from fastapi import Depends, Header, HTTPException, Request, status
 from jwt import InvalidTokenError
 
-from app.domains.auth.config import AuthSettings
-from app.domains.auth.csrf_exceptions import InvalidCsrfTokenError
-from app.domains.auth.csrf_services import CsrfTokenService
-from app.domains.auth.dependencies import build_auth_settings
-from app.domains.auth.tokens import JwtAccessTokenService, VerifiedAccessToken
+from app.domains.auth.csrf.exceptions import InvalidCsrfTokenError
+from app.domains.auth.csrf.service import CsrfTokenService
+from app.domains.auth.shared.config import AuthSettings
+from app.domains.auth.shared.dependencies import build_auth_settings
+from app.domains.auth.shared.tokens import JwtAccessTokenService, VerifiedAccessToken
 
 
 def unauthorized_response() -> HTTPException:

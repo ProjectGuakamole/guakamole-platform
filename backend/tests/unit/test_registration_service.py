@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.domains.auth.config import AuthSettings
+from app.domains.auth.shared.config import AuthSettings
 from app.domains.iam.organizations.models import Organization
 from app.domains.iam.organizations.registration_exceptions import (
     DuplicateRegistrationError,

@@ -6,13 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.rate_limit import require_auth_token_rate_limit
-from app.domains.auth.config import AuthSettings
-from app.domains.auth.dependencies import build_auth_settings
-from app.domains.auth.login_exceptions import InvalidLoginCredentialsError
-from app.domains.auth.login_routers import get_login_service
-from app.domains.auth.login_schemas import LoginRequest
-from app.domains.auth.login_services import LoginService
-from app.domains.auth.token_schemas import PasswordBearerTokenResponse
+from app.domains.auth.login.exceptions import InvalidLoginCredentialsError
+from app.domains.auth.login.router import get_login_service
+from app.domains.auth.login.schemas import LoginRequest
+from app.domains.auth.login.service import LoginService
+from app.domains.auth.shared.config import AuthSettings
+from app.domains.auth.shared.dependencies import build_auth_settings
+from app.domains.auth.token.schemas import PasswordBearerTokenResponse
 
 router = APIRouter()
 

@@ -8,15 +8,15 @@ import pytest
 from jwt import ExpiredSignatureError, InvalidTokenError
 from pydantic import ValidationError
 
-from app.domains.auth.config import AuthSettings
-from app.domains.auth.cookies import build_auth_cookie_settings
-from app.domains.auth.password_hasher import PwdlibPasswordHasher
-from app.domains.auth.public_ids import (
+from app.domains.auth.shared.config import AuthSettings
+from app.domains.auth.shared.cookies import build_auth_cookie_settings
+from app.domains.auth.shared.password_hasher import PwdlibPasswordHasher
+from app.domains.auth.shared.public_ids import (
     PublicIdPrefix,
     generate_public_id,
     parse_public_uuid,
 )
-from app.domains.auth.tokens import ACCESS_CLAIM_VALUE, JwtAccessTokenService
+from app.domains.auth.shared.tokens import ACCESS_CLAIM_VALUE, JwtAccessTokenService
 
 
 @pytest.fixture

@@ -4,9 +4,9 @@ from typing import Protocol
 
 from sqlalchemy.exc import IntegrityError
 
-from app.domains.auth.config import AuthSettings
-from app.domains.auth.password_hasher import PasswordHasher
-from app.domains.auth.public_ids import PublicIdPrefix, generate_public_id
+from app.domains.auth.shared.config import AuthSettings
+from app.domains.auth.shared.password_hasher import PasswordHasher
+from app.domains.auth.shared.public_ids import PublicIdPrefix, generate_public_id
 from app.domains.iam.organizations.models import Organization
 from app.domains.iam.organizations.registration_exceptions import (
     DuplicateRegistrationError,

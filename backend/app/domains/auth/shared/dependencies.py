@@ -1,6 +1,6 @@
 """Dependencias compartidas del dominio de autenticación."""
 
-from app.domains.auth.config import AuthSettings
+from app.domains.auth.shared.config import AuthSettings
 
 
 def build_auth_settings() -> AuthSettings:
