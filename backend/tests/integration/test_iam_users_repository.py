@@ -5,10 +5,11 @@ from pathlib import Path
 from urllib.parse import quote_plus
 
 import pytest
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session
 
 from app.domains.iam.access.models import OrganizationRole, PlatformRole, Status
+from app.domains.iam.departments.models import Department, DepartmentRelation
 from app.domains.iam.geography.models import City, Country, State
 from app.domains.iam.organizations.models import Organization
 from app.domains.iam.users.models import User
@@ -174,13 +175,39 @@ def db_session() -> Generator[Session, None, None]:
 
 
 def cleanup_repository_test_data(session: Session) -> None:
-    session.execute(delete(User).where(User.id_user.in_(TEST_USER_IDS)))
+    repository_user_ids = select(User.id_user).where(
+        (User.id_user.in_(TEST_USER_IDS))
+        | (User.id_organization.in_(TEST_ORGANIZATION_IDS))
+        | (
+            User.email.in_(
+                [
+                    "ana.acme@example.test",
+                    "carlos.acme@example.test",
+                    "maria.acme@example.test",
+                    "ana.cybercorp@example.test",
+                ]
+            )
+        )
+    )
+    session.execute(
+        delete(DepartmentRelation).where(
+            DepartmentRelation.id_user.in_(repository_user_ids)
+        )
+    )
+    session.execute(
+        delete(Department).where(Department.id_organization.in_(TEST_ORGANIZATION_IDS))
+    )
+    session.execute(delete(User).where(User.id_user.in_(repository_user_ids)))
     session.execute(
         delete(Organization).where(
             Organization.id_organization.in_(TEST_ORGANIZATION_IDS)
         )
     )
-    session.execute(delete(City).where(City.id_city == TEST_CITY_ID))
+    session.execute(
+        delete(City).where(
+            (City.id_city == TEST_CITY_ID) | (City.id_state == TEST_STATE_ID)
+        )
+    )
     session.execute(delete(State).where(State.id_state == TEST_STATE_ID))
     session.execute(delete(Country).where(Country.id_country == TEST_COUNTRY_ID))
     session.execute(delete(Status).where(Status.id_status == TEST_STATUS_ID))
@@ -298,6 +325,7 @@ def seed_organizations(session: Session) -> None:
 
 
 def seed_users(session: Session) -> None:
+    cleanup_repository_test_data(session)
     seed_catalogs(session)
     seed_organizations(session)
     session.add_all(

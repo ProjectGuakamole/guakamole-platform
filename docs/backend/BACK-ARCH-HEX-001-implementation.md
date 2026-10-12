@@ -620,7 +620,7 @@ Task 0 completada como baseline/preparación sin cambios funcionales.
 
 Task 1 completada y validada en verde. Los bloqueos de entorno detectados inicialmente quedaron resueltos tras la sincronización/preparación del entorno backend y la corrección de Ruff sobre el test de arquitectura. El cierre confirma que no se han introducido cambios funcionales fuera del scaffolding mínimo previsto.
 
-- **Estructura creada/completada:** se mantiene `backend/app/domains/iam/users/models.py` sin moverlo ni reestructurarlo y se conserva `schemas.py` existente sin cambios funcionales. Se añade el scaffolding mínimo importable para `routers.py`, `services.py`, `policies.py`, `repositories.py` y `dependencies.py`. También se añade un docstring mínimo y `__all__` vacío en `__init__.py`.
+- **Estructura creada/completada:** se mantiene `backend/app/domains/iam/users/models.py` sin moverlo ni reestructurarlo y se conserva `schemas.py` existente sin cambios funcionales. Se añade el scaffolding mínimo importable para `routers.py`, `services.py`, `policies.py`, `repositories.py` y `dependencies.py`. `__init__.py` queda como marcador de paquete con docstring mínimo, sin exportaciones explícitas.
 - **Archivos creados/modificados:**
   - `backend/app/domains/iam/users/__init__.py`.
   - `backend/app/domains/iam/users/routers.py`.

@@ -4,11 +4,12 @@ import dataclasses
 from datetime import UTC, date, datetime
 
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.domains.auth.me.repository import SqlAlchemyAuthMeRepository
 from app.domains.iam.access.models import OrganizationRole, PlatformRole, Status
+from app.domains.iam.departments.models import Department, DepartmentRelation
 from app.domains.iam.geography.models import City, Country, State
 from app.domains.iam.organizations.models import Organization
 from app.domains.iam.users.models import User
@@ -36,9 +37,24 @@ def auth_me_repository_cleanup(login_db_session: Session) -> None:
 
 
 def cleanup_auth_me_data(session: Session) -> None:
-    session.execute(
-        delete(User).where(User.id_user.in_([ACTIVE_USER_ID, INACTIVE_USER_ID]))
+    auth_me_user_ids = select(User.id_user).where(
+        (User.id_user.in_([ACTIVE_USER_ID, INACTIVE_USER_ID]))
+        | (User.id_organization.in_([TEST_ORGANIZATION_ID, OTHER_ORGANIZATION_ID]))
+        | (User.email.like("%.auth-me@example.test"))
     )
+    session.execute(
+        delete(DepartmentRelation).where(
+            DepartmentRelation.id_user.in_(auth_me_user_ids)
+        )
+    )
+    session.execute(
+        delete(Department).where(
+            Department.id_organization.in_(
+                [TEST_ORGANIZATION_ID, OTHER_ORGANIZATION_ID]
+            )
+        )
+    )
+    session.execute(delete(User).where(User.id_user.in_(auth_me_user_ids)))
     session.execute(
         delete(Organization).where(
             Organization.id_organization.in_(
@@ -46,7 +62,9 @@ def cleanup_auth_me_data(session: Session) -> None:
             )
         )
     )
-    session.execute(delete(City).where(City.id_city == CITY_ID))
+    session.execute(
+        delete(City).where((City.id_city == CITY_ID) | (City.id_state == STATE_ID))
+    )
     session.execute(delete(State).where(State.id_state == STATE_ID))
     session.execute(delete(Country).where(Country.id_country == COUNTRY_ID))
     session.execute(
@@ -64,6 +82,7 @@ def cleanup_auth_me_data(session: Session) -> None:
 
 
 def seed_auth_me_data(session: Session) -> None:
+    cleanup_auth_me_data(session)
     session.add_all(
         [
             Status(id_status=ACTIVE_STATUS_ID, status="ACTIVE"),
