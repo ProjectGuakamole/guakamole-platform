@@ -18,7 +18,7 @@
 11. BACK-AUTH-OAUTH2-012 — Validación y cierre final
 
 > [!WARNING]
-> En esta iteración quedan desarrollados los puntos 1 y 2. Los puntos 3-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
+> En esta iteración quedan desarrollados los puntos 1, 2 y 3. Los puntos 4-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
 
 ---
 
@@ -502,7 +502,230 @@ En resumen: **BACK-AUTH-OAUTH2-003 convirtió la base de autenticación en un fl
 
 ## 3. BACK-AUTH-OAUTH2-004 — Login cookie HttpOnly
 
-Pendiente de redactar en una ejecución posterior.
+### Qué problema resuelve
+
+La task anterior ya permitía registrar una organización y un usuario con una contraseña real. Eso era un paso enorme, pero todavía faltaba la parte que cualquier persona espera después de registrarse: **poder iniciar sesión**.
+
+Hasta este punto, el backend podía crear usuarios con `password_hash`, pero no existía todavía un flujo HTTP que recibiera `email` y `password`, comprobara esas credenciales y dejara al navegador autenticado para las siguientes peticiones.
+
+El problema no era solo “hacer un login”. También había una decisión de seguridad importante: el frontend necesitaba una sesión usable desde navegador, pero no queríamos guardar el access token en `localStorage` ni en `sessionStorage`.
+
+Guardar tokens ahí suele ser cómodo, pero tiene un coste: si aparece una vulnerabilidad XSS y JavaScript malicioso se ejecuta en la aplicación, ese JavaScript puede intentar leer esos almacenes y robar el token. Por eso esta task apostó por una sesión basada en cookie `HttpOnly`.
+
+### Qué hace esta task
+
+Se implementó el endpoint:
+
+```http
+POST /api/v1/auth/login
+```
+
+El flujo funcional es:
+
+```text
+Cliente envía email + password
+   │
+   ▼
+Router HTTP recibe la petición
+   │
+   ▼
+LoginService valida credenciales
+   │
+   ├── busca el usuario por email normalizado
+   ├── verifica que el usuario está activo
+   ├── comprueba la contraseña con Argon2id
+   └── emite un access token JWT
+   │
+   ▼
+Router guarda el token en cookie HttpOnly
+   │
+   ▼
+Respuesta mínima: { "status": "authenticated" }
+```
+
+La respuesta pública es deliberadamente pequeña:
+
+```json
+{
+  "status": "authenticated"
+}
+```
+
+Lo importante es lo que **no** devuelve:
+
+- no devuelve el JWT en el body;
+- no devuelve `password_hash`;
+- no devuelve IDs internos;
+- no devuelve roles;
+- no devuelve información completa del usuario.
+
+El token se emite como JWT de acceso y se entrega mediante la cookie `guak_access_token`.
+
+### Qué es una cookie HttpOnly y por qué se escogió
+
+Una cookie es un pequeño dato que el servidor puede pedir al navegador que guarde. Después, el navegador la envía automáticamente en las peticiones que correspondan según su dominio, ruta y políticas de seguridad.
+
+La parte importante aquí es el atributo `HttpOnly`. Cuando una cookie tiene `HttpOnly`, el navegador la sigue enviando en peticiones HTTP, pero **JavaScript no puede leerla directamente** con `document.cookie`.
+
+Dicho de forma sencilla:
+
+```text
+localStorage/sessionStorage
+   └── JavaScript puede leer el token
+
+cookie HttpOnly
+   └── JavaScript no puede leer directamente el token
+```
+
+Esto no elimina todos los riesgos, pero reduce mucho la exposición del access token ante XSS. Si un atacante consigue ejecutar JavaScript en la página, lo tendrá más difícil para robar el token y llevárselo fuera, porque el token no está disponible como valor legible desde el código cliente.
+
+El compromiso de esta decisión es que, al usar cookies para autenticar peticiones de navegador, hay que pensar en CSRF para operaciones autenticadas que modifican estado. En esta task todavía no se resolvió CSRF; se aceptó como una pieza posterior de la fase OAuth2.
+
+> [!TIP]
+> La cookie `HttpOnly` no significa “seguridad mágica”. Significa que el token deja de estar al alcance directo de JavaScript. Es una buena base, pero necesita complementarse con CSRF, CORS, `Secure`, `SameSite`, rate limiting y validaciones de backend.
+
+### Cómo se implantó
+
+La implementación siguió la misma idea que las tasks anteriores: router fino, lógica de negocio en servicio y acceso a datos encapsulado en repositorio.
+
+La estructura conceptual queda así:
+
+```text
+login_routers.py
+   │
+   ├── recibe POST /login
+   ├── llama a LoginService
+   ├── traduce errores a HTTP 401
+   └── configura Set-Cookie
+
+login_schemas.py
+   │
+   ├── LoginRequest
+   ├── LoginResponse
+   └── LoginTokenData
+
+login_services.py
+   │
+   ├── valida credenciales
+   ├── verifica usuario activo
+   ├── usa PasswordHasher
+   ├── usa TokenIssuer
+   └── registra auditoría conceptual
+
+login_repositories.py
+   │
+   └── busca usuario por email normalizado
+```
+
+`LoginRequest` define el contrato de entrada: `email` y `password`. El email se normaliza haciendo `strip()` y pasándolo a minúsculas. Además, el schema no acepta campos extra, lo que evita contratos ambiguos o payloads con datos que el backend no espera.
+
+`LoginResponse` define el contrato de salida público. Solo contiene el estado `authenticated`. El access token no forma parte de la respuesta JSON.
+
+`LoginService` contiene el caso de uso. Recibe la request ya validada, busca el usuario por email normalizado, comprueba que existe, verifica que está activo y valida la contraseña usando `PwdlibPasswordHasher`. Si algo falla, lanza un error de credenciales inválidas sin dar pistas sobre si el email existe, si el usuario está inactivo o si la contraseña es incorrecta.
+
+El repositorio se encarga de consultar los datos mínimos necesarios para autenticar:
+
+- public ID del usuario;
+- public ID de la organización;
+- `password_hash`;
+- estado del usuario.
+
+Con esos datos, `JwtAccessTokenService` emite un access token con claims mínimos. En este punto ya se incluye el usuario en `sub` y la organización en `org`, usando public IDs. No se meten roles ni permisos dentro del token.
+
+Después, el router construye la configuración de cookie con `build_auth_cookie_settings`. Esta función centraliza atributos como nombre, ruta, `HttpOnly`, `Secure`, `SameSite` y `Max-Age`, en vez de repetirlos a mano en cada endpoint.
+
+También se dejó `NoOpLoginAuditAdapter` como punto de extensión para auditoría. Conceptualmente ya existen eventos de login correcto y login fallido, pero en esta task todavía no se persisten como `AuditEvent` real.
+
+### Ejemplo de request
+
+```json
+{
+  "email": "ana@empresa.com",
+  "password": "PasswordSeguro123!"
+}
+```
+
+### Ejemplo de response
+
+```json
+{
+  "status": "authenticated"
+}
+```
+
+### Ejemplo conceptual de Set-Cookie
+
+```http
+Set-Cookie: guak_access_token=<jwt>; HttpOnly; Path=/api; SameSite=lax; Max-Age=900
+```
+
+En un entorno con HTTPS, la cookie debe configurarse también con `Secure`. En local puede estar desactivado por configuración para permitir desarrollo sin TLS, pero no debe entenderse como la política final de staging o producción.
+
+### Beneficios
+
+Esta task convirtió el registro en una experiencia de autenticación real para navegador.
+
+Beneficios principales:
+
+- **Token fuera del body**: el JWT no aparece en la respuesta JSON, así que no se obliga al frontend a almacenarlo manualmente.
+- **Menor exposición ante XSS**: al usar cookie `HttpOnly`, JavaScript no puede leer directamente el access token.
+- **Base para sesión browser segura**: el navegador puede mantener la sesión mediante cookie y enviar credenciales en peticiones posteriores dentro del ámbito configurado.
+- **Reutilización del Auth Core**: el login usa el hasher Argon2id, el servicio JWT y la configuración de cookies ya preparados.
+- **Router más limpio**: el endpoint HTTP no concentra toda la lógica; delega credenciales, tokens y acceso a datos en piezas específicas.
+- **Errores genéricos**: ante credenciales inválidas se responde de forma uniforme, sin revelar si el usuario existe o qué parte ha fallado.
+- **Token mínimo**: se usan public IDs para `sub` y `org`, sin meter roles, permisos ni datos personales en el JWT.
+
+### Limitaciones o compromisos
+
+Esta task cerró el primer login, pero no pretendía resolver toda la seguridad de sesión de golpe. Quedaron compromisos claros:
+
+- **Sin CSRF todavía**: al usar cookies, las mutaciones autenticadas necesitaban una protección CSRF que se abordó después.
+- **Sin logout todavía**: el backend aún no tenía endpoint para borrar la cookie de autenticación.
+- **Sin refresh token**: solo se emite access token; cuando expire, el usuario necesitará volver a autenticarse o esperar a una solución posterior.
+- **Sin auditoría persistente**: `NoOpLoginAuditAdapter` deja el puerto conceptual, pero no guarda eventos reales en base de datos.
+- **Sin rate limiting en esta task concreta**: la protección específica contra fuerza bruta se resolvió más adelante en la fase.
+- **Cookie `Secure` dependiente de configuración**: en local puede estar desactivada, pero en entornos con TLS debe activarse.
+- **Selección de organización simplificada**: el login usa la organización asociada al usuario según el modelo disponible en ese momento. Si más adelante una cuenta pertenece a varias organizaciones activas, habrá que diseñar selección de tenant.
+
+### Qué NO hace todavía
+
+Esta task no implementa:
+
+- perfil completo del usuario;
+- devolución de roles;
+- `CurrentUser` completo para endpoints protegidos;
+- endpoint `/auth/me`;
+- logout;
+- CSRF;
+- refresh tokens;
+- integración con frontend;
+- autorización RBAC completa;
+- auditoría persistente;
+- rate limiting como parte de esta task concreta.
+
+La idea fue mantener el alcance claro: primero autenticar credenciales y establecer una sesión de navegador razonablemente segura; después construir encima el resto de piezas.
+
+### Resultado de la task
+
+El resultado fue que el backend ya podía cerrar el ciclo básico iniciado por el registro:
+
+```text
+Registrar organización y usuario
+   │
+   ▼
+Iniciar sesión con email/password
+   │
+   ▼
+Verificar password Argon2id
+   │
+   ▼
+Emitir JWT de acceso
+   │
+   ▼
+Guardar JWT en cookie HttpOnly
+```
+
+En resumen: **BACK-AUTH-OAUTH2-004 convirtió el usuario registrado en una sesión real de navegador, manteniendo el token fuera del alcance directo de JavaScript y sin exponerlo en el body de la respuesta**.
 
 ## 4. BACK-AUTH-OAUTH2-005 — `/auth/me`
 
