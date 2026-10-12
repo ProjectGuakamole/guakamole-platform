@@ -9,13 +9,19 @@ from httpx import Response
 from pydantic import ValidationError
 
 from app.core.cors import configure_cors
-from app.domain.auth.config import AuthSettings
+from app.domain.auth.config import AuthSettings, CorsSettings
 from app.main import create_app
 
 pytestmark = pytest.mark.test_unit
 
 ALLOWED_ORIGIN = "http://localhost:5173"
 DISALLOWED_ORIGIN = "https://frontend.example.invalid"
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+]
 
 
 def build_settings(
@@ -79,6 +85,47 @@ def test_preflight_from_disallowed_origin_does_not_return_permissive_origin(
     response = preflight(client, origin=DISALLOWED_ORIGIN)
 
     assert response.headers.get("access-control-allow-origin") is None
+
+
+def test_create_app_does_not_require_jwt_secret_for_cors_only_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+
+    client = TestClient(create_app())
+    response = preflight(client)
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == ALLOWED_ORIGIN
+
+
+@pytest.mark.parametrize("origin", DEFAULT_ALLOWED_ORIGINS)
+def test_default_cors_origins_are_allowed_without_wildcard(
+    origin: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("CORS_ALLOWED_ORIGINS", raising=False)
+    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+    client = TestClient(create_app())
+
+    response = preflight(client, origin=origin)
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+    assert response.headers["access-control-allow-origin"] != "*"
+
+
+def test_cors_allowed_origins_can_be_configured_from_comma_separated_string() -> None:
+    settings = CorsSettings.model_validate(
+        {"cors_allowed_origins": "https://one.example, https://two.example"},
+    )
+
+    assert settings.cors_allowed_origins == [
+        "https://one.example",
+        "https://two.example",
+    ]
 
 
 def test_authorization_header_is_allowed_when_enabled() -> None:
