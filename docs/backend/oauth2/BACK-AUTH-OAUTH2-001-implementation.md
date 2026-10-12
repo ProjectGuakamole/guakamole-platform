@@ -929,3 +929,65 @@ Authorization
 ## 9. Impacto backend
 
 El backend queda preparado para integrarse con el frontend local/dev sin relajar la política de seguridad mediante comodines. La configuración CORS se aplica de forma centralizada en el arranque de FastAPI, mantiene compatibilidad con cookies `HttpOnly` y preserva la separación entre configuración de transporte navegador/API, autenticación, CSRF y autorización.
+
+---
+
+# BACK-AUTH-OAUTH2-010 — Hardening final OAuth2/CORS
+
+**Estado:** QA aprobado  
+**Ámbito:** `backend/`  
+**Tipo de cambio:** Tests de regresión de seguridad y documentación
+
+## 1. Resumen
+
+Se completa el hardening final de OAuth2/CORS mediante pruebas de regresión y documentación. Esta task no modifica contratos HTTP, no añade funcionalidad nueva y no cambia el comportamiento esperado por clientes.
+
+El objetivo es reforzar garantías ya existentes en CORS y en `POST /api/v1/auth/token`, especialmente alrededor de configuración segura, rechazo de entradas no deseadas y ausencia de cookies en el endpoint bearer.
+
+## 2. CORS cubierto
+
+- `create_app()` funciona sin `JWT_SECRET_KEY` ni `JWT_SECRET`.
+- Los 4 origins por defecto quedan cubiertos explícitamente:
+  - `http://localhost:3000`
+  - `http://localhost:5173`
+  - `http://127.0.0.1:3000`
+  - `http://127.0.0.1:5173`
+- `cors_allowed_origins` parsea correctamente un string separado por comas.
+- El wildcard `*` sigue rechazado.
+
+## 3. `/auth/token` cubierto
+
+- `expires_in` deriva de `ACCESS_TOKEN_EXPIRE_MINUTES` con un valor distinto de `15` para validar que no existe un valor fijo accidental.
+- Un body JSON incorrecto devuelve `422` y no autentica.
+- Campos form extra como `organization_id` y `tenant` no llegan a `LoginRequest` ni influyen en autenticación.
+- El endpoint sigue sin setear cookie.
+
+## 4. Decisiones de seguridad
+
+- No se modifica frontend.
+- No se implementa rate limiting.
+- No se implementa auditoría persistente.
+- No se implementan refresh tokens.
+- No se cambian contratos HTTP.
+- No se relaja CORS.
+- No se introducen secretos reales.
+
+## 5. Tests y validación
+
+- `make backend-quality` ✅ PASS.
+- `make backend-test-unit` ✅ PASS: `370 passed, 63 deselected`.
+- `make backend-test-db` ✅ PASS: `41 passed, 392 deselected`.
+- QA final ✅ PASS.
+
+Aviso conocido: siguen apareciendo warnings de PyJWT por secretos de test cortos. Se mantienen como deuda no bloqueante.
+
+## 6. Riesgos pendientes
+
+- Rate limiting pendiente antes de exposición pública.
+- Auditoría persistente pendiente.
+- Refresh tokens y revocación server-side no implementados.
+- Warnings PyJWT en tests por secretos de test cortos.
+
+## 7. Impacto backend
+
+El backend cierra la fase de hardening OAuth2/CORS con regresiones específicas para evitar relajaciones accidentales. Se refuerza que CORS mantenga origins explícitos y que `/auth/token` continúe siendo un endpoint bearer de desarrollo/Swagger sin cookies, sin aceptación de tenant desde cliente y con expiración derivada de configuración backend.
