@@ -17,8 +17,8 @@
 10. BACK-AUTH-OAUTH2-011 — Rate limiting
 11. BACK-AUTH-OAUTH2-012 — Validación y cierre final
 
-> [!WARNING]
-> En esta iteración quedan desarrollados los puntos 1, 2, 3, 4, 5, 6, 7, 8, 9 y 10. El punto 11 permanece como índice de trabajo para completar el documento en ejecuciones posteriores.
+> [!NOTE]
+> En esta iteración quedan desarrollados los puntos 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 y 11. El documento recoge el cierre completo de la fase OAuth2 del backend.
 
 ---
 
@@ -2390,4 +2390,156 @@ En resumen: **BACK-AUTH-OAUTH2-011 añade rate limiting backend configurable par
 
 ## 11. BACK-AUTH-OAUTH2-012 — Validación y cierre final
 
-Pendiente de redactar en una ejecución posterior.
+### Objetivo del cierre
+
+El objetivo de esta última task no fue añadir otro endpoint ni cambiar el comportamiento de autenticación, sino **cerrar la fase OAuth2 verificando que las piezas ya construidas encajan como un flujo completo de backend**.
+
+Hasta este punto se habían desarrollado componentes importantes por separado: registro, login, cookie `HttpOnly`, identidad actual, logout, CSRF, token OAuth2 para Swagger/clientes técnicos, CORS, hardening y rate limiting. La validación final sirve para mirar el conjunto y responder a una pregunta sencilla:
+
+```text
+¿Tenemos una base de autenticación coherente, reutilizable y razonable para el MVP?
+```
+
+La respuesta de cierre es que sí: la fase deja una base sólida para seguir construyendo IAM, endpoints autenticados y aislamiento multiempresa. Pero no debe interpretarse como un sistema IAM completo ni como una garantía absoluta de producción lista sin más trabajo.
+
+> [!IMPORTANT]
+> El resultado de esta fase es una base OAuth2/Auth razonable para el MVP. No es todavía RBAC completo, MFA, gestión avanzada de sesiones, auditoría persistente total ni hardening productivo definitivo.
+
+### Recap del flujo completo
+
+El flujo principal de navegador queda ordenado así:
+
+```text
+register
+   │
+   ▼
+login con cookie HttpOnly
+   │
+   ▼
+me
+   │
+   ▼
+csrf
+   │
+   ▼
+logout
+```
+
+Traducido a responsabilidades de backend:
+
+- `POST /api/v1/organizations/register` crea la organización inicial y el primer usuario administrador, sin iniciar sesión automáticamente y sin devolver tokens.
+- `POST /api/v1/auth/login` valida credenciales, emite un access token JWT mínimo y lo entrega mediante cookie `HttpOnly`.
+- `GET /api/v1/auth/me` permite resolver la identidad autenticada desde la cookie, sin que el cliente tenga que leer el JWT.
+- `GET /api/v1/auth/csrf` emite un token CSRF ligado a la sesión actual para proteger mutaciones autenticadas basadas en cookie.
+- `POST /api/v1/auth/logout` borra la cookie de sesión desde backend y queda protegido por CSRF.
+
+En paralelo, la fase incluye:
+
+- `POST /api/v1/auth/token` como endpoint OAuth2 Password Bearer separado para Swagger y clientes técnicos;
+- CORS configurado con origins explícitos, no con wildcard abierto;
+- hardening de respuestas, contratos y configuración;
+- rate limiting alrededor de endpoints sensibles de autenticación y registro.
+
+La idea importante es que el flujo browser y el flujo técnico no se mezclan. El navegador trabaja con cookie `HttpOnly`; Swagger y determinados clientes técnicos pueden usar bearer token mediante `/auth/token` si la configuración lo permite.
+
+### Qué se revisó conceptualmente
+
+La validación final revisó la fase como un sistema, no como una suma de endpoints aislados.
+
+Se revisaron especialmente estos puntos:
+
+- **Contratos HTTP**: rutas, métodos, respuestas mínimas y separación entre flujo browser y flujo bearer.
+- **Respuestas seguras**: ausencia de `password_hash`, secretos, IDs internos, access token en body del login o datos innecesarios en respuestas públicas.
+- **Cookies**: uso de cookie `HttpOnly`, atributos comunes para emisión y borrado, `Path`, `SameSite`, `Secure` configurable y vida ligada a la configuración de auth.
+- **JWT**: access token mínimo, claims controlados, expiración, tipo de token y uso de public IDs `usr_...` y `org_...`.
+- **CSRF**: protección de mutaciones autenticadas que dependen de cookie, empezando por logout, y separación respecto a endpoints que no deben requerirlo.
+- **CORS**: origins explícitos y comportamiento coherente con credenciales de navegador.
+- **Errores**: mensajes controlados, sin revelar si un email existe, si una contraseña concreta falló o si un usuario interno está presente.
+- **Rate limit**: defensa básica alrededor de login, token y registro para reducir fuerza bruta y abuso accidental.
+- **Ausencia de datos sensibles**: no exposición de secretos, respuestas correctas, hashes, tokens innecesarios o detalles internos que faciliten enumeración.
+
+Esta revisión confirma que las decisiones tomadas en las tasks previas no se contradicen entre sí. Por ejemplo, usar cookie `HttpOnly` implicaba añadir CSRF; separar `/auth/token` evita debilitar el contrato del login browser; y mantener respuestas pequeñas reduce el acoplamiento de futuros módulos con detalles internos de auth.
+
+### Qué queda preparado
+
+El cierre de OAuth2 deja preparadas varias bases para el resto del backend:
+
+- **Endpoints autenticados futuros**: ya existe una forma de resolver identidad desde cookie/JWT y de construir contratos protegidos encima.
+- **`CurrentUser` y tenant context**: `/auth/me` y los claims `sub`/`org` preparan el camino para resolver usuario efectivo y organización activa en cada petición.
+- **RBAC**: la fase no implementa autorización completa, pero deja una identidad autenticada sobre la que se podrán evaluar roles, permisos y scopes.
+- **Auditoría real**: login, logout, token, CSRF y accesos protegidos ya tienen puntos naturales donde emitir `AuditEvent` persistente en fases posteriores.
+- **MFA**: el flujo de login queda suficientemente separado como para introducir un segundo factor sin rediseñar todo el registro o `/auth/me`.
+- **Refresh token si se decide**: el sistema actual funciona con access token, pero la separación de responsabilidades permite añadir refresh token y rotación si el MVP lo necesita.
+- **Invitaciones**: el registro inicial no resuelve onboarding completo, pero deja usuarios, organizaciones y sesión como base para flujos de invitación posteriores.
+
+En otras palabras: OAuth2/Auth queda como cimiento para IAM y multi-tenant, no como el sistema IAM entero.
+
+### Beneficios de cerrar la fase
+
+Cerrar esta fase aporta beneficios prácticos al proyecto:
+
+- **Autenticación reutilizable**: los siguientes módulos no tienen que improvisar cómo identificar al usuario.
+- **Demo backend más sólida**: ya existe un recorrido mínimo de registro, login, consulta de sesión, CSRF y logout.
+- **Menos improvisación**: RBAC, organizaciones, invitaciones, auditoría y escenarios pueden apoyarse en una base común.
+- **Contratos más claros**: el equipo sabe qué endpoints existen, qué devuelve cada uno y qué no debe esperar de ellos.
+- **Mejor postura de seguridad inicial**: tokens fuera del body del login, cookie `HttpOnly`, CSRF, CORS explícito y rate limiting básico.
+
+Esto reduce el riesgo de que cada módulo futuro cree su propia manera de autenticar, validar sesión o manejar errores.
+
+### Limitaciones y deuda pendiente
+
+La fase queda cerrada, pero no pretende cubrir todo lo que necesitará Project Guacamole a medio plazo. Quedan pendientes de forma clara:
+
+- **RBAC completo**: todavía no existe una autorización avanzada por roles, permisos y ámbitos.
+- **Tenant context definitivo**: la organización aparece en el flujo de auth, pero falta convertirla en contexto obligatorio para todos los endpoints protegidos.
+- **MFA**: no hay TOTP, segundo factor ni recovery codes.
+- **Refresh token**: no se ha implementado par access/refresh ni rotación.
+- **Revocación JWT server-side**: no hay blacklist, tabla de sesiones ni invalidación persistente por `jti`.
+- **Auditoría persistente completa**: existen puntos conceptuales, pero falta persistir eventos reales de auditoría de forma transversal.
+- **Lockout avanzado**: el rate limiting reduce abuso básico, pero no sustituye bloqueo de cuentas, detección de ataques o políticas adaptativas.
+- **Gestión avanzada de secretos**: la configuración exige secretos, pero queda pendiente una estrategia madura para staging/producción.
+
+Estas limitaciones no bloquean el MVP, pero deben estar visibles para no vender la fase como una solución final de identidad empresarial.
+
+### Riesgos residuales
+
+Además de la deuda funcional, hay riesgos operativos que deberán tratarse antes de entornos más exigentes:
+
+- **Configuración de producción**: `Secure`, `SameSite`, dominios de cookie, CORS y expiraciones deben revisarse con el despliegue real.
+- **Secretos fuertes**: `JWT_SECRET_KEY` y secretos asociados deben ser largos, aleatorios y gestionados fuera del repositorio.
+- **Trusted headers y proxy**: si la API queda detrás de Nginx u otro reverse proxy, hay que tratar correctamente IP real y cabeceras confiables.
+- **CSRF en futuras mutaciones**: cualquier endpoint autenticado con cookie que modifique estado deberá integrarse con la protección CSRF.
+- **Rate limit in-memory**: la solución actual es suficiente como primera defensa MVP/dev, pero no es distribuida ni adecuada como límite definitivo si hay varios procesos o instancias.
+
+> [!WARNING]
+> El cierre de la fase no elimina la necesidad de revisar configuración por entorno. Una autenticación bien diseñada puede degradarse si se despliega con secretos débiles, CORS demasiado abierto o cookies mal configuradas.
+
+### Resultado final
+
+El resultado final de la fase OAuth2 es una base de autenticación backend coherente para el MVP:
+
+```text
+Registro B2B inicial
+   │
+   ▼
+Login browser con cookie HttpOnly
+   │
+   ▼
+Identidad actual desde backend
+   │
+   ▼
+CSRF para mutaciones con cookie
+   │
+   ▼
+Logout backend
+   │
+   ▼
+Token endpoint separado para Swagger/clientes técnicos
+   │
+   ▼
+CORS + hardening + rate limiting alrededor
+```
+
+La fase deja a Project Guacamole en una posición mejor para construir el resto del backend: IAM, multi-tenant, RBAC, auditoría, invitaciones, roadmaps, escenarios y laboratorios ya no parten de cero en autenticación.
+
+En resumen: **BACK-AUTH-OAUTH2-012 cierra la fase OAuth2 validando que las piezas encajan como cimiento de autenticación para el MVP. El sistema queda preparado para crecer hacia IAM y aislamiento multiempresa, pero todavía no debe considerarse un IAM completo ni una solución productiva definitiva sin las fases pendientes de RBAC, auditoría, MFA, gestión de secretos y endurecimiento operativo**.
