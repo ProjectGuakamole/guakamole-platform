@@ -1083,3 +1083,80 @@ Aviso conocido: los warnings de PyJWT de tests siguen como deuda no bloqueante.
 ## 8. Impacto backend
 
 El backend añade una primera defensa contra abuso básico y fuerza bruta en los flujos públicos de autenticación y registro. La solución reduce carga innecesaria sobre servicios de login/registro, mantiene errores genéricos y preserva el desacoplamiento entre política HTTP de protección y lógica de dominio.
+
+---
+
+# BACK-AUTH-OAUTH2-012 — Validación y cierre final
+
+**Estado:** QA aprobado  
+**Ámbito:** `backend/`  
+**Tipo de cambio:** Validación documental y cierre final de fase OAuth2
+
+## 1. Resumen
+
+Se cierra documentalmente la fase OAuth2 backend tras validar el estado final de calidad y tests.
+
+Esta task no añade endpoints, no modifica contratos HTTP y no cambia el comportamiento esperado por clientes. Su objetivo es confirmar el alcance final de la fase, las garantías de seguridad alcanzadas, la deuda aceptada y los siguientes bloques recomendados.
+
+## 2. Funcionalidades cubiertas en la fase
+
+- Registro inicial de organización y usuario administrador.
+- Login con cookie `HttpOnly`.
+- Consulta de identidad autenticada mediante `/auth/me`.
+- Logout de sesión browser.
+- CSRF básico para logout con cookie `HttpOnly`.
+- `/auth/token` para Swagger/desarrollo mediante OAuth2 Password Bearer.
+- CORS controlado con origins explícitos.
+- Rate limiting básico para auth/registro.
+- Hardening y tests de regresión de seguridad.
+
+## 3. Endpoints finales
+
+- `POST /api/v1/organizations/register`: crea organización y primer usuario administrador sin emitir sesión ni token en body.
+- `POST /api/v1/auth/login`: autentica credenciales y emite cookie `HttpOnly` con el access token.
+- `GET /api/v1/auth/me`: devuelve identidad pública mínima validando cookie, token, usuario y organización.
+- `GET /api/v1/auth/csrf`: emite token CSRF firmado ligado al access token actual.
+- `POST /api/v1/auth/logout`: borra la cookie de sesión y requiere CSRF válido.
+- `POST /api/v1/auth/token`: devuelve bearer token para Swagger/desarrollo y puede deshabilitarse por configuración.
+
+## 4. Validación ejecutada
+
+- `make backend-quality` ✅ PASS.
+- `make backend-test-unit` ✅ PASS: `381 passed, 63 deselected`.
+- `make backend-test-db` ✅ PASS: `41 passed, 403 deselected`.
+
+Aviso conocido: siguen apareciendo warnings de PyJWT por secretos de test cortos. Se documentan como deuda no bloqueante.
+
+## 5. Garantías de seguridad alcanzadas
+
+- No secrets en frontend.
+- Login principal no devuelve token en body.
+- Cookie `HttpOnly` para sesión browser.
+- `/auth/token` separado para Swagger/desarrollo y deshabilitable.
+- CSRF ligado a access token para logout.
+- CORS sin wildcard y con origins explícitos.
+- Rate limiting básico en endpoints públicos sensibles.
+- No se confía en `organization_id` enviado por frontend en auth.
+- No se exponen `password_hash`, roles, email completo ni IDs internos en respuestas públicas de auth.
+- Public IDs `usr_...` y `org_...` cuando aplica.
+
+## 6. Riesgos y deuda aceptada
+
+- Rate limiter in-memory no distribuido; futuro Redis para staging/productivo.
+- Trusted proxies/IP real pendiente.
+- Auditoría persistente pendiente.
+- RBAC/current user avanzado pendiente.
+- Refresh/revocación de tokens pendiente si se decide.
+- Frontend aún no integrado.
+- Warnings PyJWT de tests por secretos cortos.
+
+## 7. Recomendación siguiente fase
+
+1. Integración frontend auth con cookie `HttpOnly` y CSRF.
+2. Auditoría persistente `AuditEvent`.
+3. `CurrentUser`, `TenantContext` y RBAC avanzado.
+4. Redis rate limiting/trusted proxies para staging.
+
+## 8. Impacto backend
+
+La fase OAuth2 deja al backend con una base de autenticación browser/API coherente para el MVP: registro inicial, login seguro con cookie, resolución de identidad, logout protegido por CSRF, endpoint bearer aislado para Swagger/desarrollo, CORS controlado y una primera defensa de rate limiting. Esta base permite avanzar hacia frontend, auditoría persistente, autorización RBAC y aislamiento tenant explícito sin depender de lógica sensible en cliente.
