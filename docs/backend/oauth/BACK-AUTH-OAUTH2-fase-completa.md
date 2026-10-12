@@ -18,7 +18,7 @@
 11. BACK-AUTH-OAUTH2-012 — Validación y cierre final
 
 > [!WARNING]
-> En esta primera iteración solo se desarrolla el punto 1. Los puntos 2-11 quedan como índice de trabajo para completar el documento en ejecuciones posteriores.
+> En esta iteración quedan desarrollados los puntos 1 y 2. Los puntos 3-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
 
 ---
 
@@ -271,7 +271,234 @@ En resumen: **BACK-AUTH-OAUTH2-002 no dio todavía un login usable, pero sí dej
 
 ## 2. BACK-AUTH-OAUTH2-003 — Registro inicial organización + usuario
 
-Pendiente de redactar en una ejecución posterior.
+### Qué problema resuelve
+
+Después de tener el Auth Core, el backend ya sabía hashear contraseñas, generar public IDs y preparar tokens, pero todavía faltaba algo muy práctico: **crear usuarios reales con una contraseña real**.
+
+Sin este paso, el login posterior habría sido difícil de probar de forma honesta. Podríamos haber usado seeds, datos insertados a mano o usuarios inventados en tests, pero eso no representa el flujo mínimo que necesita una plataforma B2B: una empresa entra por primera vez, crea su organización y deja creado su primer usuario administrador.
+
+Esta task resolvió ese arranque inicial, el bootstrap B2B del sistema:
+
+```text
+Crear organización
+   +
+Crear primer usuario administrador
+   +
+Guardar password con hash real
+   +
+Devolver solo identificadores públicos
+```
+
+La necesidad era sencilla de explicar: **si no podemos registrar una organización y un usuario inicial, Auth Core existe, pero todavía no es usable para una demo real**.
+
+### Qué hace esta task
+
+Se implementó el endpoint:
+
+```http
+POST /api/v1/organizations/register
+```
+
+Este endpoint crea una organización y su usuario inicial en una única operación de backend. No es un alta parcial ni un formulario decorativo: persiste datos reales en base de datos y deja al usuario preparado para que, en las siguientes tasks, pueda iniciar sesión con su email y contraseña.
+
+Lo importante del comportamiento es:
+
+- crea una organización nueva;
+- crea el primer usuario asociado a esa organización;
+- genera un hash real de password usando Argon2id a través del Auth Core;
+- genera public IDs con formato `org_...` y `usr_...`;
+- aplica estados iniciales configurables para organización y usuario;
+- aplica roles iniciales configurables para el usuario registrado;
+- no inicia sesión automáticamente;
+- no devuelve ningún token;
+- no crea cookie de sesión;
+- no expone IDs internos de base de datos;
+- no expone `password_hash`.
+
+Esta separación es importante. Registrar una cuenta y autenticar una sesión son cosas relacionadas, pero no son la misma operación.
+
+### Por qué se hizo así
+
+La decisión principal fue **separar registro de autenticación**.
+
+Cuando un usuario se registra, el backend crea datos. Cuando un usuario hace login, el backend verifica credenciales y crea una sesión. Si mezclamos ambos conceptos demasiado pronto, el registro acaba teniendo efectos secundarios difíciles de controlar: emisión de tokens, cookies, tenant context a medias o sesiones abiertas sin que el flujo de login haya sido diseñado todavía.
+
+Por eso esta task no hace login automático. Puede parecer menos cómodo para la demo, pero es más limpio y más seguro. El flujo queda así:
+
+```text
+Registro
+   │
+   ├── crea organización
+   ├── crea usuario
+   └── guarda password_hash
+
+Login posterior
+   │
+   ├── verifica email + password
+   ├── emite token
+   └── configura cookie HttpOnly
+```
+
+También se decidió que el backend fuese el dueño de los public IDs y de los estados iniciales. El cliente no manda `org_...`, no decide el estado de la organización y no decide qué rol interno se asigna. El cliente pide registrar unos datos; el backend aplica las reglas del sistema.
+
+Esto nos ayuda en tres puntos:
+
+- facilita la demo y las pruebas posteriores de login con usuarios creados por el propio sistema;
+- evita que el frontend o un cliente HTTP invente identificadores o estados;
+- mantiene una frontera clara entre contrato público de API y modelo interno de persistencia.
+
+> [!TIP]
+> El registro no está pensado como “ya tengo una sesión”. Está pensado como “ya existe una organización y un usuario válido para poder autenticarse después”.
+
+### Cómo se implantó
+
+La implementación se dividió en piezas pequeñas, siguiendo la misma filosofía del Auth Core: que el router no se convierta en un cajón desastre con validación, SQLAlchemy, hashing y reglas de negocio todo junto.
+
+La estructura conceptual queda así:
+
+```text
+Router de registro
+   │
+   ▼
+Schemas Pydantic
+   │
+   ▼
+Servicio de registro
+   │
+   ├── valida duplicados
+   ├── obtiene estados y roles por defecto desde settings
+   ├── genera public IDs
+   ├── hashea password
+   └── coordina la operación
+   │
+   ▼
+Repositorio SQLAlchemy
+   │
+   └── persiste organización y usuario
+```
+
+El router expone `POST /api/v1/organizations/register` y traduce errores de aplicación a respuestas HTTP. La validación de forma y contenido básico vive en schemas Pydantic: campos obligatorios, formato de email, formato de slug, confirmación de contraseña y política mínima de password.
+
+El servicio de registro contiene el caso de uso. Es quien decide el orden de la operación: comprobar duplicados, resolver referencias necesarias, crear la organización, hacer `flush` para disponer del ID interno, crear el usuario asociado y confirmar la transacción.
+
+El repositorio encapsula el acceso a SQLAlchemy. Esto permite que el servicio no tenga que saber todos los detalles de consulta, tablas auxiliares o referencias internas.
+
+Además, la task reutiliza settings para valores por defecto como:
+
+- estado inicial de organización registrada;
+- estado inicial de usuario registrado;
+- rol de plataforma por defecto;
+- rol de organización por defecto.
+
+En el MVP estos estados iniciales son activos por configuración. Es una decisión pragmática: permite avanzar con el golden path y probar login sin añadir todavía verificación de email, invitaciones o revisión manual de altas.
+
+### Ejemplo de request
+
+Ejemplo resumido de alta de organización y usuario inicial:
+
+```json
+{
+  "organization": {
+    "name": "ACME SOC",
+    "slug": "acme-soc",
+    "legal_name": "ACME Security Operations Center S.L.",
+    "tax_id": "B12345678",
+    "country": "España",
+    "state": "Catalunya",
+    "city": "Barcelona",
+    "address": "Carrer de la Seguretat 10",
+    "postal_code": "08001"
+  },
+  "user": {
+    "first_name": "Ana",
+    "last_name": "García",
+    "email": "ana.admin@acme.example",
+    "birth_date": "1990-05-14",
+    "password": "PasswordSeguro123!",
+    "password_confirm": "PasswordSeguro123!",
+    "country": "España",
+    "state": "Catalunya",
+    "city": "Barcelona",
+    "address": "Carrer de la Seguretat 10",
+    "postal_code": "08001"
+  }
+}
+```
+
+La contraseña viaja en la request porque el backend necesita crear el hash, pero no se guarda en claro y no vuelve nunca en la respuesta.
+
+### Ejemplo de response
+
+Respuesta esperada en un registro correcto:
+
+```json
+{
+  "organization_id": "org_1f7e9f1a-1c25-46a8-9f15-8f8d0f4d2f3",
+  "user_id": "usr_550e8400-e29b-41d4-a716-446655440000",
+  "organization_status": "ACTIVE",
+  "user_status": "ACTIVE"
+}
+```
+
+La respuesta es deliberadamente corta. Devuelve lo que el cliente necesita para saber que el alta se ha creado, pero no filtra detalles internos:
+
+- no aparece `id_organization`;
+- no aparece `id_user`;
+- no aparece `password_hash`;
+- no aparece ningún token;
+- no aparece ninguna cookie.
+
+### Beneficios
+
+Esta task aportó un salto importante porque convirtió la autenticación de una base técnica en algo empezable desde producto.
+
+Beneficios principales:
+
+- **Bootstrap B2B reproducible**: podemos crear una organización y su primer usuario sin tocar la base de datos a mano.
+- **Usuarios reales para login**: las siguientes tasks ya pueden probar autenticación con contraseñas hasheadas de verdad.
+- **Menos exposición de secretos**: el password en claro no se persiste y el hash no se devuelve por API.
+- **Contratos públicos más seguros**: el cliente trabaja con `org_...` y `usr_...`, no con IDs internos.
+- **Base para multi-tenant**: cada usuario nace asociado a una organización, lo que prepara el terreno para tenant context, autorización y aislamiento posterior.
+- **Reglas centralizadas en backend**: estados, roles iniciales y public IDs no dependen del frontend.
+
+### Limitaciones o compromisos
+
+La task no intentó resolver todo el onboarding B2B definitivo. Se aceptaron varios compromisos para avanzar de forma controlada:
+
+- **No hay verificación de email todavía**: el usuario queda activo según configuración MVP, sin confirmación por correo.
+- **No hay invitaciones todavía**: el flujo de invitación de empleados o managers se deja para fases posteriores.
+- **No hay auditoría persistente real todavía**: el servicio deja preparada una abstracción de auditoría, pero no existe aún un `AuditEvent` persistido completo para este flujo.
+- **No hay rate limiting en esta task concreta**: el registro nace sin esa protección específica en este punto de la fase, aunque se aborda más adelante en el hardening OAuth2.
+- **Estados iniciales activos**: `ACTIVE` para organización y usuario es una decisión MVP configurable, útil para demo, pero no necesariamente la política final de producción.
+- **Dependencia de referencias existentes**: estados, roles y geografía deben existir en base de datos; si faltan, el registro no puede completarse correctamente.
+
+Estos límites no invalidan la task. Al contrario: dejan claro qué parte del problema se cerró y qué parte pertenece a tickets posteriores.
+
+### Qué NO hace todavía
+
+Esta task no implementa:
+
+- creación de grupos;
+- asignación RBAC avanzada completa;
+- login automático;
+- emisión de access token;
+- creación de cookie HttpOnly;
+- envío de emails;
+- invitaciones;
+- verificación de email;
+- tenant context completo para peticiones autenticadas;
+- alta de roadmaps o escenarios;
+- onboarding completo de empleados.
+
+La idea fue mantener el alcance pequeño: primero registrar organización y usuario inicial, después construir login, sesión y autorización encima.
+
+### Resultado de la task
+
+El resultado fue que Auth Core dejó de ser solo una caja de herramientas interna y empezó a ser útil para flujos reales.
+
+A partir de esta task, el backend ya podía crear una empresa y un usuario con contraseña real, hash seguro y public IDs pensados para API. Eso preparó directamente el camino para la siguiente pieza de la fase: hacer login con ese usuario y empezar a trabajar con sesión de verdad.
+
+En resumen: **BACK-AUTH-OAUTH2-003 convirtió la base de autenticación en un flujo usable para pruebas reales, sin mezclar todavía registro con sesión ni exponer datos sensibles**.
 
 ## 3. BACK-AUTH-OAUTH2-004 — Login cookie HttpOnly
 
