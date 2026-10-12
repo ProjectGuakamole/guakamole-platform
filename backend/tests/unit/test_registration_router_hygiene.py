@@ -5,12 +5,7 @@ from pathlib import Path
 import pytest
 
 REGISTRATION_ROUTER_PATH = (
-    Path(__file__).parents[2]
-    / "app"
-    / "domains"
-    / "iam"
-    / "organizations"
-    / "registration_routers.py"
+    Path(__file__).parents[2] / "app" / "domains" / "iam" / "registration" / "router.py"
 )
 LOGIN_ROUTER_PATH = (
     Path(__file__).parents[2] / "app" / "domains" / "auth" / "login" / "router.py"
