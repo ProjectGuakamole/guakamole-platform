@@ -5,6 +5,7 @@ from typing import Annotated, Literal, cast
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import require_auth_login_rate_limit
 from app.domain.auth.config import AuthSettings
 from app.domain.auth.cookies import build_auth_cookie_settings
 from app.domain.auth.dependencies import build_auth_settings
@@ -35,9 +36,11 @@ def get_login_service(
 def login(
     request: LoginRequest,
     response: Response,
+    _rate_limit: Annotated[None, Depends(require_auth_login_rate_limit)],
     service: Annotated[LoginService, Depends(get_login_service)],
     auth_settings: Annotated[AuthSettings, Depends(build_auth_settings)],
 ) -> LoginResponse:
+    _ = _rate_limit
     try:
         token_data = service.login(request)
     except InvalidLoginCredentialsError as error:

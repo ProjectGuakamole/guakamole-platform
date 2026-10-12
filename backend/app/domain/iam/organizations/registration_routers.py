@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import require_registration_rate_limit
 from app.domain.auth.config import AuthSettings
 from app.domain.auth.dependencies import build_auth_settings
 from app.domain.auth.password_hasher import PwdlibPasswordHasher
@@ -41,8 +42,10 @@ def get_registration_service(
 )
 def register_organization(
     request: RegistrationRequest,
+    _rate_limit: Annotated[None, Depends(require_registration_rate_limit)],
     service: Annotated[RegistrationService, Depends(get_registration_service)],
 ) -> RegistrationResponse:
+    _ = _rate_limit
     try:
         return service.register(request)
     except DuplicateRegistrationError as error:
