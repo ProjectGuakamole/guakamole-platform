@@ -18,7 +18,7 @@
 11. BACK-AUTH-OAUTH2-012 — Validación y cierre final
 
 > [!WARNING]
-> En esta iteración quedan desarrollados los puntos 1, 2 y 3. Los puntos 4-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
+> En esta iteración quedan desarrollados los puntos 1, 2, 3 y 4. Los puntos 5-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
 
 ---
 
@@ -729,7 +729,176 @@ En resumen: **BACK-AUTH-OAUTH2-004 convirtió el usuario registrado en una sesi�
 
 ## 4. BACK-AUTH-OAUTH2-005 — `/auth/me`
 
-Pendiente de redactar en una ejecución posterior.
+### Qué problema resuelve
+
+Después del login, el navegador ya tiene una cookie `HttpOnly` con el access token. Eso está bien desde el punto de vista de seguridad, porque JavaScript no puede leer directamente el JWT. Pero abre una pregunta práctica muy normal para el frontend:
+
+```text
+Vale, tengo una sesión en el navegador... ¿pero quién soy?
+```
+
+El frontend necesita hidratar su estado inicial: saber si hay usuario autenticado, mostrar una zona privada, decidir si debe redirigir al login o continuar dentro de la aplicación. Lo que no queremos es resolver eso leyendo el token desde JavaScript, porque precisamente la cookie `HttpOnly` se eligió para evitar esa exposición.
+
+Esta task cubre ese hueco. El backend pasa a ser quien lee la cookie, valida el JWT, comprueba que el usuario existe y responde con una identidad pública mínima.
+
+### Qué hace esta task
+
+Se implementa el endpoint:
+
+```http
+GET /api/v1/auth/me
+```
+
+Su responsabilidad es sencilla, pero muy importante:
+
+- lee la cookie `guak_access_token` desde la petición;
+- valida que el token sea un access token JWT válido;
+- comprueba que el token no esté expirado ni manipulado;
+- exige que el token incluya organización en el claim `org`;
+- busca en backend la combinación de usuario y organización;
+- verifica que el usuario esté activo;
+- devuelve un perfil mínimo de sesión autenticada;
+- no devuelve el JWT;
+- no devuelve `password_hash`;
+- no devuelve secretos ni datos internos de base de datos.
+
+La respuesta real de esta task es deliberadamente pequeña:
+
+```json
+{
+  "authenticated": true,
+  "user_id": "usr_550e8400-e29b-41d4-a716-446655440000",
+  "organization_id": "org_1f7e9f1a-1c25-46a8-9f15-8f8d0f4d2f3"
+}
+```
+
+Es decir, en esta implementación no se devuelve todavía email, nombre visible, roles ni permisos. La idea es confirmar identidad autenticada y organización efectiva, no convertir `/auth/me` en un endpoint de perfil completo.
+
+### Por qué se hizo así
+
+Este patrón es muy habitual cuando se trabaja con cookies `HttpOnly`: el frontend no lee el token, sino que pregunta al backend “¿quién soy?”. El navegador envía la cookie automáticamente y el backend decide si esa cookie representa una sesión válida.
+
+La ventaja principal es que la validación de sesión queda centralizada en el backend. No dependemos de que el cliente decodifique un JWT, interprete claims o tome decisiones de seguridad. El frontend solo recibe una respuesta ya filtrada y segura.
+
+También prepara una pieza clave para el resto de la API. A partir de aquí, otros endpoints autenticados pueden apoyarse en el mismo enfoque: extraer token de cookie, verificarlo, resolver usuario real y trabajar siempre desde una identidad validada por backend.
+
+### Cómo se implantó
+
+La implementación se repartió en piezas pequeñas dentro del dominio de autenticación:
+
+```text
+auth/me_routers.py        → router HTTP y lectura de cookie
+auth/me_schemas.py        → schema público de respuesta
+auth/me_services.py       → caso de uso de identidad actual
+auth/me_repositories.py   → consulta a base de datos
+auth/dependencies.py      → settings de autenticación
+auth/tokens.py            → verificación del JWT de acceso
+```
+
+El router obtiene el nombre real de la cookie desde la configuración de autenticación, por lo que no queda quemado como una constante suelta dentro del endpoint. Si no encuentra cookie, responde con `401 Unauthorized`.
+
+El servicio utiliza `JwtAccessTokenService` para verificar el access token. Si el JWT es inválido, está expirado, tiene un tipo incorrecto o no contiene la organización esperada, el flujo se corta como no autenticado.
+
+Después, el repository resuelve la identidad contra base de datos usando los public IDs del usuario y de la organización. Este punto es importante: no basta con que el token diga `sub=usr_...`; también se comprueba la organización `org=org_...` y que el usuario esté en estado `ACTIVE`.
+
+Conceptualmente, el flujo queda así:
+
+```text
+Navegador
+   │
+   │ GET /api/v1/auth/me
+   │ Cookie: guak_access_token=...
+   ▼
+Router /auth/me
+   │
+   ├── lee cookie HttpOnly
+   ├── valida JWT con JwtAccessTokenService
+   ├── extrae sub + org
+   ├── consulta usuario activo en backend
+   └── devuelve identidad pública mínima
+```
+
+### Errores esperados
+
+El endpoint está pensado para no dar pistas innecesarias. En los casos de autenticación fallida responde de forma controlada con `401 Unauthorized` y un mensaje genérico.
+
+Casos esperados:
+
+- no hay cookie `guak_access_token`;
+- la cookie existe, pero el token no es válido;
+- el token ha expirado;
+- el token no es de tipo access token;
+- el token no incluye organización;
+- el usuario indicado por el token no existe;
+- el usuario existe, pero no está activo;
+- la organización del token no coincide con la identidad persistida.
+
+La decisión importante es no diferenciar detalles sensibles en la respuesta pública. Para el cliente, todos esos casos significan lo mismo: no hay una sesión válida usable.
+
+### Beneficios
+
+- Permite hidratar la sesión del frontend sin exponer el JWT a JavaScript.
+- Mantiene la cookie `HttpOnly` como frontera de seguridad entre navegador y token.
+- Refuerza que la identidad se resuelve en backend, no en el cliente.
+- Introduce una base reutilizable para endpoints autenticados posteriores.
+- Devuelve solo datos mínimos y seguros.
+- Comprueba usuario y organización contra backend, preparando el camino hacia tenant context y RBAC.
+
+### Limitaciones o compromisos
+
+Esta task no intenta resolver todo el modelo de sesión definitivo. Sus límites principales son:
+
+- no construye todavía un tenant context completo para toda la aplicación;
+- no devuelve roles, memberships ni permisos detallados;
+- no implementa refresh token;
+- no añade protección CSRF para mutaciones, aunque `/auth/me` sea una operación de lectura;
+- no registra auditoría persistente específica para éxito o fallo de `/auth/me`;
+- no crea una sesión server-side persistente ni una tabla de sesiones revocables.
+
+Son compromisos aceptables para este punto de la fase: primero necesitábamos cerrar el ciclo mínimo de sesión de navegador antes de añadir más capas.
+
+### Qué NO hace todavía
+
+Este endpoint no sirve para modificar nada del usuario. En concreto, no hace:
+
+- cambio de contraseña;
+- actualización de perfil;
+- devolución de permisos completos;
+- selección de organización activa;
+- cambio de organización;
+- logout;
+- refresh de sesión;
+- creación de una sesión server-side persistente.
+
+Tampoco debe usarse como sustituto de autorización. Que `/auth/me` confirme una identidad no significa que esa identidad pueda acceder a cualquier recurso. Cada endpoint protegido seguirá necesitando sus comprobaciones de permisos, organización y alcance.
+
+### Resultado de la task
+
+Con esta task se completa el ciclo mínimo browser de autenticación:
+
+```text
+Login correcto
+   │
+   ▼
+Backend emite JWT de acceso
+   │
+   ▼
+Backend lo guarda en cookie HttpOnly
+   │
+   ▼
+Frontend no puede leer el JWT
+   │
+   ▼
+Frontend llama a /auth/me
+   │
+   ▼
+Backend valida cookie + token + usuario activo
+   │
+   ▼
+Frontend sabe quién está autenticado sin ver el token
+```
+
+En resumen: **BACK-AUTH-OAUTH2-005 permite al frontend saber si existe una sesión autenticada y a qué usuario/organización pertenece, manteniendo el JWT fuera de JavaScript y sin exponer datos sensibles en la respuesta**.
 
 ## 5. BACK-AUTH-OAUTH2-006 — Logout
 
