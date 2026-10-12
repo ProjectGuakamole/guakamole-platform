@@ -4,11 +4,11 @@ from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, Response
 
-from app.domains.auth.config import AuthSettings
-from app.domains.auth.cookies import build_auth_cookie_settings
-from app.domains.auth.csrf_dependencies import require_valid_csrf_token
-from app.domains.auth.dependencies import build_auth_settings
-from app.domains.auth.logout_schemas import LogoutResponse
+from app.domains.auth.logout.schemas import LogoutResponse
+from app.domains.auth.shared.config import AuthSettings
+from app.domains.auth.shared.cookies import build_auth_cookie_settings
+from app.domains.auth.shared.csrf_dependencies import require_valid_csrf_token
+from app.domains.auth.shared.dependencies import build_auth_settings
 
 router = APIRouter()
 

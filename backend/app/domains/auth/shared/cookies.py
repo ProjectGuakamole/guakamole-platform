@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from app.domains.auth.config import AuthSettings
+from app.domains.auth.shared.config import AuthSettings
 
 
 @dataclass(frozen=True, slots=True)

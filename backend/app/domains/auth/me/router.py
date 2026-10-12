@@ -5,13 +5,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.domains.auth.config import AuthSettings
-from app.domains.auth.dependencies import build_auth_settings
-from app.domains.auth.me_exceptions import NotAuthenticatedError
-from app.domains.auth.me_repositories import SqlAlchemyAuthMeRepository
-from app.domains.auth.me_schemas import AuthMeResponse
-from app.domains.auth.me_services import AuthMeService
-from app.domains.auth.tokens import JwtAccessTokenService
+from app.domains.auth.me.exceptions import NotAuthenticatedError
+from app.domains.auth.me.repository import SqlAlchemyAuthMeRepository
+from app.domains.auth.me.schemas import AuthMeResponse
+from app.domains.auth.me.service import AuthMeService
+from app.domains.auth.shared.config import AuthSettings
+from app.domains.auth.shared.dependencies import build_auth_settings
+from app.domains.auth.shared.tokens import JwtAccessTokenService
 from app.domains.iam.users.dependencies import get_db_session
 
 router = APIRouter()

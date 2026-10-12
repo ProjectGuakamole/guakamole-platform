@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.rate_limit import require_registration_rate_limit
-from app.domains.auth.config import AuthSettings
-from app.domains.auth.dependencies import build_auth_settings
-from app.domains.auth.password_hasher import PwdlibPasswordHasher
+from app.domains.auth.shared.config import AuthSettings
+from app.domains.auth.shared.dependencies import build_auth_settings
+from app.domains.auth.shared.password_hasher import PwdlibPasswordHasher
 from app.domains.iam.organizations.registration_exceptions import (
     DuplicateRegistrationError,
     InvalidRegistrationReferenceError,

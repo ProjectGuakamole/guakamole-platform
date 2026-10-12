@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from app.domains.auth.me_repositories import SqlAlchemyAuthMeRepository
+from app.domains.auth.me.repository import SqlAlchemyAuthMeRepository
 from app.domains.iam.access.models import OrganizationRole, PlatformRole, Status
 from app.domains.iam.geography.models import City, Country, State
 from app.domains.iam.organizations.models import Organization

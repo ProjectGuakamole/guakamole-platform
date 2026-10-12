@@ -6,9 +6,9 @@ from typing import cast
 import jwt
 from jwt import InvalidTokenError
 
-from app.domains.auth.config import AuthSettings
-from app.domains.auth.csrf_exceptions import InvalidCsrfTokenError
-from app.domains.auth.tokens import VerifiedAccessToken
+from app.domains.auth.csrf.exceptions import InvalidCsrfTokenError
+from app.domains.auth.shared.config import AuthSettings
+from app.domains.auth.shared.tokens import VerifiedAccessToken
 
 CSRF_CLAIM_VALUE = "csrf"
 

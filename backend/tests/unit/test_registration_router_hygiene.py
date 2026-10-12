@@ -13,7 +13,7 @@ REGISTRATION_ROUTER_PATH = (
     / "registration_routers.py"
 )
 LOGIN_ROUTER_PATH = (
-    Path(__file__).parents[2] / "app" / "domains" / "auth" / "login_routers.py"
+    Path(__file__).parents[2] / "app" / "domains" / "auth" / "login" / "router.py"
 )
 
 

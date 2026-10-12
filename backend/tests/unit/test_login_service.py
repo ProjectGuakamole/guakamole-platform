@@ -6,19 +6,19 @@ import jwt
 import pytest
 from pydantic import ValidationError
 
-from app.domains.auth.config import AuthSettings
-from app.domains.auth.login_exceptions import InvalidLoginCredentialsError
-from app.domains.auth.login_repositories import LoginUserRecord
-from app.domains.auth.login_schemas import LoginRequest, LoginResponse
-from app.domains.auth.login_services import (
+from app.domains.auth.login.exceptions import InvalidLoginCredentialsError
+from app.domains.auth.login.repository import LoginUserRecord
+from app.domains.auth.login.schemas import LoginRequest, LoginResponse
+from app.domains.auth.login.service import (
     LOGIN_FAILED,
     LOGIN_SUCCESS,
     LoginFailedAuditEvent,
     LoginService,
     LoginSuccessAuditEvent,
 )
-from app.domains.auth.password_hasher import PwdlibPasswordHasher
-from app.domains.auth.tokens import JwtAccessTokenService
+from app.domains.auth.shared.config import AuthSettings
+from app.domains.auth.shared.password_hasher import PwdlibPasswordHasher
+from app.domains.auth.shared.tokens import JwtAccessTokenService
 
 pytestmark = pytest.mark.test_unit
 

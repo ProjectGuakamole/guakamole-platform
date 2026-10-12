@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import Session
 
-from app.domains.auth.login_repositories import SqlAlchemyLoginUserRepository
+from app.domains.auth.login.repository import SqlAlchemyLoginUserRepository
 from app.domains.iam.access.models import OrganizationRole, PlatformRole, Status
 from app.domains.iam.geography.models import City, Country, State
 from app.domains.iam.organizations.models import Organization

@@ -8,7 +8,7 @@ from uuid import uuid4
 import jwt
 from jwt import InvalidTokenError
 
-from app.domains.auth.config import AuthSettings
+from app.domains.auth.shared.config import AuthSettings
 
 ACCESS_CLAIM_VALUE = "access"
 

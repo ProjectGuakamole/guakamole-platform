@@ -45,12 +45,12 @@ La resolución de identidad exige la combinación `sub + org` contra PostgreSQL.
 
 Arquitectura documentada:
 
-- `me_schemas.py`: response público mínimo.
-- `me_services.py`: validación del token y resolución de identidad.
-- `me_repositories.py`: consulta SQLAlchemy por public IDs y estado activo.
-- `me_routers.py`: lectura de cookie y mapeo HTTP `401`.
-- `me_exceptions.py`: error controlado de autenticación.
-- `tokens.py`: `VerifiedAccessToken` ampliado con `organization`.
+- `auth/me/schemas.py`: response público mínimo.
+- `auth/me/service.py`: validación del token y resolución de identidad.
+- `auth/me/repository.py`: consulta SQLAlchemy por public IDs y estado activo.
+- `auth/me/router.py`: lectura de cookie y mapeo HTTP `401`.
+- `auth/me/exceptions.py`: error controlado de autenticación.
+- `auth/shared/tokens.py`: `VerifiedAccessToken` ampliado con `organization`.
 - Router incluido bajo `/api/v1/auth`.
 
 ## Tests ejecutados

@@ -3,9 +3,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.domains.auth.login_exceptions import InvalidLoginCredentialsError
-from app.domains.auth.login_routers import get_login_service
-from app.domains.auth.login_schemas import LoginRequest, LoginTokenData
+from app.domains.auth.login.exceptions import InvalidLoginCredentialsError
+from app.domains.auth.login.router import get_login_service
+from app.domains.auth.login.schemas import LoginRequest, LoginTokenData
 from app.main import create_app
 
 pytestmark = pytest.mark.test_unit

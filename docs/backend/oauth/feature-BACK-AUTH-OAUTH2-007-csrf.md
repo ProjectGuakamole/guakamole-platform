@@ -12,12 +12,12 @@ Implementar y documentar una protección CSRF básica para sesiones autenticadas
 - `GET /api/v1/auth/me` no requiere CSRF porque es una operación de lectura.
 - No se ha añadido middleware global; la protección se aplica mediante una dependencia explícita reutilizable.
 - Se han documentado los componentes backend implicados:
-  - `csrf_schemas.py`: contrato de respuesta.
-  - `csrf_services.py`: emisión y validación del token CSRF.
-  - `csrf_dependencies.py`: dependencia `require_valid_csrf_token` y validación de la cookie de acceso.
-  - `csrf_routers.py`: endpoint `/csrf`.
-  - `csrf_exceptions.py`: excepción controlada.
-  - `logout_routers.py`: protegido ahora con `require_valid_csrf_token`.
+  - `auth/csrf/schemas.py`: contrato de respuesta.
+  - `auth/csrf/service.py`: emisión y validación del token CSRF.
+  - `auth/csrf/dependencies.py`: dependencia `require_valid_csrf_token` y validación de la cookie de acceso.
+  - `auth/csrf/router.py`: endpoint `/csrf`.
+  - `auth/csrf/exceptions.py`: excepción controlada.
+  - `auth/logout/router.py`: protegido ahora con `require_valid_csrf_token`.
 
 ## Justificacion tecnica
 

@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Protocol
 
-from app.domains.auth.login_exceptions import InvalidLoginCredentialsError
-from app.domains.auth.login_repositories import LoginUserRecord, LoginUserRepository
-from app.domains.auth.login_schemas import LoginRequest, LoginTokenData
-from app.domains.auth.password_hasher import PasswordHasher
-from app.domains.auth.tokens import TokenIssuer
+from app.domains.auth.login.exceptions import InvalidLoginCredentialsError
+from app.domains.auth.login.repository import LoginUserRecord, LoginUserRepository
+from app.domains.auth.login.schemas import LoginRequest, LoginTokenData
+from app.domains.auth.shared.password_hasher import PasswordHasher
+from app.domains.auth.shared.tokens import TokenIssuer
 
 ACTIVE_STATUS = "ACTIVE"
 LOGIN_SUCCESS = "LOGIN_SUCCESS"

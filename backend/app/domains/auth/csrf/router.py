@@ -4,12 +4,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from app.domains.auth.config import AuthSettings
-from app.domains.auth.csrf_dependencies import get_verified_access_token_from_cookie
-from app.domains.auth.csrf_schemas import CsrfTokenResponse
-from app.domains.auth.csrf_services import CsrfTokenService
-from app.domains.auth.dependencies import build_auth_settings
-from app.domains.auth.tokens import VerifiedAccessToken
+from app.domains.auth.csrf.schemas import CsrfTokenResponse
+from app.domains.auth.csrf.service import CsrfTokenService
+from app.domains.auth.shared.config import AuthSettings
+from app.domains.auth.shared.csrf_dependencies import (
+    get_verified_access_token_from_cookie,
+)
+from app.domains.auth.shared.dependencies import build_auth_settings
+from app.domains.auth.shared.tokens import VerifiedAccessToken
 
 router = APIRouter()
 
