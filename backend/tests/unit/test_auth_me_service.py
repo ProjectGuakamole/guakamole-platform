@@ -6,10 +6,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from jwt import ExpiredSignatureError, InvalidTokenError
 
-from app.domain.auth.me_exceptions import NotAuthenticatedError
-from app.domain.auth.me_repositories import AuthenticatedIdentityRecord
-from app.domain.auth.me_services import AuthMeService
-from app.domain.auth.tokens import VerifiedAccessToken
+from app.domains.auth.me_exceptions import NotAuthenticatedError
+from app.domains.auth.me_repositories import AuthenticatedIdentityRecord
+from app.domains.auth.me_services import AuthMeService
+from app.domains.auth.tokens import VerifiedAccessToken
 
 pytestmark = pytest.mark.test_unit
 

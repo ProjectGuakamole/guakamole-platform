@@ -186,7 +186,7 @@ Estrategia recomendada:
 Ubicación futura orientativa:
 
 ```text
-backend/app/domain/iam/users/
+backend/app/domains/iam/users/
 ├── routers.py
 ├── schemas.py
 ├── services.py
@@ -392,7 +392,7 @@ flowchart TD
 
 - `architecture.md`: este piloto aterriza la arquitectura hexagonal pragmática en un caso IAM realista.
 - `adr-backend-hexagonal-architecture.md`: valida la decisión de separar entrada HTTP, aplicación, políticas y repositorios.
-- `module-structure.md`: propone la estructura futura bajo `backend/app/domain/iam/users/`.
+- `module-structure.md`: propone la estructura futura bajo `backend/app/domains/iam/users/`.
 - `security-and-tenant-rules.md`: aplica las reglas de TenantContext, RBAC, anti-enumeración y filtrado por tenant.
 - `testing-strategy.md`: define los tipos de prueba que deberán cubrir el piloto cuando se implemente.
 - T06 roadmap de implantación: deberá convertir este diseño en pasos técnicos ordenados, criterios de revisión y dependencias.

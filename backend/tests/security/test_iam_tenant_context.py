@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.domain.iam.access import tenant_context as tenant_context_module
-from app.domain.iam.access.tenant_context import (
+from app.domains.iam.access import tenant_context as tenant_context_module
+from app.domains.iam.access.tenant_context import (
     InactiveOrganizationError,
     InactiveUserError,
     TenantAccessDeniedError,

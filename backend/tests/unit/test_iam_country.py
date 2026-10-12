@@ -5,8 +5,8 @@ from pydantic import ValidationError
 from sqlalchemy import BigInteger, String
 from sqlalchemy.sql.schema import PrimaryKeyConstraint
 
-from app.domain.iam.geography.models import Country
-from app.domain.iam.geography.schemas import CountryRead, CountryUpdate
+from app.domains.iam.geography.models import Country
+from app.domains.iam.geography.schemas import CountryRead, CountryUpdate
 
 pytestmark = pytest.mark.test_unit
 

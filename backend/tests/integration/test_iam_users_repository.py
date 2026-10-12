@@ -8,12 +8,12 @@ import pytest
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import Session
 
-from app.domain.iam.access.models import OrganizationRole, PlatformRole, Status
-from app.domain.iam.geography.models import City, Country, State
-from app.domain.iam.organizations.models import Organization
-from app.domain.iam.users.models import User
-from app.domain.iam.users.repositories import SqlAlchemyOrganizationUsersRepository
-from app.domain.iam.users.schemas import UserListQuery
+from app.domains.iam.access.models import OrganizationRole, PlatformRole, Status
+from app.domains.iam.geography.models import City, Country, State
+from app.domains.iam.organizations.models import Organization
+from app.domains.iam.users.models import User
+from app.domains.iam.users.repositories import SqlAlchemyOrganizationUsersRepository
+from app.domains.iam.users.schemas import UserListQuery
 
 pytestmark = [pytest.mark.integration, pytest.mark.db]
 
@@ -469,7 +469,7 @@ def test_repository_output_does_not_expose_sensitive_fields(
 
 
 def test_repository_does_not_import_fastapi() -> None:
-    repository_source = Path("app/domain/iam/users/repositories.py").read_text(
+    repository_source = Path("app/domains/iam/users/repositories.py").read_text(
         encoding="utf-8"
     )
 

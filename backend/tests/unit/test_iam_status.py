@@ -6,8 +6,8 @@ from pydantic import ValidationError
 from sqlalchemy import BigInteger, DateTime, String
 from sqlalchemy.sql.schema import PrimaryKeyConstraint
 
-from app.domain.iam.access.models import Status
-from app.domain.iam.access.schemas import StatusCreate, StatusRead, StatusUpdate
+from app.domains.iam.access.models import Status
+from app.domains.iam.access.schemas import StatusCreate, StatusRead, StatusUpdate
 
 pytestmark = pytest.mark.test_unit
 

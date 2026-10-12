@@ -11,11 +11,11 @@ import pytest
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import Session
 
-from app.domain.auth.login_repositories import SqlAlchemyLoginUserRepository
-from app.domain.iam.access.models import OrganizationRole, PlatformRole, Status
-from app.domain.iam.geography.models import City, Country, State
-from app.domain.iam.organizations.models import Organization
-from app.domain.iam.users.models import User
+from app.domains.auth.login_repositories import SqlAlchemyLoginUserRepository
+from app.domains.iam.access.models import OrganizationRole, PlatformRole, Status
+from app.domains.iam.geography.models import City, Country, State
+from app.domains.iam.organizations.models import Organization
+from app.domains.iam.users.models import User
 
 pytestmark = [pytest.mark.integration, pytest.mark.db]
 

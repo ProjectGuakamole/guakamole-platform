@@ -34,7 +34,7 @@ backend/app/db/
 ├── base.py
 └── mixins.py
 
-backend/app/domain/
+backend/app/domains/
 ├── __init__.py
 └── iam/
     ├── __init__.py
@@ -53,13 +53,13 @@ backend/app/domain/
 
 ### Reglas globales para futuras tasks IAM
 
-- Todos los modelos, schemas, repositorios y servicios funcionales de IAM deben crearse bajo `backend/app/domain/iam/`.
+- Todos los modelos, schemas, repositorios y servicios funcionales de IAM deben crearse bajo `backend/app/domains/iam/`.
 - No se debe recuperar la estructura antigua raíz de IAM fuera de `domain`.
 - La infraestructura DB común debe vivir en `backend/app/db/`.
 - `Base` debe importarse desde `app.db.base`.
 - Los mixins comunes de base de datos deben vivir en `backend/app/db/mixins.py`.
 - `TimestampMixin` debe importarse desde `app.db.mixins`.
-- `IAM_SCHEMA` debe importarse desde `app.domain.iam.constants`.
+- `IAM_SCHEMA` debe importarse desde `app.domains.iam.constants`.
 - `IAM_SCHEMA` queda reservado para modelos y código de aplicación; las migraciones Alembic ya publicadas deben usar literales inmutables.
 - Alembic debe usar `Base.metadata` importado desde `app.db.base`.
 
@@ -67,7 +67,7 @@ backend/app/domain/
 
 - [x] Existe `sch_iam` definido como schema IAM.
 - [x] Existe infraestructura común en `backend/app/db/`.
-- [x] Existe estructura funcional IAM en `backend/app/domain/iam/`.
+- [x] Existe estructura funcional IAM en `backend/app/domains/iam/`.
 - [x] No se crean tablas todavía.
 - [x] No se elimina `public`.
 - [x] Alembic reconoce metadata.

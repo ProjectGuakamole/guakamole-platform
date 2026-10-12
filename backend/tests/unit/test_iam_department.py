@@ -8,8 +8,8 @@ from sqlalchemy import BigInteger, DateTime, String, Text
 from sqlalchemy.sql.schema import ForeignKeyConstraint, PrimaryKeyConstraint, Table
 from sqlalchemy.sql.type_api import TypeEngine
 
-from app.domain.iam.departments.models import Department
-from app.domain.iam.departments.schemas import (
+from app.domains.iam.departments.models import Department
+from app.domains.iam.departments.schemas import (
     DepartmentCreate,
     DepartmentRead,
     DepartmentUpdate,

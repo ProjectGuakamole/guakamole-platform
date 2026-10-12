@@ -6,8 +6,8 @@ from pydantic import ValidationError
 from sqlalchemy import BigInteger, DateTime, String, Text
 from sqlalchemy.sql.schema import PrimaryKeyConstraint
 
-from app.domain.iam.access.models import PlatformRole, Status
-from app.domain.iam.access.schemas import (
+from app.domains.iam.access.models import PlatformRole, Status
+from app.domains.iam.access.schemas import (
     PlatformRoleCreate,
     PlatformRoleRead,
     PlatformRoleUpdate,

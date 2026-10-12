@@ -12,8 +12,8 @@ from sqlalchemy.sql.schema import (
 )
 from sqlalchemy.sql.type_api import TypeEngine
 
-from app.domain.iam.departments.models import Department, DepartmentRelation
-from app.domain.iam.departments.schemas import (
+from app.domains.iam.departments.models import Department, DepartmentRelation
+from app.domains.iam.departments.schemas import (
     DepartmentRelationCreate,
     DepartmentRelationRead,
     DepartmentRelationUpdate,

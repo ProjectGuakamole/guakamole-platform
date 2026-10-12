@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.domain.auth.config import CorsSettings
+from app.domains.auth.config import CorsSettings
 
 ALLOWED_CORS_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 BASE_ALLOWED_CORS_HEADERS = ["Content-Type", "X-CSRF-Token"]

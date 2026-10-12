@@ -278,8 +278,8 @@ Metadata prohibida:
 
 ## 9. Diseño modular esperado
 
-- `app/domain/auth/` para login, logout, csrf, sesión, password hashing y token.
-- `app/domain/iam/organizations/` para registro inicial.
+- `app/domains/auth/` para login, logout, csrf, sesión, password hashing y token.
+- `app/domains/iam/organizations/` para registro inicial.
 - Routers como adaptadores HTTP sin lógica de negocio.
 - Servicios/casos de uso testeables sin FastAPI.
 - Repositorios encapsulando SQLAlchemy.

@@ -29,7 +29,7 @@ No aplica. Documento SQL para representacion visual del modelo.
 
 ## Relacion con el backend
 
-Representa la estructura actual del dominio IAM en `backend/app/domain/iam` y sus migraciones Alembic asociadas.
+Representa la estructura actual del dominio IAM en `backend/app/domains/iam` y sus migraciones Alembic asociadas.
 
 ## SQL completo
 

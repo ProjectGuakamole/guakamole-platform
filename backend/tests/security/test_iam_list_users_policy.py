@@ -2,15 +2,15 @@
 
 import pytest
 
-from app.domain.iam.access.tenant_context import (
+from app.domains.iam.access.tenant_context import (
     InactiveOrganizationError,
     InactiveUserError,
     TenantAccessDeniedError,
     TenantContext,
     build_tenant_context,
 )
-from app.domain.iam.users import policies as policies_module
-from app.domain.iam.users.policies import ensure_can_list_organization_users
+from app.domains.iam.users import policies as policies_module
+from app.domains.iam.users.policies import ensure_can_list_organization_users
 
 pytestmark = pytest.mark.security
 
