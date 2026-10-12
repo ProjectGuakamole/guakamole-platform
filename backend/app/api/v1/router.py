@@ -11,14 +11,14 @@ from app.domains.iam.organizations.registration_routers import (
 )
 from app.domains.iam.users.routers import router as iam_users_router
 
-api_router = APIRouter()
-api_router.include_router(health_router, prefix="/health", tags=["health"])
-api_router.include_router(csrf_router, prefix="/auth", tags=["auth"])
-api_router.include_router(login_router, prefix="/auth", tags=["auth"])
-api_router.include_router(logout_router, prefix="/auth", tags=["auth"])
-api_router.include_router(auth_me_router, prefix="/auth", tags=["auth"])
-api_router.include_router(token_router, prefix="/auth", tags=["auth"])
-api_router.include_router(iam_users_router, prefix="/iam", tags=["iam-users"])
-api_router.include_router(
+api_v1_router = APIRouter()
+api_v1_router.include_router(health_router, prefix="/health", tags=["health"])
+api_v1_router.include_router(csrf_router, prefix="/auth", tags=["auth"])
+api_v1_router.include_router(login_router, prefix="/auth", tags=["auth"])
+api_v1_router.include_router(logout_router, prefix="/auth", tags=["auth"])
+api_v1_router.include_router(auth_me_router, prefix="/auth", tags=["auth"])
+api_v1_router.include_router(token_router, prefix="/auth", tags=["auth"])
+api_v1_router.include_router(iam_users_router, prefix="/iam", tags=["iam-users"])
+api_v1_router.include_router(
     registration_router, prefix="/organizations", tags=["organizations"]
 )
