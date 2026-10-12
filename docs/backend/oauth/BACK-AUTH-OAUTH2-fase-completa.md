@@ -18,7 +18,7 @@
 11. BACK-AUTH-OAUTH2-012 — Validación y cierre final
 
 > [!WARNING]
-> En esta iteración quedan desarrollados los puntos 1, 2, 3 y 4. Los puntos 5-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
+> En esta iteración quedan desarrollados los puntos 1, 2, 3, 4 y 5. Los puntos 6-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
 
 ---
 
@@ -902,7 +902,191 @@ En resumen: **BACK-AUTH-OAUTH2-005 permite al frontend saber si existe una sesi�
 
 ## 5. BACK-AUTH-OAUTH2-006 — Logout
 
-Pendiente de redactar en una ejecución posterior.
+### Qué problema resuelve
+
+Después de implementar el login con cookie `HttpOnly` y el endpoint `/auth/me`, el backend ya podía abrir una sesión de navegador y comprobar quién estaba autenticado. Pero faltaba una pieza igual de importante para cerrar el ciclo: **permitir al usuario cerrar sesión limpiando la cookie de autenticación desde el backend**.
+
+El problema concreto era este:
+
+```text
+Login correcto
+   │
+   ▼
+Backend setea cookie HttpOnly guak_access_token
+   │
+   ▼
+El navegador la envía automáticamente a /auth/me
+   │
+   ▼
+Faltaba una forma backend de eliminar esa cookie
+```
+
+Como la cookie es `HttpOnly`, JavaScript no puede leerla ni manipular directamente su contenido. Eso es bueno para seguridad, porque reduce exposición frente a XSS, pero implica una consecuencia práctica: el logout no debe depender de que el frontend borre un token que ni siquiera puede leer. El backend tiene que responder con una cabecera `Set-Cookie` que indique al navegador que elimine la cookie.
+
+Esta task añade esa capacidad mediante:
+
+```http
+POST /api/v1/auth/logout
+```
+
+### Qué hace el endpoint
+
+El endpoint `POST /api/v1/auth/logout` cierra la sesión local del navegador eliminando la cookie de autenticación `guak_access_token`.
+
+La respuesta pública es mínima:
+
+```json
+{
+  "status": "logged_out"
+}
+```
+
+Lo importante no es el body, sino la cabecera HTTP de respuesta. El backend devuelve una instrucción equivalente a:
+
+```http
+Set-Cookie: guak_access_token=; Max-Age=0; Path=/api; HttpOnly; SameSite=Lax
+```
+
+Con `Max-Age=0` o una expiración en el pasado, el navegador entiende que debe borrar la cookie. Para que el borrado funcione de forma fiable, la cookie se elimina con los mismos atributos relevantes con los que fue creada, especialmente `Path`, `Domain`, `SameSite` y `Secure`.
+
+> [!IMPORTANT]
+> Borrar una cookie no consiste solo en poner su valor vacío. El navegador identifica cookies por nombre y atributos como `path` y `domain`. Si se intenta borrar con un `Path` distinto al usado al crearla, puede quedar una cookie antigua viva.
+
+### Por qué el logout no necesita devolver tokens
+
+El logout no devuelve access token, refresh token, usuario, roles, email ni identificadores internos. Su contrato se mantiene deliberadamente pequeño.
+
+La razón es doble:
+
+- **seguridad**: cerrar sesión no debe ser un momento en el que el backend vuelva a exponer secretos o datos sensibles;
+- **responsabilidad clara**: el objetivo del endpoint es indicar al navegador que elimine la cookie, no crear una nueva sesión ni describir el perfil del usuario.
+
+En este modelo, el token ya fue emitido durante el login y almacenado en una cookie `HttpOnly`. En logout no hay nada útil que entregar al cliente. Devolver el token sería especialmente contradictorio: estaríamos intentando cerrar sesión mientras volvemos a entregar la credencial que permite autenticarse.
+
+### Idempotencia del cierre de sesión
+
+El logout se diseñó como una operación idempotente desde el punto de vista funcional: pedir cerrar sesión varias veces debe conducir al mismo estado final del navegador, que es **no conservar la cookie de autenticación**.
+
+Conceptualmente:
+
+```text
+logout con cookie existente      → borra cookie → logged_out
+logout con cookie ya eliminada   → sigue sin cookie → logged_out
+logout con token expirado        → borra cookie si está presente → logged_out
+logout repetido varias veces     → mismo resultado final
+```
+
+Por eso el endpoint no necesita leer el token para poder borrar la cookie. Para eliminar una cookie basta con conocer su nombre y los atributos con los que se emitió. Validar el JWT no aporta nada al acto de borrado y, además, podría generar una mala experiencia: si el token está expirado, el usuario seguiría necesitando poder limpiar la cookie del navegador.
+
+> [!NOTE]
+> En fases posteriores, al añadirse CSRF, el endpoint puede quedar protegido como mutación autenticada. Eso no cambia la idea base del logout: la eliminación de la cookie se hace desde backend y no requiere devolver ni regenerar tokens.
+
+### Cómo se implantó
+
+La implementación se mantuvo intencionadamente sencilla. No se creó un servicio de dominio complejo porque no había una regla de negocio persistente que coordinar: no se actualiza usuario, no se toca contraseña, no se modifica organización y no se registra una sesión server-side que haya que cerrar.
+
+La estructura queda separada en dos piezas principales:
+
+```text
+logout_schemas.py
+   └── define la respuesta pública mínima
+
+logout_routers.py
+   └── expone POST /auth/logout y elimina la cookie en la Response
+```
+
+El router es fino: recibe la `Response`, obtiene la configuración de autenticación y construye los settings de cookie reutilizando el helper común. Después llama al mecanismo de FastAPI/Starlette para borrar la cookie en la respuesta HTTP.
+
+El punto clave es que no se duplican atributos “a mano”. Se reutiliza la misma configuración de cookie que ya usa el login:
+
+- nombre desde `AUTH_COOKIE_NAME`, por defecto `guak_access_token`;
+- `Path` desde `AUTH_COOKIE_PATH`, por defecto `/api`;
+- `Domain` si está configurado;
+- `SameSite` desde settings;
+- `Secure` desde settings;
+- `HttpOnly=true`.
+
+Esto evita una clase de errores muy habitual: login crea la cookie con unos atributos y logout intenta borrarla con otros. En ese caso el usuario ve “logout correcto”, pero el navegador puede seguir enviando la cookie antigua.
+
+### Errores esperados y controlados
+
+El comportamiento esperado del logout es ser conservador y no filtrar información.
+
+En el alcance propio de esta task, el caso normal es responder con `200 OK` y cuerpo mínimo aunque el objetivo sea simplemente limpiar estado local del navegador. No hay motivo para devolver detalles como “token expirado”, “token inválido” o “usuario inexistente” durante un logout, porque esos mensajes no ayudan al cliente y pueden aportar señales innecesarias.
+
+Con las protecciones añadidas en tareas posteriores, pueden aparecer errores controlados antes de llegar al borrado efectivo, por ejemplo:
+
+- petición sin credenciales cuando el endpoint se trata como mutación autenticada;
+- token CSRF ausente o inválido cuando la protección CSRF está activa;
+- configuración de autenticación incorrecta en el entorno, que debe fallar de forma explícita y no silenciosa.
+
+La regla de diseño sigue siendo la misma: si el backend acepta procesar el logout, la respuesta no debe revelar secretos ni datos de usuario, y debe intentar dejar al navegador sin cookie de sesión.
+
+### Beneficios
+
+Esta task aporta varios beneficios claros al backend:
+
+- **Completa el ciclo básico de sesión de navegador**: `login → me → logout`.
+- **Mantiene el token fuera de JavaScript**: el frontend no necesita leer ni borrar manualmente el JWT.
+- **Reduce acoplamiento con el cliente**: el cierre de sesión depende de una respuesta HTTP del backend, no de lógica sensible en frontend.
+- **Evita exposición de secretos**: logout no devuelve tokens ni datos internos.
+- **Reutiliza configuración común de cookies**: login y logout comparten nombre, path, domain, SameSite y Secure.
+- **Mejora la experiencia de usuario**: incluso si el token ya no sirve, el usuario debe poder limpiar el estado local de sesión.
+
+### Limitaciones asumidas
+
+El logout implementado es un cierre de sesión basado en eliminación de cookie. Eso es suficiente para el flujo básico del navegador, pero no equivale a una revocación completa de credenciales en servidor.
+
+Limitaciones conscientes:
+
+- **sin blacklist de JWT**: si alguien copió el token antes del logout, podría seguir siendo válido hasta su expiración;
+- **sin revocación server-side por `jti`**: el claim `jti` existe como base futura, pero esta task no persiste tokens revocados;
+- **sin refresh token**: no hay par access/refresh ni rotación de refresh tokens en esta fase;
+- **sin sesión server-side persistente**: no existe una tabla de sesiones activas que marcar como cerrada;
+- **sin cierre global de dispositivos**: cerrar sesión en este navegador no invalida automáticamente otros navegadores o equipos;
+- **CSRF se aborda en una task posterior**: históricamente esta protección se incorpora después como parte del endurecimiento de mutaciones autenticadas.
+
+Estas limitaciones no invalidan la task. Simplemente delimitan su alcance: **logout limpia la sesión local del navegador, no implementa todavía una plataforma completa de gestión y revocación de sesiones**.
+
+### Qué NO hace
+
+Para evitar confusiones, este endpoint no hace lo siguiente:
+
+- no borra el usuario;
+- no desactiva la cuenta;
+- no cambia la contraseña;
+- no elimina la organización;
+- no invalida todos los dispositivos del usuario;
+- no devuelve un token nuevo;
+- no devuelve secretos;
+- no devuelve roles ni permisos;
+- no modifica el tenant efectivo;
+- no audita todavía un evento persistente de `LOGOUT` si esa auditoría no se ha implementado en la fase correspondiente.
+
+### Resultado de la task
+
+El resultado es que el backend ya puede completar el ciclo básico de sesión para navegador:
+
+```text
+Usuario hace login
+   │
+   ▼
+Backend emite JWT y setea cookie HttpOnly guak_access_token
+   │
+   ▼
+Frontend consulta /auth/me sin leer el token
+   │
+   ▼
+Usuario solicita logout
+   │
+   ▼
+Backend responde con Set-Cookie expirado / Max-Age=0
+   │
+   ▼
+El navegador deja de enviar guak_access_token
+```
+
+En resumen: **BACK-AUTH-OAUTH2-006 añade el cierre de sesión backend para cookies HttpOnly, manteniendo el token fuera del frontend y dejando preparado un flujo coherente de login → me → logout para el MVP**.
 
 ## 6. BACK-AUTH-OAUTH2-007 — CSRF
 
