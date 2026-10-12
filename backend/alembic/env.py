@@ -1,10 +1,12 @@
+# ruff: noqa: I001
+
 import os
-from importlib import import_module
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from alembic import context
+import app.db.model_registry as model_registry
 from app.db.base import Base
 
 config = context.config
@@ -13,17 +15,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 
-def import_models() -> None:
-    """Importa modelos ORM para registrarlos en Base.metadata."""
-
-    import_module("app.domains.iam.access.models")
-    import_module("app.domains.iam.departments.models")
-    import_module("app.domains.iam.geography.models")
-    import_module("app.domains.iam.organizations.models")
-    import_module("app.domains.iam.users.models")
-
-
-import_models()
+_ = model_registry
 
 target_metadata = Base.metadata
 

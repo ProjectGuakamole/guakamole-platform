@@ -32,7 +32,8 @@ Estado: Task 14 completada tras validación técnica final comunicada por el equ
 backend/app/db/
 ├── __init__.py
 ├── base.py
-└── mixins.py
+├── mixins.py
+└── model_registry.py
 
 backend/app/domains/
 ├── __init__.py
@@ -59,9 +60,10 @@ backend/app/domains/
 - `Base` debe importarse desde `app.db.base`.
 - Los mixins comunes de base de datos deben vivir en `backend/app/db/mixins.py`.
 - `TimestampMixin` debe importarse desde `app.db.mixins`.
+- El registry central de modelos SQLAlchemy debe vivir en `app.db.model_registry`.
 - `IAM_SCHEMA` debe importarse desde `app.domains.iam.constants`.
 - `IAM_SCHEMA` queda reservado para modelos y código de aplicación; las migraciones Alembic ya publicadas deben usar literales inmutables.
-- Alembic debe usar `Base.metadata` importado desde `app.db.base`.
+- Alembic debe cargar el registry central de modelos y usar `Base.metadata` importado desde `app.db.base`.
 
 ### Criterios Task 0
 

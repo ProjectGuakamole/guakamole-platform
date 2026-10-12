@@ -38,7 +38,7 @@ Seeds iniciales incluidos en Task 11 mediante `0012_seed_initial_iam_catalogs`:
 
 ### Estructura de código
 
-- `backend/app/db/`: infraestructura común de base de datos, `Base.metadata` y mixins reutilizables.
+- `backend/app/db/`: infraestructura común de base de datos, `Base.metadata`, mixins reutilizables y registry central de modelos SQLAlchemy.
 - `backend/app/domains/iam/`: dominio IAM organizado por subdominios funcionales.
 - Modelos ORM por dominio en ficheros `models.py` dentro de `access`, `departments`, `geography`, `organizations` y `users`.
 - Schemas Pydantic v2 en ficheros `schemas.py` dentro de los mismos subdominios.
