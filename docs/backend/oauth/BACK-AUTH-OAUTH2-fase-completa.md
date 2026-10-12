@@ -18,7 +18,7 @@
 11. BACK-AUTH-OAUTH2-012 — Validación y cierre final
 
 > [!WARNING]
-> En esta iteración quedan desarrollados los puntos 1, 2, 3, 4, 5 y 6. Los puntos 7-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
+> En esta iteración quedan desarrollados los puntos 1, 2, 3, 4, 5, 6 y 7. Los puntos 8-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
 
 ---
 
@@ -1325,7 +1325,251 @@ En resumen: **BACK-AUTH-OAUTH2-007 hace que las cookies `HttpOnly` sean una base
 
 ## 7. BACK-AUTH-OAUTH2-008 — `/auth/token`
 
-Pendiente de redactar en una ejecución posterior.
+### Qué problema resuelve
+
+Hasta este punto, el flujo principal de autenticación del backend estaba pensado para navegador: el usuario hacía login en `POST /api/v1/auth/login`, el backend verificaba credenciales y guardaba el access token en una cookie `HttpOnly`. Esa estrategia es la adecuada para el browser principal porque evita que JavaScript tenga que leer o almacenar el JWT.
+
+Pero había otro caso de uso distinto: **Swagger/OpenAPI y clientes técnicos**.
+
+Herramientas como la documentación interactiva de FastAPI esperan poder trabajar con un flujo OAuth2 compatible con password/form. En ese flujo, el cliente envía credenciales como formulario `application/x-www-form-urlencoded` y recibe un bearer token en el body para usarlo después en la cabecera `Authorization`.
+
+El problema era, por tanto, doble:
+
+- mantener la estrategia segura de navegador basada en cookie `HttpOnly`;
+- ofrecer a Swagger, tests y clientes técnicos un endpoint compatible con OAuth2 Password Bearer.
+
+La solución fue añadir un endpoint específico para este segundo caso, sin cambiar el comportamiento de `/auth/login`.
+
+### Endpoint real
+
+Se implementa el endpoint:
+
+```http
+POST /api/v1/auth/token
+```
+
+Este endpoint vive bajo el router de autenticación y está pensado para emitir un access token bearer en formato compatible con OAuth2/OpenAPI.
+
+No es el login principal para el frontend browser. Es una entrada técnica para herramientas que necesitan recibir el token explícitamente y enviarlo después como:
+
+```http
+Authorization: Bearer <jwt>
+```
+
+### Formato de la request
+
+El endpoint usa `OAuth2PasswordRequestForm` de FastAPI. Eso significa que no espera JSON, sino formulario codificado como:
+
+```http
+Content-Type: application/x-www-form-urlencoded
+```
+
+Los campos relevantes son los estándar del flujo OAuth2 password:
+
+```text
+username=<email-del-usuario>
+password=<password-del-usuario>
+```
+
+Ejemplo conceptual:
+
+```http
+POST /api/v1/auth/token
+Content-Type: application/x-www-form-urlencoded
+
+username=ana@empresa.com&password=PasswordSeguro123!
+```
+
+Aunque el campo se llame `username`, en Project Guakamole se interpreta como el email de login del usuario. El router transforma ese formulario en un `LoginRequest` interno:
+
+```text
+OAuth2PasswordRequestForm
+   ├── username → LoginRequest.email
+   └── password → LoginRequest.password
+```
+
+Esta traducción se queda en la capa HTTP. El servicio de login no necesita saber si las credenciales llegaron como JSON desde `/auth/login` o como formulario OAuth2 desde `/auth/token`.
+
+### Respuesta del endpoint
+
+Si las credenciales son válidas, el endpoint devuelve el access token en el body:
+
+```json
+{
+  "access_token": "<jwt>",
+  "token_type": "bearer",
+  "expires_in": 900
+}
+```
+
+`token_type` se devuelve como `bearer`, que es el valor esperado por clientes OAuth2 y por Swagger UI. `expires_in` indica la vida del access token en segundos cuando aplica; en esta implementación se calcula a partir de la configuración `ACCESS_TOKEN_EXPIRE_MINUTES`.
+
+> [!WARNING]
+> Que el token se devuelva en el body no lo hace menos sensible. `access_token` debe tratarse como un secreto: quien lo tenga podrá intentar autenticarse como ese usuario hasta que expire.
+
+### Diferencia entre `/auth/login` y `/auth/token`
+
+Los dos endpoints autentican credenciales, pero tienen propósitos distintos.
+
+| Endpoint | Entrada | Salida | Uso principal |
+| --- | --- | --- | --- |
+| `POST /api/v1/auth/login` | JSON con `email` y `password` | Cookie `HttpOnly` + body mínimo | Navegador principal |
+| `POST /api/v1/auth/token` | Formulario OAuth2 con `username` y `password` | Bearer token en body | Swagger, tests y clientes técnicos |
+
+La diferencia importante es dónde queda el token:
+
+```text
+/auth/login
+   └── JWT en cookie HttpOnly
+       └── JavaScript no lo lee directamente
+
+/auth/token
+   └── JWT en body JSON
+       └── el cliente técnico debe custodiarlo como secreto
+```
+
+Por eso `/auth/token` no debe convertirse en el flujo principal del frontend browser. Si una aplicación web recibe este token y lo guarda en `localStorage`, vuelve a abrir el riesgo que se quiso evitar con las cookies `HttpOnly`: un XSS podría leerlo y exfiltrarlo.
+
+La recomendación de uso es clara:
+
+- navegador principal: `/auth/login` con cookie `HttpOnly`;
+- Swagger/OpenAPI: `/auth/token` para poder autorizar llamadas desde la documentación interactiva;
+- tests y clientes técnicos: `/auth/token` cuando necesiten bearer explícito;
+- no guardar el bearer token en `localStorage` como estrategia de sesión browser.
+
+### Reutilización de `LoginService`
+
+Una decisión importante fue no duplicar la lógica de autenticación.
+
+`/auth/token` reutiliza el mismo `LoginService` que el login con cookie. Eso significa que comparte:
+
+- búsqueda del usuario por email normalizado;
+- comprobación de estado activo;
+- verificación de password con el hasher configurado;
+- emisión del access token JWT con los mismos claims mínimos;
+- errores genéricos ante credenciales inválidas;
+- auditoría conceptual de login, si está configurada por el servicio.
+
+El flujo queda así:
+
+```text
+Cliente técnico / Swagger
+   │
+   │ POST /api/v1/auth/token
+   │ username + password form-urlencoded
+   ▼
+Router /auth/token
+   │
+   ├── recibe OAuth2PasswordRequestForm
+   ├── crea LoginRequest(email=username, password=password)
+   └── llama a LoginService
+           │
+           ├── verifica usuario y password
+           ├── emite access token JWT
+           └── devuelve token al router
+   │
+   ▼
+Response JSON con access_token bearer
+```
+
+Esto evita dos sistemas paralelos de credenciales. Si en el futuro cambia la política de verificación de contraseña, estado de usuario o emisión de JWT, ambos flujos se benefician del mismo cambio.
+
+### Errores esperados
+
+Ante credenciales inválidas, el endpoint responde con un `401 Unauthorized` genérico:
+
+```json
+{
+  "detail": "Credenciales inválidas."
+}
+```
+
+La respuesta no debe distinguir si:
+
+- el email no existe;
+- el usuario no está activo;
+- la contraseña es incorrecta.
+
+Esa decisión evita dar pistas útiles para enumeración de usuarios o ataques de fuerza bruta.
+
+En la implementación existe además la posibilidad de deshabilitar este endpoint mediante configuración. Si está deshabilitado, el backend lo bloquea antes de autenticar credenciales y responde con un error controlado. Esta capacidad encaja con la idea de tratar `/auth/token` como herramienta técnica, no como requisito obligatorio para todos los entornos.
+
+### Relación con CSRF
+
+`/auth/token` no crea cookie y no se autentica usando una cookie previa. Por eso no utiliza la protección CSRF diseñada para mutaciones autenticadas con cookie.
+
+Esto no contradice la task anterior. CSRF protege el caso en el que el navegador envía automáticamente una cookie de sesión. Aquí el cliente está pidiendo explícitamente un bearer token mediante credenciales de formulario y el resultado se devuelve en el body.
+
+La separación queda así:
+
+| Flujo | Usa cookie de sesión | Necesita CSRF en esta task |
+| --- | --- | --- |
+| `/auth/login` | Crea cookie | No, es autenticación inicial |
+| `/auth/csrf` | Lee cookie | No como header, emite token CSRF |
+| `/auth/logout` | Usa cookie | Sí, al ser mutación autenticada con cookie |
+| `/auth/token` | No crea ni usa cookie | No, devuelve bearer técnico |
+
+### Riesgos y precauciones
+
+El riesgo principal de `/auth/token` es que entrega el JWT en el body. Esto es correcto para OAuth2 Password Bearer y útil para Swagger, pero obliga a tratar el token como secreto.
+
+Precauciones importantes:
+
+- no registrar el `access_token` en logs;
+- no pegar tokens reales en documentación, tickets o capturas compartidas;
+- no guardarlo en `localStorage` ni convertirlo en sesión browser principal;
+- limitar su uso a Swagger, tests, automatizaciones controladas y clientes técnicos;
+- deshabilitarlo por configuración en entornos donde no se quiera exponer este flujo;
+- recordar que, sin revocación server-side, el token seguirá siendo válido hasta su expiración si alguien lo copia.
+
+En la task histórica, el endpoint nació sin rate limiting específico. Esa protección pertenece a tareas posteriores de endurecimiento, por lo que no debe asumirse como parte de este punto concreto aunque el código haya evolucionado después.
+
+### Limitaciones o compromisos
+
+Esta task se mantuvo deliberadamente acotada. Sus límites principales son:
+
+- **sin refresh token**: solo se emite access token;
+- **sin scopes avanzados OAuth2**: no se modelan permisos por scope en este punto;
+- **sin MFA**: no añade segundo factor ni step-up authentication;
+- **sin rate limiting en esta task histórica**: la protección contra abuso se deja para hardening posterior;
+- **sin revocación server-side**: no se añade blacklist ni tabla de sesiones revocables;
+- **sin gestión avanzada de clientes OAuth2**: no hay client IDs, client secrets ni consent screen;
+- **sin selección de tenant**: no acepta `organization_id` ni permite cambiar de organización activa desde este endpoint.
+
+Estas limitaciones son coherentes con el objetivo: compatibilidad OAuth2/OpenAPI para desarrollo y clientes técnicos, no un servidor OAuth2 completo.
+
+### Qué NO hace
+
+Para evitar confusiones, `POST /api/v1/auth/token` no hace lo siguiente:
+
+- no crea usuarios;
+- no registra organizaciones;
+- no crea cookie `HttpOnly`;
+- no borra cookies;
+- no emite token CSRF;
+- no valida CSRF;
+- no cambia el tenant efectivo;
+- no acepta `organization_id` enviado por el cliente como selector de organización;
+- no devuelve roles, permisos, email, perfil ni `password_hash`;
+- no sustituye al flujo browser seguro basado en `/auth/login`.
+
+### Resultado de la task
+
+El resultado es que el backend gana compatibilidad OAuth2/OpenAPI sin romper la estrategia de navegador basada en cookies `HttpOnly`.
+
+El mapa queda así:
+
+```text
+Navegador principal
+   └── POST /api/v1/auth/login
+       └── JWT en cookie HttpOnly
+
+Swagger / cliente técnico
+   └── POST /api/v1/auth/token
+       └── JWT en body como bearer
+```
+
+En resumen: **BACK-AUTH-OAUTH2-008 añade `POST /api/v1/auth/token` para que Swagger, tests y clientes técnicos puedan usar un bearer token compatible con OAuth2 password/form, reutilizando `LoginService` y manteniendo separado el flujo browser seguro basado en cookie `HttpOnly`**.
 
 ## 8. BACK-AUTH-OAUTH2-009 — CORS
 
