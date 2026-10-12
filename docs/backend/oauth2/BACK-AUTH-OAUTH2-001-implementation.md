@@ -741,3 +741,101 @@ Aviso conocido: warnings de PyJWT por secretos de test de 30 bytes. Se documenta
 ## 8. Impacto backend
 
 El backend incorpora una defensa CSRF inicial compatible con sesiones en cookie HttpOnly. La solución mantiene el token de acceso fuera del frontend, conserva errores genéricos y ofrece una dependencia reutilizable para proteger futuras mutaciones autenticadas sin introducir todavía un middleware global.
+
+---
+
+# BACK-AUTH-OAUTH2-008 — Endpoint OAuth2 Password Bearer para Swagger/desarrollo
+
+**Estado:** QA aprobado  
+**Ámbito:** `backend/`  
+**Endpoint:** `POST /api/v1/auth/token`
+
+## 1. Resumen
+
+Se ha incorporado el endpoint `POST /api/v1/auth/token` para habilitar el flujo OAuth2 Password Bearer usado por Swagger y entornos de desarrollo.
+
+El endpoint acepta `application/x-www-form-urlencoded` con `username` y `password`, reutiliza `LoginService` para validar credenciales y devuelve un bearer token en el cuerpo de la respuesta. No setea cookie, no modifica cookies existentes y no requiere CSRF porque no usa autenticación basada en cookie.
+
+El endpoint se puede deshabilitar con:
+
+```dotenv
+AUTH_ENABLE_PASSWORD_BEARER_TOKEN=false
+```
+
+## 2. Contrato HTTP
+
+Request:
+
+```http
+POST /api/v1/auth/token
+Content-Type: application/x-www-form-urlencoded
+
+username=ana@empresa.com&password=PasswordSeguro123!
+```
+
+Response `200 OK`:
+
+```json
+{
+  "access_token": "<jwt>",
+  "token_type": "bearer",
+  "expires_in": 900
+}
+```
+
+Response `401 Unauthorized`:
+
+```json
+{
+  "detail": "Credenciales inválidas."
+}
+```
+
+Response `403 Forbidden` si está deshabilitado:
+
+```json
+{
+  "detail": "Endpoint OAuth2 deshabilitado."
+}
+```
+
+## 3. Decisiones de seguridad
+
+- No emite `Set-Cookie`.
+- No modifica cookies.
+- No expone email, roles, `organization_id`, `user_id` ni `password_hash`.
+- No acepta `organization_id` ni tenant desde frontend.
+- `OAuth2PasswordRequestForm` solo vive en router/adaptador HTTP.
+- `expires_in` deriva de `AuthSettings.access_token_expire_minutes`.
+- Si está deshabilitado, bloquea antes de autenticar credenciales.
+- Debe usarse solo para Swagger/desarrollo; fuera de dev se recomienda deshabilitarlo.
+- Rate limiting sigue pendiente antes de exposición pública.
+
+## 4. Arquitectura
+
+- `token_schemas.py`: response bearer mínimo.
+- `token_routers.py`: endpoint `/token` y transformación form -> `LoginRequest`.
+- Reutiliza `get_login_service` y `LoginService`.
+- Router incluido bajo `/api/v1/auth`.
+- Dependencia añadida `python-multipart` para formularios FastAPI.
+
+## 5. Tests y validación
+
+- `make backend-quality` ✅ PASS.
+- `make backend-test-unit` ✅ PASS: `352 passed, 63 deselected`.
+- `make backend-test-db` ✅ PASS: `41 passed, 374 deselected`.
+- QA final ✅ PASS.
+
+Aviso conocido: warnings de PyJWT por secretos de test de 30 bytes. Se documenta como deuda no bloqueante y no introducida por esta task.
+
+## 6. Riesgos pendientes
+
+- `AUTH_ENABLE_PASSWORD_BEARER_TOKEN=True` por defecto; en entornos no-dev debe configurarse explícitamente a `false` si no se desea exponer.
+- Sin rate limiting todavía.
+- Sin auditoría persistente real todavía; se reutiliza la auditoría conceptual de `LoginService`.
+- Tests adicionales opcionales: JSON incorrecto `422`, campos extra `organization_id`/`tenant`, y `expires_in` con settings distinto.
+- Refresh tokens, RBAC/roles, CORS y frontend quedan fuera.
+
+## 7. Impacto backend
+
+El backend incorpora un endpoint bearer mínimo para compatibilidad con Swagger y pruebas de desarrollo sin sustituir el flujo principal basado en cookie `HttpOnly`. La implementación mantiene la autenticación centralizada en `LoginService`, evita duplicar reglas de credenciales y reduce el acoplamiento entre el contrato OAuth2 form y la lógica de dominio.

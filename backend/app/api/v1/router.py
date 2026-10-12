@@ -5,6 +5,7 @@ from app.domain.auth.csrf_routers import router as csrf_router
 from app.domain.auth.login_routers import router as login_router
 from app.domain.auth.logout_routers import router as logout_router
 from app.domain.auth.me_routers import router as auth_me_router
+from app.domain.auth.token_routers import router as token_router
 from app.domain.iam.organizations.registration_routers import (
     router as registration_router,
 )
@@ -16,6 +17,7 @@ api_router.include_router(csrf_router, prefix="/auth", tags=["auth"])
 api_router.include_router(login_router, prefix="/auth", tags=["auth"])
 api_router.include_router(logout_router, prefix="/auth", tags=["auth"])
 api_router.include_router(auth_me_router, prefix="/auth", tags=["auth"])
+api_router.include_router(token_router, prefix="/auth", tags=["auth"])
 api_router.include_router(iam_users_router, prefix="/iam", tags=["iam-users"])
 api_router.include_router(
     registration_router, prefix="/organizations", tags=["organizations"]
