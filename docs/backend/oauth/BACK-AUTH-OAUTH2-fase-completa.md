@@ -18,7 +18,7 @@
 11. BACK-AUTH-OAUTH2-012 — Validación y cierre final
 
 > [!WARNING]
-> En esta iteración quedan desarrollados los puntos 1, 2, 3, 4, 5, 6 y 7. Los puntos 8-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
+> En esta iteración quedan desarrollados los puntos 1, 2, 3, 4, 5, 6, 7 y 8. Los puntos 9-11 permanecen como índice de trabajo para completar el documento en ejecuciones posteriores.
 
 ---
 
@@ -1573,7 +1573,268 @@ En resumen: **BACK-AUTH-OAUTH2-008 añade `POST /api/v1/auth/token` para que Swa
 
 ## 8. BACK-AUTH-OAUTH2-009 — CORS
 
-Pendiente de redactar en una ejecución posterior.
+### Qué problema resuelve
+
+Hasta este punto, el backend ya tenía un flujo de autenticación para navegador basado en cookie `HttpOnly`, un endpoint `/auth/me`, logout protegido con CSRF y un endpoint técnico `/auth/token` para Swagger y clientes controlados.
+
+Pero había una pieza necesaria para que un frontend ejecutado en navegador pudiera llamar a la API desde otro origen durante desarrollo o staging: **CORS**.
+
+CORS significa **Cross-Origin Resource Sharing**. Es una política aplicada por los navegadores para decidir si una página cargada desde un origen puede leer respuestas de otro origen.
+
+Ejemplo conceptual:
+
+```text
+Frontend local
+http://localhost:5173
+
+Backend API
+http://localhost:8000
+```
+
+Aunque ambos estén en la misma máquina, para el navegador son orígenes distintos porque cambia el puerto. Si el backend no responde con las cabeceras CORS adecuadas, el navegador bloquea la llamada desde el frontend.
+
+El problema es más delicado cuando usamos cookies. Para que el navegador pueda enviar cookies en una llamada cross-origin controlada, no basta con “activar CORS”. Hay que configurar CORS de forma explícita y permitir credenciales. Además, cuando hay credenciales, no se debe usar `*` como origin permitido en producción.
+
+> [!IMPORTANT]
+> CORS no es autenticación ni autorización. CORS no decide quién es el usuario ni qué puede hacer. CORS solo indica al navegador desde qué orígenes se permite interactuar con la API y leer sus respuestas.
+
+### Qué hace esta task
+
+Esta task centraliza la configuración CORS del backend usando `CORSMiddleware` de FastAPI/Starlette.
+
+La configuración queda encapsulada en:
+
+```text
+backend/app/core/cors.py
+```
+
+con dos responsabilidades principales:
+
+```text
+configure_cors(app, settings)
+   └── registra CORSMiddleware en la aplicación FastAPI
+
+build_allowed_cors_headers(settings)
+   └── construye la lista explícita de headers permitidos
+```
+
+La idea es que el arranque de la aplicación no tenga reglas CORS dispersas por varios routers. CORS es una política transversal de la API, por eso se configura en el core de la aplicación.
+
+En términos prácticos, esta task define:
+
+- orígenes permitidos desde settings/entorno;
+- credenciales habilitadas cuando aplica el flujo con cookies;
+- métodos HTTP permitidos de forma explícita;
+- headers permitidos de forma explícita;
+- rechazo de wildcard `*` como origin permitido;
+- separación entre configuración CORS y configuración sensible de autenticación.
+
+### Orígenes permitidos
+
+Los orígenes permitidos se cargan desde `CorsSettings`, no se escriben directamente dentro del middleware.
+
+Por defecto, para desarrollo local, se contemplan los orígenes habituales del frontend:
+
+```text
+http://localhost:3000
+http://localhost:5173
+http://127.0.0.1:3000
+http://127.0.0.1:5173
+```
+
+Esto permite trabajar con servidores locales típicos sin abrir la API a cualquier web.
+
+En un entorno de staging, el mismo concepto se aplicaría con el dominio real correspondiente:
+
+```text
+https://staging.guakamole.example
+```
+
+La regla importante es que los orígenes deben ser **explícitos**. No se acepta:
+
+```text
+*
+```
+
+Usar wildcard con cookies y credenciales es una mala práctica porque convierte la política CORS en demasiado permisiva y dificulta razonar sobre qué aplicaciones de navegador pueden interactuar con la API.
+
+> [!WARNING]
+> `allow_credentials=True` y origins abiertos no deben combinarse. Si el backend trabaja con cookies de sesión, los origins deben estar controlados desde configuración.
+
+### Credenciales y cookies
+
+Como el flujo principal de navegador usa cookie `HttpOnly`, CORS debe permitir credenciales cuando el frontend autorizado necesite llamar al backend con sesión.
+
+La configuración contempla:
+
+```text
+cors_allow_credentials = true
+```
+
+Conceptualmente, esto permite que el navegador incluya credenciales, como cookies, en las llamadas cross-origin permitidas.
+
+La relación con las tasks anteriores es directa:
+
+- `POST /api/v1/auth/login` crea la cookie `guak_access_token` como `HttpOnly`;
+- el navegador debe poder enviar esa cookie a endpoints como `/auth/me` cuando el frontend autorizado llama a la API;
+- las mutaciones protegidas deben enviar también `X-CSRF-Token`;
+- CORS debe permitir ese header para que el navegador no bloquee la petición antes de llegar al backend.
+
+Esto no significa que CORS autentique la petición. La autenticación sigue dependiendo de la cookie/JWT y la autorización seguirá dependiendo de validaciones backend, tenant context y RBAC.
+
+### Métodos y headers permitidos
+
+La configuración no usa comodines para métodos y headers. Se declaran de forma explícita.
+
+Métodos permitidos:
+
+```text
+GET
+POST
+PUT
+PATCH
+DELETE
+OPTIONS
+```
+
+Headers base permitidos:
+
+```text
+Content-Type
+X-CSRF-Token
+```
+
+`X-CSRF-Token` es especialmente importante por la task anterior. Si el navegador va a llamar a una mutación protegida con CSRF, necesita poder enviar ese header. Si CORS no lo permite, la petición puede fallar en el navegador antes de que el backend tenga oportunidad de validar el token CSRF.
+
+Además, el header:
+
+```text
+Authorization
+```
+
+se permite de forma configurable mediante `cors_allow_authorization_header`. Esto mantiene compatibilidad con Swagger, pruebas o clientes técnicos que usen bearer tokens, sin convertir todos los headers posibles en permitidos por defecto.
+
+### Cómo se implantó
+
+La implementación queda concentrada en `backend/app/core/cors.py`.
+
+El flujo conceptual es:
+
+```text
+create_app()
+   │
+   ▼
+CorsSettings()
+   │
+   ├── cors_allowed_origins
+   ├── cors_allow_credentials
+   └── cors_allow_authorization_header
+   │
+   ▼
+configure_cors(app, settings)
+   │
+   ├── rechaza origin "*"
+   ├── registra CORSMiddleware
+   ├── allow_origins explícitos
+   ├── allow_credentials según settings
+   ├── allow_methods explícitos
+   └── allow_headers explícitos
+```
+
+`CorsSettings` permite cargar `cors_allowed_origins` como lista o como cadena separada por comas. Esto facilita configurarlo desde variables de entorno sin cambiar código.
+
+Ejemplo conceptual de configuración local:
+
+```dotenv
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+CORS_ALLOW_CREDENTIALS=true
+CORS_ALLOW_AUTHORIZATION_HEADER=true
+```
+
+El detalle relevante es que `CorsSettings` está separado de `AuthSettings`. Así, configurar CORS y arrancar la aplicación no obliga a cargar secretos de autenticación como `JWT_SECRET_KEY` si solo se está construyendo la app y registrando middleware.
+
+### Relación con cookie HttpOnly, CSRF y entornos
+
+CORS encaja con el resto de la fase OAuth2 como una pieza de integración segura para navegador.
+
+La cookie `HttpOnly` protege el access token frente a lectura directa desde JavaScript, pero el navegador necesita permiso CORS para enviar y recibir respuestas cuando frontend y backend están en orígenes distintos.
+
+CSRF cubre otro problema: que una mutación con cookie automática demuestre también intención mediante `X-CSRF-Token`. Por eso CORS debe permitir ese header, pero no lo valida. La validación CSRF sigue siendo responsabilidad del backend.
+
+En local, los origins suelen ser `localhost` o `127.0.0.1` con puertos de desarrollo. En staging, deben configurarse los dominios reales. En producción, la lista debe ser todavía más estricta y no debe depender de comodines.
+
+Resumen de responsabilidades:
+
+| Pieza | Responsabilidad |
+| --- | --- |
+| Cookie `HttpOnly` | Guardar el access token sin exponerlo directamente a JavaScript. |
+| CORS | Permitir al navegador llamar a la API desde origins autorizados. |
+| CSRF | Proteger mutaciones autenticadas con cookie mediante `X-CSRF-Token`. |
+| Auth/RBAC/Tenant | Validar usuario, permisos y aislamiento de organización en backend. |
+
+### Beneficios
+
+Esta task aporta varios beneficios claros:
+
+- **Integración browser controlada**: el frontend local o de staging puede llamar a la API sin desactivar protecciones del navegador.
+- **Origins explícitos**: se evita abrir la API con `*`.
+- **Credenciales configuradas correctamente**: el flujo con cookie `HttpOnly` puede funcionar desde origins permitidos.
+- **Compatibilidad con CSRF**: se permite `X-CSRF-Token` para mutaciones protegidas.
+- **Headers acotados**: no se permite cualquier header por comodidad.
+- **Configuración centralizada**: CORS se aplica en un punto común del arranque de FastAPI.
+- **Menos acoplamiento**: la configuración CORS puede cargarse sin depender de secretos JWT.
+
+### Limitaciones y riesgos
+
+CORS tiene límites importantes que conviene entender bien:
+
+- **No protege contra requests server-to-server**: CORS lo aplican los navegadores. Un cliente backend, script o herramienta HTTP puede enviar requests sin estar limitado por CORS.
+- **No sustituye CSRF**: aunque el origin esté permitido, una mutación con cookie debe seguir validando `X-CSRF-Token` cuando corresponda.
+- **No sustituye RBAC ni tenant isolation**: que una petición pase CORS no significa que el usuario tenga permiso para acceder al recurso.
+- **No autentica usuarios**: CORS no valida cookies, JWT ni bearer tokens.
+- **Mala configuración puede abrir riesgos**: permitir origins de más o usar comodines en entornos con credenciales reduce el control sobre qué frontends pueden interactuar con la API desde navegador.
+- **Requiere mantenimiento por entorno**: local, staging y producción deben tener listas de origins coherentes con sus dominios reales.
+
+### Qué NO hace
+
+Para evitar confusiones, esta task no hace lo siguiente:
+
+- no valida usuario;
+- no crea sesión;
+- no emite JWT;
+- no crea ni borra cookies;
+- no valida CSRF;
+- no protege endpoints por sí sola;
+- no aplica RBAC;
+- no filtra tenant;
+- no decide si un usuario de ACME puede acceder a datos de CyberCorp;
+- no convierte `/auth/token` en flujo principal de navegador;
+- no evita ataques desde clientes server-to-server.
+
+CORS responde a una pregunta concreta del navegador: “¿puede una página cargada desde este origin llamar a esta API y leer la respuesta?”. El resto de decisiones de seguridad siguen viviendo en backend.
+
+### Resultado de la task
+
+El resultado es que el backend queda preparado para integrarse con un frontend de navegador usando cookies `HttpOnly` sin abrir CORS de forma insegura.
+
+El flujo conceptual queda así:
+
+```text
+Frontend en origin permitido
+   │
+   ├── llama a la API con credentials
+   ├── puede enviar cookie HttpOnly si corresponde
+   ├── puede enviar X-CSRF-Token en mutaciones protegidas
+   ▼
+Backend FastAPI
+   │
+   ├── CORSMiddleware valida origin/header/método a nivel navegador
+   ├── auth valida cookie/JWT o bearer según endpoint
+   ├── CSRF valida mutaciones con cookie
+   └── RBAC/tenant deberán validar permisos y aislamiento
+```
+
+En resumen: **BACK-AUTH-OAUTH2-009 configura CORS de forma centralizada, explícita y compatible con cookies, evitando wildcard y dejando el backend listo para frontend browser local/staging sin confundir CORS con autenticación, CSRF, RBAC ni aislamiento multi-tenant**.
 
 ## 9. BACK-AUTH-OAUTH2-010 — Hardening final
 
