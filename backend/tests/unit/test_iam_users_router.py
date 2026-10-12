@@ -5,13 +5,13 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.domain.iam.access.tenant_context import TenantContext
-from app.domain.iam.users.dependencies import (
+from app.domains.iam.access.tenant_context import TenantContext
+from app.domains.iam.users.dependencies import (
     PilotAuthenticatedUser,
     get_list_organization_users_service,
     get_pilot_authenticated_user,
 )
-from app.domain.iam.users.schemas import (
+from app.domains.iam.users.schemas import (
     OrganizationUserListResponse,
     OrganizationUserRead,
     UserListQuery,
@@ -177,7 +177,7 @@ def test_endpoint_response_does_not_expose_password_hash() -> None:
 
 
 def test_router_does_not_import_sqlalchemy_or_repository_directly() -> None:
-    router_path = Path("app/domain/iam/users/routers.py")
+    router_path = Path("app/domains/iam/users/routers.py")
     tree = ast.parse(router_path.read_text(encoding="utf-8"))
     imported_modules = {
         node.module
@@ -193,7 +193,7 @@ def test_router_does_not_import_sqlalchemy_or_repository_directly() -> None:
 
     assert "sqlalchemy" not in direct_imports
     assert not any(module.startswith("sqlalchemy") for module in imported_modules)
-    assert "app.domain.iam.users.repositories" not in imported_modules
+    assert "app.domains.iam.users.repositories" not in imported_modules
 
 
 def make_actor(*, organization_id: int) -> PilotAuthenticatedUser:

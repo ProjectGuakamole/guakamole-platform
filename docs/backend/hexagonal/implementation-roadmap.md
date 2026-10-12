@@ -127,7 +127,7 @@ Crear la estructura mínima necesaria para el piloto IAM sin mover modelos exist
 
 #### Archivos esperados o áreas afectadas
 
-- `backend/app/domain/iam/users/` solo si aplica.
+- `backend/app/domains/iam/users/` solo si aplica.
 - `__init__.py` si procede según el estándar del proyecto.
 - Tests o checks de imports si son necesarios.
 

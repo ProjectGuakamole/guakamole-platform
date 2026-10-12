@@ -5,10 +5,10 @@ from datetime import UTC, datetime, timedelta
 import jwt
 import pytest
 
-from app.domain.auth.config import AuthSettings
-from app.domain.auth.csrf_exceptions import InvalidCsrfTokenError
-from app.domain.auth.csrf_services import CSRF_CLAIM_VALUE, CsrfTokenService
-from app.domain.auth.tokens import VerifiedAccessToken
+from app.domains.auth.config import AuthSettings
+from app.domains.auth.csrf_exceptions import InvalidCsrfTokenError
+from app.domains.auth.csrf_services import CSRF_CLAIM_VALUE, CsrfTokenService
+from app.domains.auth.tokens import VerifiedAccessToken
 
 pytestmark = pytest.mark.test_unit
 

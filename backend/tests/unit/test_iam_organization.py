@@ -13,8 +13,8 @@ from sqlalchemy.sql.schema import (
 )
 from sqlalchemy.sql.type_api import TypeEngine
 
-from app.domain.iam.organizations.models import Organization
-from app.domain.iam.organizations.schemas import (
+from app.domains.iam.organizations.models import Organization
+from app.domains.iam.organizations.schemas import (
     OrganizationCreate,
     OrganizationRead,
     OrganizationUpdate,

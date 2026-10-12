@@ -8,7 +8,7 @@ import pytest
 pytestmark = pytest.mark.architecture
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-IAM_USERS_PACKAGE = PROJECT_ROOT / "app" / "domain" / "iam" / "users"
+IAM_USERS_PACKAGE = PROJECT_ROOT / "app" / "domains" / "iam" / "users"
 
 ROUTERS_MODULE = IAM_USERS_PACKAGE / "routers.py"
 MODELS_MODULE = IAM_USERS_PACKAGE / "models.py"
@@ -24,21 +24,21 @@ ROUTER_FORBIDDEN_INFRA_IMPORTS = frozenset(
         "docker",
         "github",
         "guacamole",
-        "app.domain.iam.users.repositories",
+        "app.domains.iam.users.repositories",
         "app.integrations",
         "app.labs",
-        "app.domain.labs",
-        "app.domain.content",
+        "app.domains.labs",
+        "app.domains.content",
         "app.content",
     )
 )
 MODEL_FORBIDDEN_UPPER_LAYER_IMPORTS = frozenset(
     (
-        "app.domain.iam.users.dependencies",
-        "app.domain.iam.users.policies",
-        "app.domain.iam.users.repositories",
-        "app.domain.iam.users.routers",
-        "app.domain.iam.users.services",
+        "app.domains.iam.users.dependencies",
+        "app.domains.iam.users.policies",
+        "app.domains.iam.users.repositories",
+        "app.domains.iam.users.routers",
+        "app.domains.iam.users.services",
     )
 )
 
@@ -79,7 +79,7 @@ def test_router_does_not_import_sqlalchemy_or_repository_directly() -> None:
     assert_no_imports_with_prefix(
         module_path=ROUTERS_MODULE,
         forbidden_prefixes=SQLALCHEMY_IMPORTS
-        | frozenset(("app.domain.iam.users.repositories",)),
+        | frozenset(("app.domains.iam.users.repositories",)),
     )
 
 

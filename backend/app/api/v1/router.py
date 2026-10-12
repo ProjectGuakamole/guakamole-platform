@@ -1,15 +1,15 @@
 from fastapi import APIRouter
 
 from app.api.v1.health import router as health_router
-from app.domain.auth.csrf_routers import router as csrf_router
-from app.domain.auth.login_routers import router as login_router
-from app.domain.auth.logout_routers import router as logout_router
-from app.domain.auth.me_routers import router as auth_me_router
-from app.domain.auth.token_routers import router as token_router
-from app.domain.iam.organizations.registration_routers import (
+from app.domains.auth.csrf_routers import router as csrf_router
+from app.domains.auth.login_routers import router as login_router
+from app.domains.auth.logout_routers import router as logout_router
+from app.domains.auth.me_routers import router as auth_me_router
+from app.domains.auth.token_routers import router as token_router
+from app.domains.iam.organizations.registration_routers import (
     router as registration_router,
 )
-from app.domain.iam.users.routers import router as iam_users_router
+from app.domains.iam.users.routers import router as iam_users_router
 
 api_router = APIRouter()
 api_router.include_router(health_router, prefix="/health", tags=["health"])

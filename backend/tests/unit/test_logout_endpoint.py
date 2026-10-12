@@ -3,9 +3,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.domain.auth.config import AuthSettings
-from app.domain.auth.csrf_services import CsrfTokenService
-from app.domain.auth.tokens import JwtAccessTokenService
+from app.domains.auth.config import AuthSettings
+from app.domains.auth.csrf_services import CsrfTokenService
+from app.domains.auth.tokens import JwtAccessTokenService
 from app.main import create_app
 
 pytestmark = pytest.mark.test_unit

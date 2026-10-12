@@ -64,7 +64,7 @@ Migraciones previstas:
 ### 4.1 Auth
 
 ```text
-app/domain/auth/
+app/domains/auth/
 ├── __init__.py
 ├── audit.py
 ├── config.py
@@ -95,7 +95,7 @@ Responsabilidades:
 ### 4.2 Registro de organización
 
 ```text
-app/domain/iam/organizations/
+app/domains/iam/organizations/
 ├── registration_repositories.py
 ├── registration_routers.py
 ├── registration_schemas.py

@@ -25,7 +25,7 @@ Este documento define el estándar objetivo para organizar módulos backend en P
 Para módulos acotados, con un único subdominio o complejidad baja, la estructura objetivo será:
 
 ```text
-backend/app/domain/<module>/
+backend/app/domains/<module>/
 ├── routers.py
 ├── schemas.py
 ├── services.py
@@ -42,7 +42,7 @@ Esta estructura permite mantener la cohesión sin fragmentar prematuramente el c
 Los dominios extensos deberán organizarse por subdominios. IAM es el ejemplo principal:
 
 ```text
-backend/app/domain/iam/
+backend/app/domains/iam/
 ├── users/
 │   ├── models.py
 │   ├── schemas.py
@@ -61,7 +61,7 @@ Cada subdominio debe tener una responsabilidad clara. Por ejemplo, `users` no de
 
 ## Convivencia con la estructura actual IAM
 
-Actualmente existen modelos y schemas en subdominios bajo `backend/app/domain/iam/`. La fase futura deberá evolucionar esa estructura de forma incremental, sin romper migraciones ni imports existentes.
+Actualmente existen modelos y schemas en subdominios bajo `backend/app/domains/iam/`. La fase futura deberá evolucionar esa estructura de forma incremental, sin romper migraciones ni imports existentes.
 
 Reglas de transición:
 
@@ -193,7 +193,7 @@ Regla pragmática: si el puerto mejora la testabilidad, reduce acoplamiento o ev
 Ejemplo objetivo para Labs:
 
 ```text
-backend/app/domain/labs/
+backend/app/domains/labs/
 ├── services.py
 ├── policies.py
 ├── ports.py
@@ -291,7 +291,7 @@ GET /api/v1/iam/organizations/{organization_id}/users
 Subdominio sugerido:
 
 ```text
-backend/app/domain/iam/users/
+backend/app/domains/iam/users/
 ```
 
 Archivos a crear o evolucionar en la fase futura:
@@ -310,7 +310,7 @@ El piloto deberá demostrar el flujo mínimo: HTTP → dependencia de identidad/
 
 ```mermaid
 flowchart TD
-    IAM[backend/app/domain/iam]
+    IAM[backend/app/domains/iam]
     Users[users]
     Orgs[organizations]
     Access[access]

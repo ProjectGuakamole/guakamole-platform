@@ -7,11 +7,11 @@ import pytest
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from app.domain.auth.me_repositories import SqlAlchemyAuthMeRepository
-from app.domain.iam.access.models import OrganizationRole, PlatformRole, Status
-from app.domain.iam.geography.models import City, Country, State
-from app.domain.iam.organizations.models import Organization
-from app.domain.iam.users.models import User
+from app.domains.auth.me_repositories import SqlAlchemyAuthMeRepository
+from app.domains.iam.access.models import OrganizationRole, PlatformRole, Status
+from app.domains.iam.geography.models import City, Country, State
+from app.domains.iam.organizations.models import Organization
+from app.domains.iam.users.models import User
 
 pytestmark = [pytest.mark.integration, pytest.mark.db]
 pytest_plugins = ("tests.integration.test_login_repository",)

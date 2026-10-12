@@ -89,7 +89,7 @@ Decisiones importantes:
 La implantación se hizo dentro del dominio de autenticación del backend, manteniendo piezas pequeñas:
 
 ```text
-backend/app/domain/auth/
+backend/app/domains/auth/
 ├── config.py
 ├── cookies.py
 ├── password_hasher.py

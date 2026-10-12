@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from app.api.health import router as operational_health_router
 from app.api.v1.router import api_router
 from app.core.cors import configure_cors
-from app.domain.auth.config import CorsSettings
+from app.domains.auth.config import CorsSettings
 
 
 def create_app() -> FastAPI:

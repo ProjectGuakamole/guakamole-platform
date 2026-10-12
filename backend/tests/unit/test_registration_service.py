@@ -3,15 +3,15 @@ from datetime import date
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.domain.auth.config import AuthSettings
-from app.domain.iam.organizations.models import Organization
-from app.domain.iam.organizations.registration_exceptions import (
+from app.domains.auth.config import AuthSettings
+from app.domains.iam.organizations.models import Organization
+from app.domains.iam.organizations.registration_exceptions import (
     DuplicateRegistrationError,
 )
-from app.domain.iam.organizations.registration_repositories import GeographyReference
-from app.domain.iam.organizations.registration_schemas import RegistrationRequest
-from app.domain.iam.organizations.registration_services import RegistrationService
-from app.domain.iam.users.models import User
+from app.domains.iam.organizations.registration_repositories import GeographyReference
+from app.domains.iam.organizations.registration_schemas import RegistrationRequest
+from app.domains.iam.organizations.registration_services import RegistrationService
+from app.domains.iam.users.models import User
 
 pytestmark = pytest.mark.test_unit
 

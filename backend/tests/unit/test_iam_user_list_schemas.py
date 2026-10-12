@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from app.domain.iam.users.schemas import (
+from app.domains.iam.users.schemas import (
     OrganizationUserListResponse,
     OrganizationUserRead,
     UserListQuery,

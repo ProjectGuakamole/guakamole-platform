@@ -8,7 +8,7 @@ from sqlalchemy.sql.sqltypes import DateTime
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
-from app.domain.iam.constants import IAM_SCHEMA
+from app.domains.iam.constants import IAM_SCHEMA
 
 pytestmark = pytest.mark.integration
 

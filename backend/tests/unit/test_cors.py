@@ -9,7 +9,7 @@ from httpx import Response
 from pydantic import ValidationError
 
 from app.core.cors import configure_cors
-from app.domain.auth.config import AuthSettings, CorsSettings
+from app.domains.auth.config import AuthSettings, CorsSettings
 from app.main import create_app
 
 pytestmark = pytest.mark.test_unit

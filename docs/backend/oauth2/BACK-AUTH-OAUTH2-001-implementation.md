@@ -88,12 +88,12 @@ flowchart TD
 - `.env.example`
 - `backend/pyproject.toml`
 - `backend/uv.lock`
-- `backend/app/domain/auth/__init__.py`
-- `backend/app/domain/auth/config.py`
-- `backend/app/domain/auth/cookies.py`
-- `backend/app/domain/auth/password_hasher.py`
-- `backend/app/domain/auth/public_ids.py`
-- `backend/app/domain/auth/tokens.py`
+- `backend/app/domains/auth/__init__.py`
+- `backend/app/domains/auth/config.py`
+- `backend/app/domains/auth/cookies.py`
+- `backend/app/domains/auth/password_hasher.py`
+- `backend/app/domains/auth/public_ids.py`
+- `backend/app/domains/auth/tokens.py`
 - `backend/tests/unit/test_auth_core.py`
 
 ## 4. Endpoints añadidos

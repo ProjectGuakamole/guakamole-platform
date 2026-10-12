@@ -5,17 +5,17 @@ from pathlib import Path
 
 import pytest
 
-from app.domain.iam.access.tenant_context import (
+from app.domains.iam.access.tenant_context import (
     TenantAccessDeniedError,
     TenantContext,
     build_tenant_context,
 )
-from app.domain.iam.users.schemas import (
+from app.domains.iam.users.schemas import (
     OrganizationUserListResponse,
     OrganizationUserRead,
     UserListQuery,
 )
-from app.domain.iam.users.services import ListOrganizationUsersService
+from app.domains.iam.users.services import ListOrganizationUsersService
 
 pytestmark = pytest.mark.test_unit
 
@@ -146,7 +146,7 @@ def test_service_response_does_not_expose_sensitive_fields() -> None:
 
 
 def test_service_does_not_import_fastapi_or_sqlalchemy() -> None:
-    service_source = Path("app/domain/iam/users/services.py").read_text(
+    service_source = Path("app/domains/iam/users/services.py").read_text(
         encoding="utf-8"
     )
 

@@ -10,12 +10,12 @@ from fastapi import APIRouter
 pytestmark = pytest.mark.architecture
 
 IAM_USERS_MODULES: tuple[str, ...] = (
-    "app.domain.iam.users.routers",
-    "app.domain.iam.users.schemas",
-    "app.domain.iam.users.services",
-    "app.domain.iam.users.policies",
-    "app.domain.iam.users.repositories",
-    "app.domain.iam.users.dependencies",
+    "app.domains.iam.users.routers",
+    "app.domains.iam.users.schemas",
+    "app.domains.iam.users.services",
+    "app.domains.iam.users.policies",
+    "app.domains.iam.users.repositories",
+    "app.domains.iam.users.dependencies",
 )
 
 
@@ -34,6 +34,6 @@ def test_iam_users_scaffolding_modules_are_importable() -> None:
 
 def test_iam_users_module_exposes_fastapi_router_after_task_8() -> None:
     """El módulo IAM/users expone el router funcional a partir de Task 8."""
-    routers_module = import_module("app.domain.iam.users.routers")
+    routers_module = import_module("app.domains.iam.users.routers")
 
     assert isinstance(routers_module.router, APIRouter)

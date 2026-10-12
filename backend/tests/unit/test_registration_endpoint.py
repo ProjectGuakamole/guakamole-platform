@@ -1,12 +1,12 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.domain.iam.organizations.registration_exceptions import (
+from app.domains.iam.organizations.registration_exceptions import (
     DuplicateRegistrationError,
     InvalidRegistrationReferenceError,
 )
-from app.domain.iam.organizations.registration_routers import get_registration_service
-from app.domain.iam.organizations.registration_schemas import (
+from app.domains.iam.organizations.registration_routers import get_registration_service
+from app.domains.iam.organizations.registration_schemas import (
     RegistrationRequest,
     RegistrationResponse,
 )

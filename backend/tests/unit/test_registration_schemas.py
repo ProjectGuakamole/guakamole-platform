@@ -3,7 +3,7 @@ from datetime import date, timedelta
 import pytest
 from pydantic import ValidationError
 
-from app.domain.iam.organizations.registration_schemas import (
+from app.domains.iam.organizations.registration_schemas import (
     OrganizationRegistrationInput,
     UserRegistrationInput,
     validate_password_policy,

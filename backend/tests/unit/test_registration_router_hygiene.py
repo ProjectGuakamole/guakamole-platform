@@ -7,13 +7,13 @@ import pytest
 REGISTRATION_ROUTER_PATH = (
     Path(__file__).parents[2]
     / "app"
-    / "domain"
+    / "domains"
     / "iam"
     / "organizations"
     / "registration_routers.py"
 )
 LOGIN_ROUTER_PATH = (
-    Path(__file__).parents[2] / "app" / "domain" / "auth" / "login_routers.py"
+    Path(__file__).parents[2] / "app" / "domains" / "auth" / "login_routers.py"
 )
 
 

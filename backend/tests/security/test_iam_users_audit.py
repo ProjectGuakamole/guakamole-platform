@@ -6,18 +6,18 @@ from typing import cast
 
 import pytest
 
-from app.domain.iam.access.tenant_context import (
+from app.domains.iam.access.tenant_context import (
     PLATFORM_ADMIN_ROLE,
     TenantAccessDeniedError,
     TenantContext,
     build_tenant_context,
 )
-from app.domain.iam.users.schemas import (
+from app.domains.iam.users.schemas import (
     OrganizationUserListResponse,
     OrganizationUserRead,
     UserListQuery,
 )
-from app.domain.iam.users.services import (
+from app.domains.iam.users.services import (
     IAM_ORGANIZATION_USERS_LISTED,
     AuditEvent,
     AuditMetadataValue,
