@@ -265,13 +265,6 @@ El resultado fue una base de autenticación pequeña, clara y reutilizable para 
 - Se introducen public IDs `usr_...` y `org_...` para no exponer identificadores internos.
 - El core queda separado de FastAPI y de routers concretos.
 
-Validaciones documentadas para esta task:
-
-```text
-make backend-quality      ✅
-make backend-test-unit    ✅ 291 passed, 56 deselected
-```
-
 En resumen: **BACK-AUTH-OAUTH2-002 no dio todavía un login usable, pero sí dejó los cimientos correctos para construirlo sin improvisar seguridad en cada endpoint**.
 
 ---
