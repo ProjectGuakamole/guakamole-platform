@@ -211,10 +211,72 @@ También se cubrieron la configuración de autenticación, bearer opt-in, audito
 - Implementar persistencia de `AuditEvent` con su correspondiente modelo, controles de acceso y política de retención.
 - Añadir un ciclo integral de Alembic que aplique y valide migraciones sobre una base de datos efímera.
 
-## 7. Pendiente de incorporación
+## 7. Formalización del estándar vivo
 
-Pendiente de documentar en el punto 7 de la fase.
+Se creó el estándar vivo de arquitectura backend como referencia normativa para los cambios futuros. Su propósito no es reconstruir el historial de esta fase ni declarar automáticamente la conformidad de todo el código existente, sino establecer reglas verificables para diseñar, revisar y evolucionar el backend de forma consistente.
 
-## 8. Pendiente de incorporación
+### Arquitectura y límites de responsabilidad
 
-Pendiente de documentar en el punto 8 de la fase.
+El estándar adopta una arquitectura hexagonal progresiva y proporcional: los límites se introducen cuando aportan aislamiento de infraestructura, testabilidad, seguridad o capacidad real de sustitución, evitando capas o abstracciones artificiales.
+
+| Componente | Responsabilidad y límite |
+| --- | --- |
+| Router / API | Traduce HTTP, aplica dependencias de transporte y delega en el caso de uso; no concentra reglas de negocio ni acceso directo indiscriminado al ORM. |
+| Service / caso de uso | Orquesta una operación de negocio y coordina policies, repositories y puertos; no conoce detalles de HTTP ni de proveedores externos. |
+| Policy | Expresa reglas reutilizables de autorización, alcance, transiciones o decisión de negocio; no confía en datos aportados por el cliente. |
+| Repository | Encapsula persistencia y aplica el scope defensivo que corresponda; no decide permisos de negocio ni implementa integraciones externas. |
+| Model | Representa el modelo de persistencia o de intercambio propio de su capa; no sustituye contratos Pydantic explícitos ni incorpora lógica de transporte. |
+| Adapter | Traduce las necesidades del núcleo a APIs, SDK o protocolos externos; no contiene el caso de uso completo ni actúa como repositorio de lógica de negocio. |
+
+La composición debe ser neutral respecto al transporte: factories, cableado de dependencias y configuración no pertenecen a los routers. Las dependencias cross-domain solo se permiten cuando responden a un contrato o capacidad transversal explícita y necesaria. Quedan prohibidos los imports directos que acoplen routers, casos de uso o infraestructura a detalles internos de otro dominio, así como las dependencias circulares y los atajos que eludan los límites establecidos.
+
+### Seguridad, autenticación y auditoría
+
+El tenant se deriva de la identidad autenticada y de una membership validada; un `organization_id` recibido del cliente nunca autoriza acceso por sí mismo. RBAC y las policies deben evaluarse antes de las operaciones protegidas, y los repositories deben conservar filtros defensivos de tenant cuando proceda.
+
+Los contratos Pydantic de entrada y salida son restrictivos: solo admiten y exponen los campos autorizados para cada operación, para prevenir mass assignment y filtraciones de atributos sensibles. La auditoría debe recoger acciones relevantes con contexto suficiente, sin secretos, credenciales, tokens ni metadatos sensibles innecesarios; el saneamiento es obligatorio antes de emitir cualquier evento o log de auditoría.
+
+La autenticación mantiene JWT con requisitos de configuración segura, cookies seguras por defecto y validación de combinaciones `SameSite`. El uso de bearer queda deshabilitado por defecto y requiere opt-in explícito; no se habilita como mecanismo implícito por compatibilidad.
+
+### Tests y gobernanza
+
+El estándar exige pruebas proporcionales a cada cambio: unitarias para policies y casos de uso, de integración para persistencia e integraciones, de API para contratos y errores controlados, y de seguridad para RBAC y accesos cross-tenant. Los checks arquitectónicos deben prevenir regresiones en dependencias, composición y límites entre dominios.
+
+La gobernanza de auditoría exige distinguir explícitamente entre la obligación normativa, el estado efectivamente validado por evidencias y la deuda técnica pendiente. Ninguna regla se considera implantada solo por estar definida en el estándar, y ninguna validación cierra una deuda sin evidencia concreta de su resolución.
+
+> [!warning] Deuda técnica persistente
+> La persistencia de `AuditEvent` y un ciclo integral de Alembic que aplique y valide migraciones sobre una base de datos efímera siguen abiertos. El estándar los identifica como obligaciones pendientes, no como controles ya resueltos.
+
+En este punto no se introdujeron nuevas modificaciones funcionales en el backend. Únicamente se formalizaron como estándar vivo las normas arquitectónicas, de seguridad, pruebas y gobernanza ya validadas durante la fase.
+
+## 8. Cierre de fase: validación global final
+
+La validación global final se ejecutó después de los commits previos de la fase. Su propósito fue confirmar el estado consolidado del backend, sin tomar los subconjuntos de pruebas como sustituto de la suite completa.
+
+### Comandos ejecutados y resultados exactos
+
+| Comando | Resultado |
+| --- | --- |
+| `make backend-quality` | `ruff` OK; formato: `163 files already formatted`; `mypy` en modo estricto sobre `162 source files`, sin incidencias. |
+| `make backend-test-unit` | `394 passed, 64 deselected`. Los `deselected` corresponden al filtro intencional de pruebas `unit/architecture`. |
+| `make backend-test-db` | `42 passed, 416 deselected`. Los `deselected` corresponden al filtro intencional de pruebas `db/integration`. |
+| Desde `backend`, `uv run pytest` | `458 passed in 7.04s`, sin pruebas `deselected`. |
+
+> [!important] Criterio de cierre
+> Los filtros parciales de `backend-test-unit` y `backend-test-db` sirven para validar ámbitos concretos, pero no se utilizan como evidencia de una suite completa. El criterio de cierre fue la ejecución completa desde `backend`, con `458 passed in 7.04s` y sin `deselected`.
+
+### Garantías validadas
+
+- Se mantienen los límites arquitectónicos comprobados mediante los controles incorporados.
+- Se valida el hardening de autenticación configurado en la fase.
+- La auditoría runtime saneada y no bloqueante conserva su comportamiento previsto.
+- El registro mantiene la seguridad ante conflictos de persistencia.
+- El piloto de IAM no queda expuesto públicamente.
+- Se preservan las garantías de aislamiento de tenant y RBAC cubiertas por la baseline.
+
+### Estado final
+
+La baseline queda aprobada como base para un único PR. Esta afirmación no implica que exista una PR ni que se haya fusionado ningún cambio.
+
+> [!warning] Deuda técnica pendiente
+> La persistencia de `AuditEvent` sigue sin implementarse. También sigue pendiente un ciclo integral de Alembic sobre una base de datos efímera. Ambas deudas permanecen abiertas y no se consideran resueltas por esta validación.
