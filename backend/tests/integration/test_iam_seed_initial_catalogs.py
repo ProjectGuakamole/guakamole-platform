@@ -110,3 +110,12 @@ def test_seed_migration_downgrade_order_respects_dependencies() -> None:
     assert city_index < state_index < country_index
     assert country_index < organization_role_index
     assert organization_role_index < platform_role_index < status_index
+
+
+def test_seed_migration_blocks_downgrade_before_catalog_deletes() -> None:
+    guard_index = MIGRATION_CONTENT.index("No se puede revertir el catálogo IAM")
+    first_delete_index = MIGRATION_CONTENT.index("DELETE FROM sch_iam.tbl_city")
+
+    assert "SELECT EXISTS" in MIGRATION_CONTENT
+    assert "tbl_users" in MIGRATION_CONTENT
+    assert guard_index < first_delete_index

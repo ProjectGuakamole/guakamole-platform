@@ -13,6 +13,8 @@ from sqlalchemy import Engine, create_engine, inspect, text
 from sqlalchemy.engine import URL, Connection, make_url
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.core.config import settings_from_mapping
+
 IAM_SCHEMA = "sch_iam"
 FIXTURE_PATH = Path(__file__).parent / "data" / "iam_demo_seed.json"
 DEMO_HASH_PLACEHOLDER = "argon2id-demo-placeholder-not-valid"
@@ -832,10 +834,19 @@ def require_destructive_confirmation(confirmed: bool) -> None:
     )
 
 
+def require_safe_seed_environment(environment: Mapping[str, str]) -> None:
+    """Impide ejecutar operaciones destructivas fuera de desarrollo o test."""
+
+    settings = settings_from_mapping(environment)
+    if settings.app_env not in {"development", "test"}:
+        raise RuntimeError("El seed demo sólo se permite en development o test.")
+
+
 def main() -> int:
     args = parse_args()
     try:
         require_destructive_confirmation(bool(args.yes))
+        require_safe_seed_environment(os.environ)
         url = validate_database_url(os.getenv("DATABASE_URL"))
         engine = build_engine(url)
         print("DESTRUCTIVO: truncará sch_iam gestionado por el seed demo IAM.")

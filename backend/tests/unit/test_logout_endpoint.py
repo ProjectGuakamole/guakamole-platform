@@ -32,7 +32,11 @@ def build_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     )
     app = create_app()
     settings = AuthSettings.model_validate(
-        {"jwt_secret_key": "test-secret-not-for-production-with-safe-length"},
+        {
+            "app_env": "test",
+            "database_url": "postgresql+psycopg://test:test@localhost/guakamole_test",
+            "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
+        },
     )
     app.dependency_overrides[get_auth_session_service] = lambda: StubSessionService(
         settings
@@ -42,7 +46,11 @@ def build_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
 def auth_settings() -> AuthSettings:
     return AuthSettings.model_validate(
-        {"jwt_secret_key": "test-secret-not-for-production-with-safe-length"},
+        {
+            "app_env": "test",
+            "database_url": "postgresql+psycopg://test:test@localhost/guakamole_test",
+            "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
+        },
     )
 
 

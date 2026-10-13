@@ -233,7 +233,11 @@ def test_logout_revokes_session_and_rejects_reused_cookie(
     assert logout_response.status_code == 200
     assert 'guak_access_token=""' in logout_response.headers["set-cookie"]
 
-    settings = AuthSettings(jwt_secret_key=os.environ["JWT_SECRET_KEY"])
+    settings = AuthSettings(
+        app_env="test",
+        database_url="postgresql+psycopg://test:test@localhost/test_db",
+        jwt_secret_key=os.environ["JWT_SECRET_KEY"],
+    )
     verified_token = JwtAccessTokenService(settings).verify_access_token(raw_token)
     revoked = auth_http_db_session.scalar(
         select(RevokedAccessToken).where(RevokedAccessToken.jti == verified_token.jti)

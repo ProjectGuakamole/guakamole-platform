@@ -97,6 +97,29 @@ def test_validate_database_url_rejects_sqlite() -> None:
         validate_database_url("sqlite:///demo.db")
 
 
+@pytest.mark.parametrize("app_env", ["staging", "production", "invalid", ""])
+def test_seed_rejects_unsafe_environment_before_engine_use(app_env: str) -> None:
+    environment = {
+        "APP_ENV": app_env,
+        "DATABASE_URL": "postgresql+psycopg://test:test@localhost/guakamole_test",
+        "JWT_SECRET_KEY": "test-secret-not-for-production-with-safe-length",
+    }
+
+    with pytest.raises((RuntimeError, ValueError)):
+        seed_demo_iam.require_safe_seed_environment(environment)
+
+
+@pytest.mark.parametrize("app_env", ["development", "test"])
+def test_seed_allows_only_explicit_local_environments(app_env: str) -> None:
+    environment = {
+        "APP_ENV": app_env,
+        "DATABASE_URL": "postgresql+psycopg://test:test@localhost/guakamole_test",
+        "JWT_SECRET_KEY": "test-secret-not-for-production-with-safe-length",
+    }
+
+    seed_demo_iam.require_safe_seed_environment(environment)
+
+
 def test_load_fixture_validates_demo_identifiers() -> None:
     fixture = load_fixture()
 

@@ -103,15 +103,11 @@ def test_alembic_ini_does_not_store_operational_database_credentials() -> None:
     assert "driver://user:pass@localhost/dbname" in alembic_ini_content
 
 
-def test_env_example_exposes_development_database_url() -> None:
+def test_env_example_exposes_only_nonoperational_database_placeholders() -> None:
     env_example_content = Path("../.env.example").read_text(encoding="utf-8")
-    expected_database_url = (
-        'DATABASE_URL="postgresql+psycopg://guakamole_user:postgre@localhost:5432/'
-        'guakamole_db"'
-    )
-
-    assert expected_database_url in env_example_content
-    assert "postgresql+psycopg://" in env_example_content
+    assert "DATABASE_URL=postgresql+psycopg://<usuario>" in env_example_content
+    assert "TEST_DATABASE_URL=" in env_example_content
+    assert "guakamole_user" not in env_example_content
 
 
 def test_alembic_env_reads_database_url_from_environment() -> None:
@@ -131,7 +127,7 @@ def test_alembic_env_reads_database_url_from_environment() -> None:
 def test_makefile_centralizes_environment_file_selection() -> None:
     makefile_content = Path("../Makefile").read_text(encoding="utf-8")
 
-    assert "ENV_FILE ?= .env.example" in makefile_content
+    assert "ENV_FILE ?= .env" in makefile_content
     assert "ENV_FILE_PATH :=" in makefile_content
     assert "COMPOSE := docker compose --env-file $(ENV_FILE)" in makefile_content
     assert "docker compose --env-file .env.example" not in makefile_content
@@ -150,10 +146,24 @@ def test_makefile_exposes_alembic_database_targets_with_env_file() -> None:
         assert target in makefile_content
         assert command in makefile_content
 
-    assert makefile_content.count("set -a; . $(ENV_FILE_PATH); set +a;") >= len(
-        expected_targets
-    )
+    assert 'case "$$APP_ENV" in development|test)' in makefile_content
     assert "REVISION ?= -1" in makefile_content
+
+
+def test_makefile_blocks_downgrade_outside_explicit_local_environments() -> None:
+    makefile_content = Path("../Makefile").read_text(encoding="utf-8")
+
+    assert "development|test" in makefile_content
+    assert "sólo se permite en development/test" in makefile_content
+
+
+def test_backend_dockerignore_excludes_environment_files() -> None:
+    dockerignore_content = Path(".dockerignore").read_text(encoding="utf-8")
+
+    assert ".env" in dockerignore_content
+    assert ".env.*" in dockerignore_content
+    assert "app" not in dockerignore_content
+    assert "alembic" not in dockerignore_content
 
 
 def test_makefile_groups_backend_quality_targets() -> None:
@@ -165,7 +175,7 @@ def test_makefile_groups_backend_quality_targets() -> None:
             "backend-test-db backend-test-security"
         ),
         'cd $(BACKEND_DIR) && uv run pytest -m "test_unit or architecture"',
-        'cd $(BACKEND_DIR) && uv run pytest -m "db or integration"',
+        'TEST_DATABASE_URL="$$TEST_DATABASE_URL" uv run pytest -m "db or integration"',
         'cd $(BACKEND_DIR) && uv run pytest -m "security and not db"',
     }
 
@@ -251,7 +261,7 @@ def test_makefile_help_documents_primary_commands_only() -> None:
         "make db-downgrade",
     }
 
-    assert "ENV_FILE ?= .env.example" in makefile_content
+    assert "ENV_FILE ?= .env" in makefile_content
     assert "REVISION ?= -1" in makefile_content
     assert "API_BASE_URL ?= http://localhost:8000" in makefile_content
 

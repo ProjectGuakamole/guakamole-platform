@@ -1,7 +1,7 @@
 .PHONY: help install setup backend-install backend-lint backend-format-check backend-mypy backend-quality backend-pytest backend-test-unit backend-test-db backend-test-security backend-test backend-check backend-run backend-seed backend-seed-clear docker-config docker-up docker-down docker-ps docker-logs postgres-up postgres-logs postgres-down psql db-upgrade db-current db-history db-downgrade health-check ready-check
 
 BACKEND_DIR := backend
-ENV_FILE ?= .env.example
+ENV_FILE ?= .env
 ENV_FILE_PATH := $(if $(filter /%,$(ENV_FILE)),$(ENV_FILE),./$(ENV_FILE))
 COMPOSE := docker compose --env-file $(ENV_FILE)
 API_BASE_URL ?= http://localhost:8000
@@ -9,7 +9,7 @@ REVISION ?= -1
 
 help: ## Muestra los comandos disponibles.
 	@printf 'Comandos disponibles:\n'
-	@printf '  ENV_FILE ?= .env.example\n'
+	@printf '  ENV_FILE ?= .env (configuración local activa, no versionada)\n'
 	@printf '  REVISION ?= -1\n'
 	@printf '  API_BASE_URL ?= http://localhost:8000\n'
 	@printf '  make install               Instala/prepara dependencias del backend.\n'
@@ -57,7 +57,9 @@ backend-test-unit: ## Ejecuta tests unitarios y de arquitectura del backend.
 	cd $(BACKEND_DIR) && uv run pytest -m "test_unit or architecture"
 
 backend-test-db: ## Ejecuta tests de base de datos e integración del backend.
-	cd $(BACKEND_DIR) && uv run pytest -m "db or integration"
+	@test -f "$(ENV_FILE_PATH)" || { printf 'Falta ENV_FILE.\n' >&2; exit 1; }
+	@set -a; . "$(ENV_FILE_PATH)"; set +a; test -n "$$TEST_DATABASE_URL" || { printf 'TEST_DATABASE_URL es obligatoria.\n' >&2; exit 1; }; cd $(BACKEND_DIR) && env -u JWT_SECRET APP_ENV=test DATABASE_URL="$$TEST_DATABASE_URL" TEST_DATABASE_URL="$$TEST_DATABASE_URL" uv run python -c 'from app.core.test_database import get_test_database_url; import os; get_test_database_url(os.environ)'
+	@set -a; . "$(ENV_FILE_PATH)"; set +a; cd $(BACKEND_DIR) && env -u JWT_SECRET APP_ENV=test DATABASE_URL="$$TEST_DATABASE_URL" TEST_DATABASE_URL="$$TEST_DATABASE_URL" uv run pytest -m "db or integration"
 
 backend-test-security: ## Ejecuta tests de seguridad sin dependencia de base de datos del backend.
 	cd $(BACKEND_DIR) && uv run pytest -m "security and not db"
@@ -67,13 +69,16 @@ backend-test: backend-quality backend-test-unit backend-test-db backend-test-sec
 backend-check: health-check ready-check ## Comprueba el servicio backend levantado.
 
 backend-run: ## Arranca el servidor FastAPI local en primer plano.
-	cd $(BACKEND_DIR) && uv run uvicorn app.main:app --reload
+	@test -f "$(ENV_FILE_PATH)" || (printf 'Falta ENV_FILE; crea .env desde .env.example.\n' >&2; exit 1)
+	@set -a; . "$(ENV_FILE_PATH)"; set +a; unset JWT_SECRET; cd $(BACKEND_DIR) && uv run uvicorn app.main:app --reload
 
 backend-seed: ## DESTRUCTIVO: trunca tablas IAM gestionadas e inserta datos demo usando $(ENV_FILE).
-	set -a; . $(ENV_FILE_PATH); set +a; cd $(BACKEND_DIR) && uv run python scripts/seed_demo_iam.py --yes
+	@test -f "$(ENV_FILE_PATH)" || (printf 'Falta ENV_FILE.\n' >&2; exit 1)
+	@set -a; . "$(ENV_FILE_PATH)"; set +a; cd $(BACKEND_DIR) && uv run python scripts/seed_demo_iam.py --yes
 
 backend-seed-clear: ## DESTRUCTIVO: trunca tablas IAM gestionadas sin reinsertar usando $(ENV_FILE).
-	set -a; . $(ENV_FILE_PATH); set +a; cd $(BACKEND_DIR) && uv run python scripts/seed_demo_iam.py --clear --yes
+	@test -f "$(ENV_FILE_PATH)" || (printf 'Falta ENV_FILE.\n' >&2; exit 1)
+	@set -a; . "$(ENV_FILE_PATH)"; set +a; cd $(BACKEND_DIR) && uv run python scripts/seed_demo_iam.py --clear --yes
 
 docker-config: ## Renderiza la configuración Compose usando $(ENV_FILE).
 	$(COMPOSE) config
@@ -113,7 +118,8 @@ db-history: ## Muestra el histórico de migraciones Alembic usando $(ENV_FILE).
 	set -a; . $(ENV_FILE_PATH); set +a; cd $(BACKEND_DIR) && uv run alembic history
 
 db-downgrade: ## Revierte una revisión Alembic usando $(ENV_FILE).
-	set -a; . $(ENV_FILE_PATH); set +a; cd $(BACKEND_DIR) && uv run alembic downgrade $(REVISION)
+	@test -f "$(ENV_FILE_PATH)" || (printf 'Falta ENV_FILE.\n' >&2; exit 1)
+	@set -a; . "$(ENV_FILE_PATH)"; set +a; case "$$APP_ENV" in development|test) ;; *) printf 'db-downgrade sólo se permite en development/test.\n' >&2; exit 1;; esac; cd $(BACKEND_DIR) && uv run alembic downgrade $(REVISION)
 
 health-check: ## Consulta el endpoint de liveness sin asumir que el servidor esté levantado.
 	curl -i $(API_BASE_URL)/api/health

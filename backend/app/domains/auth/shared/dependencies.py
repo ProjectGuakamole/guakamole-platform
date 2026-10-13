@@ -1,10 +1,10 @@
 """Dependencias compartidas del dominio de autenticación."""
 
+from app.core.config import get_settings
 from app.domains.auth.shared.config import AuthSettings
 
 
 def build_auth_settings() -> AuthSettings:
-    """Carga settings de auth mediante Pydantic Settings sin fallback inseguro."""
+    """Obtiene los settings centrales sin cargar ficheros implícitos."""
 
-    # Pydantic Settings resuelve el secreto obligatorio desde las fuentes configuradas.
-    return AuthSettings()  # type: ignore[call-arg]
+    return get_settings()

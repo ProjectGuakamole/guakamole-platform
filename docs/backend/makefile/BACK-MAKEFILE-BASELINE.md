@@ -2,54 +2,48 @@
 
 ## Objetivo
 
-Preparar el baseline del área Makefile para las reglas de targets, selección de configuración, orquestación, ayuda y guardas de comandos de la fase coordinada `BACK-DB-MIGRATIONS-AUDIT-001`.
+Consolidar las reglas de la interfaz Makefile validadas en el punto 2 y separar la propuesta del punto 4.
 
 ## Responsabilidad del documento
 
-Recoger únicamente las reglas de la interfaz Makefile relacionada con migraciones y bootstrap. Las decisiones y evidencias se conservan en el histórico del área. Las reglas estructurales Alembic y las de ejecución Docker no se duplican aquí.
+Recoge reglas de selección de entorno, targets, ayuda y guardas. La evidencia detallada permanece en el histórico Makefile.
 
 ## Estado actual
 
-**BORRADOR NO VALIDADO.** No certifica los targets actuales ni su seguridad. Esta intervención no modifica comandos y no autoriza reanudar el punto 2.
+**VALIDADO PARCIALMENTE — punto 2 completado.** La fase continúa por los puntos pendientes.
 
 ## Cambios realizados
 
-Se crea este borrador con alcance, organización y orientaciones iniciales. No se edita el Makefile, no se ejecutan targets y no se implanta una nueva selección de configuración.
+Se validan la selección explícita mediante `ENV_FILE`, la base de pruebas exclusiva, las guardas operativas y la configuración efímera de CI.
 
 ## Justificacion tecnica
 
-La interfaz de comandos debe ser comprensible y conservar compatibilidad cuando se revisa la ejecución de migraciones. La ayuda y las guardas deben corresponder al comportamiento real; su mera mención documental no demuestra esa correspondencia.
+La interfaz de comandos debe exigir el contexto correcto antes de modificar datos o esquema. Las guardas convierten esa exigencia en una precondición verificable.
 
 ## Decisiones tomadas
 
-### Organización acordada del área
+### Reglas validadas
 
-- Las reglas de targets, selección de configuración, orquestación, ayuda y guardas se mantienen en `docs/backend/makefile/`.
-- El histórico se denomina `BACK-MAKEFILE-fase-completa.md` y el baseline `BACK-MAKEFILE-BASELINE.md`.
-- No incorporar aquí el proceso común, la tabla de reparto ni copias de evidencia de otras áreas.
+- Los targets seleccionan `ENV_FILE` explícitamente; no usan una plantilla de entorno como fallback.
+- `.env` es local e ignorado por Git; el fichero de ejemplo no es operativo.
+- `backend-test-db` usa exclusivamente `TEST_DATABASE_URL`, exige el sufijo `test` y exporta el entorno de pruebas.
+- Downgrade se limita a `development` y `test` y mantiene la guarda de migración ante datos dependientes.
+- Los seeds tienen guarda de entorno; ayuda y preflight exponen las precondiciones.
+- CI genera un `.env.ci` efímero, sin depender del fichero de ejemplo.
+- La matriz de `APP_ENV` para `development`, `test`, `staging` y `production` está validada desde el punto de vista de seguridad.
 
-### Orientación aprobada: propuesta pendiente de implantación y validación
+### Propuesta pendiente
 
-- Preservar los targets existentes y `db-bootstrap` al revisar la interfaz operativa; no retirar ni renombrar comandos sin una decisión explícita revisada.
-- Mantener una ayuda que explique el propósito y los parámetros de los comandos y sea coherente con su comportamiento efectivo.
-- Seleccionar configuración de forma explícita y segura, sin documentar secretos ni asumir cambios de entorno ya implantados.
-- Revisar las guardas de comandos para detectar selección ausente, inválida o ambigua antes de ejecutar operaciones, con criterios concretos pendientes de revisión.
-- Mantener en Makefile la responsabilidad de invocación y orquestación, sin duplicar la lógica de migraciones ni la configuración propia del contenedor.
-
-Estas orientaciones no acreditan compatibilidad ni guardas ya verificadas. No se afirma que `APP_ENV` ni una transición entre configuraciones de entorno estén implantados; nombres, valores y mecanismos concretos siguen pendientes de revisión autorizada.
-
-## Condición de actualización
-
-Incorporar reglas definitivas solo tras revisión de `api-architect` y QA, evidencia aplicable a Makefile y revisión de exactitud documental por el arquitecto. El histórico conserva decisiones y tests; el baseline conserva reglas, sin duplicar resultados. Mantener **BORRADOR NO VALIDADO** hasta completar esa revisión.
+- **Punto 4:** definir un target de bootstrap futuro. No está implementado ni validado.
 
 ## Tests ejecutados
 
-No se han ejecutado targets ni tests Makefile en esta intervención. No existe nueva evidencia para validar ayuda, compatibilidad, selección de configuración o guardas.
+La calidad y las pruebas unitarias, de base de datos y de seguridad se registran una sola vez en el histórico Makefile.
 
 ## Riesgos o deuda tecnica
 
-El borrador no demuestra que los comandos existentes cumplan estas orientaciones. Convertirlas en reglas definitivas sin comprobarlas podría ocultar diferencias entre ayuda, configuración y ejecución efectiva.
+El bootstrap futuro y las validaciones de ciclo de vida posteriores permanecen pendientes.
 
 ## Relacion con el backend
 
-El baseline prepara criterios para la interfaz de operación de migraciones y bootstrap. No modifica el backend, su configuración ni sus mecanismos de ejecución.
+Estas reglas hacen que la operación de la base de datos desde el backend requiera una configuración seleccionada y un entorno autorizado.

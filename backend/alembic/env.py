@@ -45,7 +45,7 @@ def get_required_database_url() -> str:
 def run_migrations_offline() -> None:
     """Ejecuta migraciones en modo offline."""
 
-    url = get_database_url() or config.get_main_option(SQLALCHEMY_URL_OPTION)
+    url = get_required_database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,

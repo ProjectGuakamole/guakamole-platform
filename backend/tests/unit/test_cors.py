@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from httpx import Response
 from pydantic import ValidationError
 
+from app.core.config import reset_settings_cache
 from app.core.cors import configure_cors
 from app.domains.auth.shared.config import AuthSettings, CorsSettings
 from app.main import create_app
@@ -31,6 +32,8 @@ def build_settings(
 ) -> AuthSettings:
     return AuthSettings.model_validate(
         {
+            "app_env": "test",
+            "database_url": "postgresql+psycopg://test:test@localhost/test_db",
             "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
             "cors_allow_authorization_header": cors_allow_authorization_header,
             "cors_allowed_origins": cors_allowed_origins or [ALLOWED_ORIGIN],
@@ -91,17 +94,15 @@ def test_preflight_from_disallowed_origin_does_not_return_permissive_origin(
     assert response.headers.get("access-control-allow-origin") is None
 
 
-def test_create_app_does_not_require_jwt_secret_for_cors_only_settings(
+def test_create_app_rejects_missing_jwt_secret(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
     monkeypatch.delenv("JWT_SECRET", raising=False)
 
-    client = TestClient(create_app())
-    response = preflight(client)
-
-    assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == ALLOWED_ORIGIN
+    reset_settings_cache()
+    with pytest.raises(ValueError, match="obligatorias"):
+        create_app()
 
 
 @pytest.mark.parametrize("origin", DEFAULT_ALLOWED_ORIGINS)
@@ -110,8 +111,6 @@ def test_default_cors_origins_are_allowed_without_wildcard(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("CORS_ALLOWED_ORIGINS", raising=False)
-    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
-    monkeypatch.delenv("JWT_SECRET", raising=False)
     client = TestClient(create_app())
 
     response = preflight(client, origin=origin)
@@ -123,7 +122,12 @@ def test_default_cors_origins_are_allowed_without_wildcard(
 
 def test_cors_allowed_origins_can_be_configured_from_comma_separated_string() -> None:
     settings = CorsSettings.model_validate(
-        {"cors_allowed_origins": "https://one.example, https://two.example"},
+        {
+            "app_env": "test",
+            "database_url": "postgresql+psycopg://test:test@localhost/test_db",
+            "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
+            "cors_allowed_origins": "https://one.example, https://two.example",
+        },
     )
 
     assert settings.cors_allowed_origins == [

@@ -81,6 +81,9 @@ jobs:
   db:
     name: Backend DB Tests
     runs-on: ubuntu-latest
+    env:
+      APP_ENV: test
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/guakamole_test
 
     steps:
       - name: Checkout
@@ -100,21 +103,24 @@ jobs:
       - name: Instalar dependencias backend
         run: cd backend && uv sync --all-groups
 
+      - name: Crear configuración temporal de CI
+        run: printf '%s\n' 'APP_ENV=test' 'POSTGRES_USER=postgres' 'POSTGRES_PASSWORD=postgres' 'POSTGRES_DB=guakamole_test' 'POSTGRES_PORT=5432' 'DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/guakamole_test' 'TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/guakamole_test' 'JWT_SECRET_KEY=ci-test-secret-not-for-production-0123456789' > .env.ci
+
       - name: Levantar PostgreSQL
-        run: make postgres-up ENV_FILE=.env.example
+        run: make postgres-up ENV_FILE=.env.ci
 
       - name: Esperar readiness de PostgreSQL
-        run: docker compose --env-file .env.example exec -T postgres sh -c 'until pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do sleep 1; done'
+        run: docker compose --env-file .env.ci exec -T postgres sh -c 'until pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do sleep 1; done'
 
       - name: Aplicar migraciones
-        run: make db-upgrade ENV_FILE=.env.example
+        run: make db-upgrade ENV_FILE=.env.ci
 
       - name: Pytest DB e integración
-        run: cd backend && uv run pytest -m "db or integration"
+        run: make backend-test-db ENV_FILE=.env.ci
 
       - name: Parar PostgreSQL
         if: always()
-        run: make postgres-down ENV_FILE=.env.example
+        run: make postgres-down ENV_FILE=.env.ci; rm -f .env.ci
 
   security:
     name: Backend Security Tests
@@ -167,20 +173,20 @@ jobs:
         run: cd backend && uv sync --all-groups
 
       - name: Validar Docker Compose
-        run: make docker-config ENV_FILE=.env.example
+        run: printf '%s\n' 'APP_ENV=test' 'POSTGRES_USER=postgres' 'POSTGRES_PASSWORD=postgres' 'POSTGRES_DB=guakamole_test' 'POSTGRES_PORT=5432' 'DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/guakamole_test' 'TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/guakamole_test' 'JWT_SECRET_KEY=ci-test-secret-not-for-production-0123456789' 'JWT_ALGORITHM=HS256' 'CORS_ALLOWED_ORIGINS=http://localhost:5173' 'BACKEND_PORT=8000' 'FRONTEND_PORT=3000' 'NGINX_PORT=80' > .env.ci && make docker-config ENV_FILE=.env.ci
 
       - name: Levantar PostgreSQL
-        run: make postgres-up ENV_FILE=.env.example
+        run: make postgres-up ENV_FILE=.env.ci
 
       - name: Esperar readiness de PostgreSQL
-        run: docker compose --env-file .env.example exec -T postgres sh -c 'until pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do sleep 1; done'
+        run: docker compose --env-file .env.ci exec -T postgres sh -c 'until pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do sleep 1; done'
 
       - name: Aplicar migraciones
-        run: make db-upgrade ENV_FILE=.env.example
+        run: make db-upgrade ENV_FILE=.env.ci
 
       - name: Consultar migración actual
-        run: make db-current ENV_FILE=.env.example
+        run: make db-current ENV_FILE=.env.ci
 
       - name: Parar PostgreSQL
         if: always()
-        run: make postgres-down ENV_FILE=.env.example
+        run: make postgres-down ENV_FILE=.env.ci; rm -f .env.ci

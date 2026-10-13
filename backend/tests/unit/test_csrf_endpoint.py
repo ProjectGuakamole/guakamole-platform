@@ -28,7 +28,11 @@ def build_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     )
     app = create_app()
     settings = AuthSettings.model_validate(
-        {"jwt_secret_key": "test-secret-not-for-production-with-safe-length"},
+        {
+            "app_env": "test",
+            "database_url": "postgresql+psycopg://test:test@localhost/guakamole_test",
+            "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
+        },
     )
     app.dependency_overrides[get_auth_session_service] = lambda: StubSessionService(
         settings
@@ -51,7 +55,11 @@ def test_csrf_with_valid_access_cookie_returns_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     settings = AuthSettings.model_validate(
-        {"jwt_secret_key": "test-secret-not-for-production-with-safe-length"},
+        {
+            "app_env": "test",
+            "database_url": "postgresql+psycopg://test:test@localhost/guakamole_test",
+            "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
+        },
     )
     access_token = JwtAccessTokenService(settings).issue_access_token("usr_123")
     client = build_client(monkeypatch)

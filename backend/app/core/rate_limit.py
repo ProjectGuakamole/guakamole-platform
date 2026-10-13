@@ -7,24 +7,13 @@ from time import monotonic
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.config import Settings, get_settings
 
 RATE_LIMIT_EXCEEDED_DETAIL = "Demasiadas solicitudes. Inténtalo más tarde."
 
 
-class RateLimitSettings(BaseSettings):
-    """Configuración de rate limiting sin dependencia de secretos JWT."""
-
-    rate_limit_enabled: bool = True
-    auth_login_rate_limit_requests: int = Field(default=5, ge=1)
-    auth_login_rate_limit_window_seconds: int = Field(default=60, ge=1)
-    auth_token_rate_limit_requests: int = Field(default=5, ge=1)
-    auth_token_rate_limit_window_seconds: int = Field(default=60, ge=1)
-    registration_rate_limit_requests: int = Field(default=3, ge=1)
-    registration_rate_limit_window_seconds: int = Field(default=300, ge=1)
-
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+RateLimitSettings = Settings
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,7 +82,7 @@ _rate_limiter = InMemoryRateLimiter()
 
 
 def get_rate_limit_settings() -> RateLimitSettings:
-    return RateLimitSettings()
+    return get_settings()
 
 
 def get_rate_limiter() -> InMemoryRateLimiter:

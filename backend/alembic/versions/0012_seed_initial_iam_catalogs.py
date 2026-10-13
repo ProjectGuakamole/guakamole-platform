@@ -123,6 +123,22 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     connection = op.get_bind()
+    has_operational_data = connection.execute(
+        sa.text(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM sch_iam.tbl_users
+                UNION ALL SELECT 1 FROM sch_iam.tbl_organization
+                UNION ALL SELECT 1 FROM sch_iam.tbl_department
+                UNION ALL SELECT 1 FROM sch_iam.tbl_department_relations
+            )
+            """
+        )
+    ).scalar_one()
+    if has_operational_data:
+        raise RuntimeError(
+            "No se puede revertir el catálogo IAM mientras existan datos operativos."
+        )
 
     connection.execute(
         sa.text(

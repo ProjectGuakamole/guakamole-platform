@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import Session
 
+from app.core.test_database import get_test_database_url as select_test_database_url
 from app.domains.auth.login.repository import SqlAlchemyLoginUserRepository
 from app.domains.iam.access.models import OrganizationRole, PlatformRole, Status
 from app.domains.iam.geography.models import City, Country, State
@@ -47,37 +48,7 @@ TEST_CITY_ID = 31_006
 
 
 def get_test_database_url() -> str:
-    database_url = os.environ.get(TEST_DATABASE_URL_ENV_VAR)
-    if database_url:
-        return ensure_valid_test_database_url(database_url)
-
-    database_url = build_postgresql_url_from_environment(dict(os.environ))
-    if database_url:
-        return ensure_valid_test_database_url(database_url)
-
-    repository_root = get_repository_root()
-    example_environment = read_environment_file(repository_root / ".env.example")
-    database_url = example_environment.get(DATABASE_URL_ENV_VAR)
-    if database_url:
-        return ensure_valid_test_database_url(database_url)
-
-    database_url = get_database_url_from_environment(example_environment)
-    if database_url:
-        return database_url
-
-    environment = read_environment_file(repository_root / ".env")
-    database_url = get_database_url_from_environment(environment)
-    if database_url:
-        return database_url
-
-    database_url = os.environ.get(DATABASE_URL_ENV_VAR)
-    if database_url:
-        return ensure_valid_test_database_url(database_url)
-
-    raise RuntimeError(
-        "Define TEST_DATABASE_URL o variables POSTGRES_* coherentes para "
-        "PostgreSQL real."
-    )
+    return select_test_database_url(os.environ)
 
 
 def ensure_postgresql_database_url(database_url: str) -> str:

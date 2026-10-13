@@ -2,52 +2,45 @@
 
 ## Objetivo
 
-Preparar el baseline exclusivo del área Alembic para distinguir las reglas propuestas de las que se validen durante la fase coordinada `BACK-DB-MIGRATIONS-AUDIT-001`.
+Consolidar las reglas de Alembic que han quedado validadas en el punto 2 y separar las propuestas de puntos posteriores.
 
 ## Responsabilidad del documento
 
-Recoger únicamente reglas del área: migraciones Alembic, modelos, schema, bootstrap y seeds. No sustituye al histórico de decisiones y evidencias ni define reglas de Docker o Makefile.
+Recoge reglas de migraciones y su acceso a base de datos. No duplica la selección de entornos de Makefile ni el empaquetado Docker.
 
 ## Estado actual
 
-**BORRADOR NO VALIDADO.** No constituye una certificación del código existente ni un baseline definitivo. Esta intervención no implanta reglas, no ejecuta migraciones y no reanuda el punto 2.
+**VALIDADO PARCIALMENTE — punto 2 completado.** La fase continúa por los puntos pendientes.
 
 ## Cambios realizados
 
-Se crea este borrador con alcance, organización y criterios iniciales. No se modifica ningún modelo, schema, revisión Alembic, bootstrap o seed. No se incorporan resultados de tests anteriores como validación actual.
+Se elevan a reglas validadas la configuración central explícita de base de datos, la ausencia de fallback de plantilla o ini para Alembic y la guarda histórica de downgrade ante datos dependientes.
 
 ## Justificacion tecnica
 
-Separar evolución estructural y carga de datos facilita identificar qué operación transforma el esquema y cuál introduce datos. Una regla escrita no demuestra que las revisiones existentes ya la satisfagan.
+Una única fuente de conexión evita que una migración opere contra una base distinta de la seleccionada. La precondición previa a borrados hace explícito el riesgo sobre datos operativos.
 
 ## Decisiones tomadas
 
-### Organización acordada del área
+### Reglas validadas
 
-- Las reglas de Alembic, modelos, schema, bootstrap y seeds se mantienen en `docs/backend/alembic/`.
-- El histórico del área se denomina `BACK-DB-MIGRATIONS-fase-completa.md`; este baseline se denomina `BACK-DB-MIGRATIONS-BASELINE.md`.
-- El baseline contiene reglas, no el proceso coordinado ni copias de evidencias o explicaciones de otras áreas.
+- Alembic recibe `DATABASE_URL` desde la configuración central explícita.
+- Alembic no usa un fallback de configuración en `alembic.ini` ni en una plantilla de entorno.
+- Un downgrade histórico con borrados comprueba antes los datos dependientes y rechaza la operación si existen.
 
-### Orientación aprobada: propuesta pendiente de implantación y validación
+### Propuestas pendientes
 
-- Tratar Alembic como mecanismo de evolución estructural explícita, sin incorporar seeds como parte de esa operación estructural.
-- Diferenciar bootstrap de estructura y carga de seeds, documentando qué responsabilidad corresponde a cada uno.
-- Revisar la coherencia entre modelos y schema antes de considerar definitiva una regla de migración.
-
-Estas orientaciones no acreditan una separación ya implantada ni autorizan a reescribir migraciones históricas. La aplicación concreta y sus efectos sobre las revisiones existentes están pendientes de revisión técnica y autorización. No se afirma que `APP_ENV` ni una transición de entorno estén implantados.
-
-## Condición de actualización
-
-Incorporar reglas definitivas solo tras revisión de `api-architect` y QA, evidencia aplicable y revisión de exactitud documental por el arquitecto. Mantener identificadas las propuestas pendientes; registrar el contexto y los resultados en el histórico del área, no duplicarlos aquí. Hasta entonces, conservar el estado **BORRADOR NO VALIDADO**.
+- **Punto 3:** mantener las migraciones estructurales sin DML y definir el baseline estructural futuro. Esta propuesta no implica reescribir las migraciones existentes.
+- Validar el ciclo de vida completo de baseline y Docker.
 
 ## Tests ejecutados
 
-No se han ejecutado tests ni comandos Alembic en esta intervención. No existe nueva evidencia que permita validar este baseline.
+Las reglas validadas disponen de evidencia de la validación completa del punto 2, registrada en el histórico del área. No se duplican aquí resultados.
 
 ## Riesgos o deuda tecnica
 
-El comportamiento actual de migraciones y seeds no se ha auditado en esta tarea. Adoptar el borrador como regla definitiva sin revisión ocultaría posibles diferencias con el historial existente.
+La propuesta de punto 3 y la validación de ciclo de vida siguen pendientes. Las futuras revisiones deben mantener el guardado operativo antes de eliminar datos dependientes.
 
 ## Relacion con el backend
 
-El baseline delimita los criterios pendientes para la evolución de la persistencia. No cambia la base de datos ni el comportamiento de inicialización del backend.
+Estas reglas protegen la evolución de la persistencia del backend y evitan que Alembic seleccione una conexión no prevista.
