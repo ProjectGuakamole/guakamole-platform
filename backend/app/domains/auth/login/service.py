@@ -97,9 +97,13 @@ class LoginService:
     def _is_active_with_valid_password(
         self, user: LoginUserRecord, plain_password: str
     ) -> bool:
-        return user.status == ACTIVE_STATUS and self._password_hasher.verify(
-            plain_password,
-            user.password_hash,
+        return (
+            user.status == ACTIVE_STATUS
+            and user.organization_status == ACTIVE_STATUS
+            and self._password_hasher.verify(
+                plain_password,
+                user.password_hash,
+            )
         )
 
     @staticmethod

@@ -25,12 +25,12 @@ def unauthorized_response() -> HTTPException:
 def me(
     request: Request,
     service: Annotated[AuthMeService, Depends(get_auth_me_service)],
-    auth_settings: Annotated[AuthSettings, Depends(build_auth_settings)],
+    settings: Annotated[AuthSettings, Depends(build_auth_settings)],
 ) -> AuthMeResponse:
-    guak_access_token = request.cookies.get(auth_settings.auth_cookie_name)
-    if guak_access_token is None:
+    raw_token = request.cookies.get(settings.auth_cookie_name)
+    if raw_token is None:
         raise unauthorized_response()
     try:
-        return service.get_current_identity(guak_access_token)
+        return service.get_current_identity(raw_token)
     except NotAuthenticatedError as error:
         raise unauthorized_response() from error

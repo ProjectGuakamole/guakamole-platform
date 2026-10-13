@@ -2626,3 +2626,80 @@ Se mantiene el histórico íntegro y se añade esta fotografía inicial para sep
 El impacto sobre el backend es de trazabilidad y preparación de la auditoría: delimita qué componentes y fronteras se deberán probar, sin alterar rutas, contratos, persistencia ni configuración. No se ha implementado código ni ejecutado tests en este punto.
 
 **Arquitectura y QA aprueban el inventario y el modelo de amenazas del punto 1; la eficacia de los controles de seguridad permanece pendiente.** No se han abordado los puntos 2–8 ni se han abierto PRs en este punto. No se crea baseline.
+
+### 2. Auditoría de arquitectura y contratos
+
+La revisión estática cubrió los seis endpoints inventariados en el punto 1: registro, login, identidad actual, CSRF, logout y token técnico. Se revisaron sus contratos, dependencias y límites de seguridad; esta subsección diferencia los hallazgos iniciales de las decisiones aplicadas después, sin repetir el histórico funcional de la fase.
+
+| Hallazgo | Área | Severidad | Riesgo | Decisión | Acción | Estado |
+| --- | --- | --- | --- | --- | --- | --- |
+| AUTH-001: la organización inactiva no se comprobaba de forma uniforme en la resolución de sesión. | Login, `/auth/me`, CSRF, logout y token técnico. | Alta | Una credencial válida podía asociarse a una organización ya inactiva. | Exigir organización activa en todos los recorridos autenticados. | Se incorporó la comprobación común de organización activa. | Corregido y re-auditado. |
+| AUTH-002: el modelo actual presupone una organización efectiva por usuario. | IAM y selección de tenant. | Alta arquitectónica/futura | El modelo no puede seleccionar de forma segura una organización entre varias memberships. | Mantener el modelo actual sin exponer una selección inexistente. | Declarar multi-membership como prerrequisito de una fase IAM futura. | Prerrequisito bloqueante de una futura fase IAM, explícitamente autorizado fuera de alcance. |
+| Contraseñas con espacios: el tratamiento no era simétrico entre los flujos revisados. | Registro y login. | Media | Alterar silenciosamente una contraseña puede cambiar la credencial efectiva. | Tratar la contraseña como valor literal. | Se eliminó cualquier normalización semántica de contraseña. | Corregido y re-auditado. |
+| Hash de contraseña malformado podía provocar error interno. | Login y token técnico. | Media | Un hash persistido corrupto podía derivar en un `500` y revelar un fallo operativo. | Convertir el fallo de verificación en credenciales no válidas. | El adaptador de `pwdlib` devuelve fallo seguro. | Corregido y re-auditado. |
+| `/auth/token` es una superficie técnica publicada sin consumidor bearer operativo. | Contrato OAuth2 técnico. | Baja | Activarlo sin caso de uso aprobado ampliaría la superficie de credenciales. | Mantenerlo deshabilitado por defecto. | Se conserva el opt-in explícito. | Control conforme. |
+| CSRF no es un sustituto de autenticación ni de autorización. | Mutaciones con cookie. | Baja | Futuros endpoints podrían asumir una protección que no cubre permisos ni tenant. | Mantenerlo como guardarraíl obligatorio para futuras mutaciones con cookie. | Se documenta su integración obligatoria en nuevas rutas. | Control conforme; guardarraíl futuro. |
+| Rate limit local al proceso. | Protección ante abuso. | Media | No coordina límites entre procesos o instancias. | Mantener la defensa local del MVP sin presentar capacidad distribuida. | Registrar la evolución a almacenamiento compartido como deuda. | Deuda futura. |
+| Auditoría basada en logging no durable. | Trazabilidad. | Media | No proporciona retención ni consulta operativa equivalente a `AuditEvent`. | Mantener logging saneado y planificar persistencia transversal. | Deuda explícita de auditoría durable. | Deuda futura. |
+| Logout originalmente era solo borrado de cookie. | Gestión de sesión. | Alta | Un JWT copiado podía reutilizarse hasta expirar. | Revocar el `jti` de forma persistente antes de borrar la cookie. | Se añadió revocación persistente y comprobación en rutas de sesión. | Corregido y re-auditado. |
+| Validación de `iss` y `aud`. | JWT. | Baja | La aceptación de tokens requiere una política explícita de emisor y audiencia al integrarse con otros emisores o consumidores. | Mantener la validación actual limitada al emisor local y tratar `aud` como extensión de contrato. | No se habilitan consumidores bearer adicionales. | Deuda de evolución, sin hallazgo pendiente en el flujo actual. |
+
+Los controles que no figuran como deuda se consideraron conformes tras la revisión estática y la re-auditoría: contratos mínimos, cookie `HttpOnly`, separación del token técnico y validación de sesión contra persistencia. La aprobación no certifica RBAC ni IAM multi-membership, que quedan fuera de este alcance.
+
+### 3. Evidencia de QA en entorno real
+
+QA ejecutó las comprobaciones iniciales contra el entorno local real con Docker y PostgreSQL como destino confirmado. No se documentan secretos, direcciones ni datos reales. Antes de corregir, la suite completa se ejecutó desde `backend` con `uv run pytest`: **`458 passed`**, sin pruebas deseleccionadas. Las comprobaciones E2E se realizaron después sobre el mismo destino real y antes de aplicar las correcciones descritas en el punto 5.
+
+| Evidencia inicial ejecutada | Resultado observado antes de la corrección | Interpretación |
+| --- | --- | --- |
+| Login y `/auth/me` con organización inactiva. | El flujo devolvió `200`. | Confirmó AUTH-001. |
+| Login con hash de contraseña malformado en persistencia. | El flujo devolvió `500`. | Confirmó que el fallo no se degradaba a error de credenciales. |
+| Logout y reutilización de la credencial previa en `/auth/me`. | `/auth/me` devolvió `200`. | Confirmó que el logout era local y no revocaba el JWT. |
+| Contraseñas con espacios. | Se observó asimetría entre flujos. | Confirmó la necesidad de semántica literal. |
+| Rate limiting. | El límite se aplicó por proceso. | Confirmó el comportamiento local, no distribuido. |
+
+El comando completo de suite y su resultado quedan indicados arriba. Las comprobaciones HTTP usaron el recorrido real con PostgreSQL y sin overrides de dependencias; sus resultados anteriores se resumen aquí para no duplicar el registro de QA ni introducir rutas, credenciales o destinos reales. Esta evidencia es distinta de la re-ejecución final: los resultados de esta tabla **no** describen el estado corregido.
+
+> [!WARNING]
+> Que Docker y PostgreSQL locales estuvieran disponibles confirma el destino de pruebas autorizado de aquella ejecución; no convierte ese entorno en evidencia de despliegue ni valida el ciclo de vida de Alembic o Docker.
+
+### 4. Consolidación de decisiones
+
+Las decisiones aprobadas tras la evidencia inicial son las siguientes:
+
+- La organización debe estar activa en login, `/auth/me`, CSRF, logout y el token técnico cuando este se habilite explícitamente.
+- La revocación de sesión se basa en `jti` persistente, con migración de esquema.
+- Las contraseñas son literales: no se recortan ni normalizan sus espacios.
+- Un hash malformado se trata como credencial no válida (`401`), sin propagar un error interno.
+- `/auth/token` permanece deshabilitado por defecto; no existe consumidor bearer operativo que justifique ampliar esa exposición.
+- El rate limiting sin Redis queda como deuda topológica: es local al proceso y no debe describirse como distribuido.
+- El soporte de múltiples memberships por usuario es prerrequisito explícito antes de diseñar selección de organización activa; no se fuerza esa capacidad en el modelo actual.
+
+El alcance se amplió únicamente para incorporar la migración **0014** de revocación. Esta ampliación no incluye reconciliación de historial ni verificación del ciclo de vida de Alembic o Docker. Esa revisión se difiere a una fase separada, `BACK-DB-MIGRATIONS-AUDIT-001`, en la rama `backend/audit/BACK-DB-MIGRATIONS-AUDIT-001`, que **no se ha iniciado**.
+
+### 5. Correcciones y re-auditoría
+
+La corrección incorporó revocación persistente mediante el esquema `sch_iam` y la tabla `tbl_revoked_access_token`. Su registro contiene únicamente `id`, `jti` único, expiración y marca temporal de revocación; no guarda tokens JWT en bruto. La migración Alembic 0014 crea esta estructura y el registro de modelos la incorpora al conjunto ORM.
+
+La lógica se separó entre `AuthSessionService` y un repositorio SQLAlchemy: en logout se revoca primero el `jti` y después se ordena borrar la cookie. Las rutas `/auth/me`, CSRF y logout rechazan con `401` una sesión revocada. La resolución de sesión aplica además la condición de organización activa. El evento de logout se registra de forma saneada como `LOGOUT`, con solo IDs públicos y hash de `jti`; no incluye token en bruto, contraseña ni otro secreto.
+
+La verificación de contraseña conserva el valor literal y encapsula los errores de `pwdlib` para devolver fallo seguro. Por ello, un hash malformado deja de producir error interno y se traduce en credenciales no válidas.
+
+La re-auditoría ejecutó escenarios E2E HTTP con PostgreSQL real, sin overrides de dependencias: organización inactiva, hash malformado, revocación tras logout, semántica literal de contraseña, token técnico deshabilitado y sus contratos asociados. Arquitectura y QA aprueban ambas re-auditorías: la de correcciones funcionales y la de calidad final.
+
+| Comprobación final | Resultado exacto |
+| --- | --- |
+| Calidad | `make backend-quality`: Ruff, comprobación de formato y mypy strict correctos |
+| Unitarios | `396 passed, 72 deselected` |
+| Base de datos | `50 passed, 418 deselected` |
+| Seguridad | `22 passed, 446 deselected` |
+| Suite completa | `468 passed` (sin tests deseleccionados) |
+
+#### Deuda que permanece abierta
+
+- La verificación del ciclo de vida de Alembic y Docker se mantiene diferida a `BACK-DB-MIGRATIONS-AUDIT-001`; no queda resuelta por la migración 0014.
+- El rate limiting distribuido con almacenamiento compartido sigue pendiente.
+- Una auditoría durable basada en `AuditEvent`, con retención y consulta operativa, sigue pendiente.
+- El modelo de múltiples memberships y la selección explícita de organización activa pertenecen a una futura fase IAM.
+
+Estas deudas no deben interpretarse como corregidas ni cubiertas por la aprobación de esta re-auditoría.

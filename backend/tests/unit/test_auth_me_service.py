@@ -41,6 +41,10 @@ class StubAuthMeRepository:
         self.requested_organization_public_id = organization_public_id
         return self._identity
 
+    def is_jti_revoked(self, jti: str) -> bool:
+        _ = jti
+        return False
+
 
 def build_verified_token(
     organization: str | None = "org_public",
