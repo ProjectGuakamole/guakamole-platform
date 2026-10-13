@@ -3,8 +3,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.domains.auth.login.dependencies import get_login_service
 from app.domains.auth.login.exceptions import InvalidLoginCredentialsError
-from app.domains.auth.login.router import get_login_service
 from app.domains.auth.login.schemas import LoginRequest, LoginTokenData
 from app.main import create_app
 
@@ -32,7 +32,9 @@ def build_client(
     service: StubLoginService,
     monkeypatch: pytest.MonkeyPatch,
 ) -> TestClient:
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-not-for-production")
+    monkeypatch.setenv(
+        "JWT_SECRET_KEY", "test-secret-not-for-production-with-safe-length"
+    )
     app = create_app()
     app.dependency_overrides[get_login_service] = lambda: service
     return TestClient(app)

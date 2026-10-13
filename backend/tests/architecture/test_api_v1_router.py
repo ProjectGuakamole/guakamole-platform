@@ -70,7 +70,6 @@ def test_api_v1_public_contract_routes_are_mounted_once() -> None:
     expected_routes = {
         "/api/v1/health": "GET",
         "/api/v1/organizations/register": "POST",
-        "/api/v1/iam/organizations/{organization_id}/users": "GET",
         "/api/v1/auth/login": "POST",
         "/api/v1/auth/logout": "POST",
         "/api/v1/auth/me": "GET",

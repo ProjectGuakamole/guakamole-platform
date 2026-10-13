@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.domains.auth.me.router import get_auth_me_service
+from app.domains.auth.me.dependencies import get_auth_me_service
 from app.domains.auth.me.schemas import AuthMeResponse
 from app.main import create_app
 
@@ -22,7 +22,9 @@ class StubAuthMeService:
 
 
 def build_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-not-for-production")
+    monkeypatch.setenv(
+        "JWT_SECRET_KEY", "test-secret-not-for-production-with-safe-length"
+    )
     app = create_app()
     app.dependency_overrides[get_auth_me_service] = lambda: StubAuthMeService()
     return TestClient(app)

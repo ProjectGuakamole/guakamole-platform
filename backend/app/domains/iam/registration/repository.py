@@ -8,6 +8,11 @@ from sqlalchemy.orm import Session
 from app.domains.iam.access.models import OrganizationRole, PlatformRole, Status
 from app.domains.iam.geography.models import City, Country, State
 from app.domains.iam.organizations.models import Organization
+from app.domains.iam.registration.entities import (
+    RegistrationOrganization,
+    RegistrationUser,
+)
+from app.domains.iam.registration.exceptions import RegistrationPersistenceConflictError
 from app.domains.iam.users.models import User
 
 
@@ -26,8 +31,8 @@ class RegistrationRepository(Protocol):
     def get_geography(
         self, *, country: str, state: str, city: str
     ) -> GeographyReference | None: ...
-    def add_organization(self, organization: Organization) -> None: ...
-    def add_user(self, user: User) -> None: ...
+    def add_organization(self, organization: RegistrationOrganization) -> None: ...
+    def add_user(self, user: RegistrationUser) -> None: ...
     def commit(self) -> None: ...
     def rollback(self) -> None: ...
     def flush(self) -> None: ...
@@ -36,6 +41,9 @@ class RegistrationRepository(Protocol):
 class SqlAlchemyRegistrationRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
+        self._pending_organization: (
+            tuple[RegistrationOrganization, Organization] | None
+        ) = None
 
     def has_duplicates(self, *, email: str, slug: str, tax_id: str) -> bool:
         query = select(Organization.id_organization).where(
@@ -84,21 +92,60 @@ class SqlAlchemyRegistrationRepository:
             return None
         return GeographyReference(country_id=row[0], state_id=row[1], city_id=row[2])
 
-    def add_organization(self, organization: Organization) -> None:
-        self._session.add(organization)
+    def add_organization(self, organization: RegistrationOrganization) -> None:
+        entity = Organization(
+            public_id=organization.public_id,
+            id_country=organization.country_id,
+            id_state=organization.state_id,
+            id_city=organization.city_id,
+            id_status=organization.status_id,
+            name=organization.name,
+            slug=organization.slug,
+            org_registered_name=organization.legal_name,
+            org_tax=organization.tax_id,
+            org_address=organization.address,
+            org_zipcode=organization.postal_code,
+        )
+        self._session.add(entity)
+        self._pending_organization = (organization, entity)
 
-    def add_user(self, user: User) -> None:
-        self._session.add(user)
+    def add_user(self, user: RegistrationUser) -> None:
+        self._session.add(
+            User(
+                public_id=user.public_id,
+                id_organization=user.organization_id,
+                id_platform_role=user.platform_role_id,
+                id_country=user.country_id,
+                id_state=user.state_id,
+                id_city=user.city_id,
+                id_org_role=user.organization_role_id,
+                id_status=user.status_id,
+                email=user.email,
+                password_hash=user.password_hash,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                birthdate=user.birth_date,
+                user_address=user.address,
+                user_zipcode=user.postal_code,
+            )
+        )
 
     def flush(self) -> None:
-        self._session.flush()
+        try:
+            self._session.flush()
+            if self._pending_organization is not None:
+                dto, entity = self._pending_organization
+                dto.id = entity.id_organization
+        except IntegrityError as error:
+            self._session.rollback()
+            raise RegistrationPersistenceConflictError from error
 
     def commit(self) -> None:
         try:
             self._session.commit()
-        except IntegrityError:
+        except IntegrityError as error:
             self._session.rollback()
-            raise
+            raise RegistrationPersistenceConflictError from error
 
     def rollback(self) -> None:
         self._session.rollback()

@@ -17,6 +17,8 @@ SortDirection = Literal["asc", "desc"]
 class UserBase(BaseModel):
     """Campos base públicos/controlados de un usuario IAM."""
 
+    model_config = ConfigDict(extra="forbid")
+
     id_organization: int
     id_platform_role: int
     id_country: int
@@ -40,6 +42,8 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     """Datos opcionales para actualizar parcialmente un usuario IAM."""
+
+    model_config = ConfigDict(extra="forbid")
 
     id_organization: int | None = None
     id_platform_role: int | None = None
