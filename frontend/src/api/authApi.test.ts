@@ -6,18 +6,24 @@ import type { AuthResponse, CompanyRegisterData, LoginData } from '../types/auth
 const authResponse: AuthResponse = {
   token: 'test-token',
   user: {
-    id: 'company-1',
+    id: 1,
     email: 'empresa@example.com',
-    companyName: 'Empresa de prueba',
+    firstName: 'Jordi',
+    lastName: 'García',
+    idOrganization: 1,
   },
 }
 
 const registerData: CompanyRegisterData = {
-  companyName: 'Empresa de prueba',
-  email: 'empresa@example.com',
-  password: 'secure-password',
-  confirmPassword: 'secure-password',
-  taxId: 'B12345678',
+  organization: {
+    name: 'Empresa de prueba',
+  },
+  user: {
+    firstName: 'Jordi',
+    lastName: 'García',
+    email: 'empresa@example.com',
+    password: 'secure-password',
+  },
 }
 
 const loginData: LoginData = {
@@ -54,11 +60,11 @@ describe('authApi', () => {
   it('propaga el mensaje devuelto por el servidor al fallar el registro', async () => {
     fetchMock.mockResolvedValue({
       ok: false,
-      json: vi.fn().mockResolvedValue({ message: 'El CIF ya está registrado' }),
+      json: vi.fn().mockResolvedValue({ message: 'El email ya está registrado' }),
     })
 
     await expect(registerCompany(registerData)).rejects.toThrow(
-      'El CIF ya está registrado',
+      'El email ya está registrado',
     )
   })
 
