@@ -186,7 +186,12 @@ def seed_users(session: Session) -> None:
     )
     session.commit()
     session.add(
-        City(id_city=TEST_CITY_ID, id_state=TEST_STATE_ID, city_name="Login City")
+        City(
+            id_city=TEST_CITY_ID,
+            id_state=TEST_STATE_ID,
+            id_country=TEST_COUNTRY_ID,
+            city_name="Login City",
+        )
     )
     session.commit()
     session.add(

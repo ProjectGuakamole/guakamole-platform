@@ -152,7 +152,14 @@ def seed_active_identity(session: Session, password_hash: str | None = None) -> 
         State(id_state=STATE_ID, id_country=COUNTRY_ID, state_name="Auth HTTP State")
     )
     session.commit()
-    session.add(City(id_city=CITY_ID, id_state=STATE_ID, city_name="Auth HTTP City"))
+    session.add(
+        City(
+            id_city=CITY_ID,
+            id_state=STATE_ID,
+            id_country=COUNTRY_ID,
+            city_name="Auth HTTP City",
+        )
+    )
     session.commit()
     active_status_id = get_or_create_status(session, "ACTIVE")
     session.add(
@@ -394,7 +401,14 @@ def seed_registration_catalogs(session: Session) -> None:
         State(id_state=STATE_ID, id_country=COUNTRY_ID, state_name="Auth HTTP State")
     )
     session.commit()
-    session.add(City(id_city=CITY_ID, id_state=STATE_ID, city_name="Auth HTTP City"))
+    session.add(
+        City(
+            id_city=CITY_ID,
+            id_state=STATE_ID,
+            id_country=COUNTRY_ID,
+            city_name="Auth HTTP City",
+        )
+    )
     session.commit()
 
 

@@ -1,4 +1,12 @@
-from sqlalchemy import BigInteger, PrimaryKeyConstraint, String, Text
+from sqlalchemy import (
+    BigInteger,
+    Index,
+    PrimaryKeyConstraint,
+    String,
+    Text,
+    column,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -12,6 +20,7 @@ class Status(TimestampMixin, Base):
     __tablename__ = "tbl_status"
     __table_args__ = (
         PrimaryKeyConstraint("id_status", name="pk_tbl_status"),
+        Index("uq_tbl_status_status_ci", func.lower(column("status")), unique=True),
         {"schema": IAM_SCHEMA},
     )
 
@@ -25,6 +34,11 @@ class PlatformRole(TimestampMixin, Base):
     __tablename__ = "tbl_platform_role"
     __table_args__ = (
         PrimaryKeyConstraint("id_platform_role", name="pk_tbl_platform_role"),
+        Index(
+            "uq_tbl_platform_role_type_ci",
+            func.lower(column("platform_role_type")),
+            unique=True,
+        ),
         {"schema": IAM_SCHEMA},
     )
 
@@ -39,6 +53,11 @@ class OrganizationRole(TimestampMixin, Base):
     __tablename__ = "tbl_organization_role"
     __table_args__ = (
         PrimaryKeyConstraint("id_org_role", name="pk_tbl_organization_role"),
+        Index(
+            "uq_tbl_organization_role_type_ci",
+            func.lower(column("org_role_type")),
+            unique=True,
+        ),
         {"schema": IAM_SCHEMA},
     )
 

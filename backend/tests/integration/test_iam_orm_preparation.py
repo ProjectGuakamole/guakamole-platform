@@ -69,26 +69,22 @@ def test_model_registry_loads_current_iam_models() -> None:
     assert expected_tables.issubset(Base.metadata.tables.keys())
 
 
-def test_initial_iam_migration_creates_schema_without_tables() -> None:
-    migration_path = Path("alembic/versions/0001_create_schema_iam.py")
+def test_iam_baseline_creates_the_complete_schema() -> None:
+    migration_path = Path("alembic/versions/iam_baseline.py")
     migration_content = migration_path.read_text(encoding="utf-8")
 
-    assert "CREATE SCHEMA IF NOT EXISTS" in migration_content
+    assert "CREATE SCHEMA" in migration_content
     assert "sch_iam" in migration_content
-    assert "IAM_SCHEMA" not in migration_content
-    assert "REVOKE CREATE ON SCHEMA public FROM PUBLIC" in migration_content
-    assert "DROP SCHEMA IF EXISTS" in migration_content
-    assert "op.create_table" not in migration_content
+    assert migration_content.count("op.create_table(") == 11
+    assert "REVOKE" not in migration_content
     assert "DROP SCHEMA public" not in migration_content
 
 
-def test_initial_iam_migration_extends_alembic_version_length() -> None:
-    migration_path = Path("alembic/versions/0001_create_schema_iam.py")
+def test_iam_baseline_does_not_change_alembic_metadata() -> None:
+    migration_path = Path("alembic/versions/iam_baseline.py")
     migration_content = migration_path.read_text(encoding="utf-8")
 
-    assert "ALTER TABLE alembic_version" in migration_content
-    assert "version_num" in migration_content
-    assert "VARCHAR(255)" in migration_content
+    assert "alembic_version" not in migration_content
 
 
 def test_alembic_ini_does_not_store_operational_database_credentials() -> None:

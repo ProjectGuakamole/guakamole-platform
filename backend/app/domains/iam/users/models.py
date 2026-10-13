@@ -40,23 +40,13 @@ class User(TimestampMixin, Base):
             onupdate="CASCADE",
         ),
         ForeignKeyConstraint(
-            ["id_country"],
-            [f"{IAM_SCHEMA}.tbl_country.id_country"],
-            name="fk_tbl_users_id_country",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-        ),
-        ForeignKeyConstraint(
-            ["id_state"],
-            [f"{IAM_SCHEMA}.tbl_state.id_state"],
-            name="fk_tbl_users_id_state",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-        ),
-        ForeignKeyConstraint(
-            ["id_city"],
-            [f"{IAM_SCHEMA}.tbl_city.id_city"],
-            name="fk_tbl_users_id_city",
+            ["id_city", "id_state", "id_country"],
+            [
+                f"{IAM_SCHEMA}.tbl_city.id_city",
+                f"{IAM_SCHEMA}.tbl_city.id_state",
+                f"{IAM_SCHEMA}.tbl_city.id_country",
+            ],
+            name="fk_tbl_users_geo_hierarchy",
             ondelete="RESTRICT",
             onupdate="CASCADE",
         ),
@@ -76,6 +66,11 @@ class User(TimestampMixin, Base):
         ),
         UniqueConstraint("email", name="uq_tbl_users_email"),
         UniqueConstraint("public_id", name="uq_tbl_users_public_id"),
+        UniqueConstraint(
+            "id_user",
+            "id_organization",
+            name="uq_tbl_users_id_user_id_organization",
+        ),
         Index("ix_tbl_users_id_organization", "id_organization"),
         Index("ix_tbl_users_id_platform_role", "id_platform_role"),
         Index("ix_tbl_users_id_country", "id_country"),
@@ -86,7 +81,7 @@ class User(TimestampMixin, Base):
         {"schema": IAM_SCHEMA},
     )
 
-    id_user: Mapped[int] = mapped_column(BigInteger, Identity())
+    id_user: Mapped[int] = mapped_column(BigInteger, Identity(start=1))
     public_id: Mapped[str] = mapped_column(
         String(40),
         nullable=False,

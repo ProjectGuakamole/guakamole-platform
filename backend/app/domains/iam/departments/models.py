@@ -6,6 +6,8 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    column,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,6 +29,17 @@ class Department(TimestampMixin, Base):
             ondelete="RESTRICT",
             onupdate="CASCADE",
         ),
+        UniqueConstraint(
+            "id_department",
+            "id_organization",
+            name="uq_tbl_department_id_department_id_organization",
+        ),
+        Index(
+            "uq_tbl_department_organization_name_ci",
+            "id_organization",
+            func.lower(column("name")),
+            unique=True,
+        ),
         Index("ix_tbl_department_id_organization", "id_organization"),
         {"schema": IAM_SCHEMA},
     )
@@ -47,16 +60,22 @@ class DepartmentRelation(TimestampMixin, Base):
             name="pk_tbl_department_relations",
         ),
         ForeignKeyConstraint(
-            ["id_department"],
-            [f"{IAM_SCHEMA}.tbl_department.id_department"],
-            name="fk_tbl_department_relations_id_department",
+            ["id_department", "id_organization"],
+            [
+                f"{IAM_SCHEMA}.tbl_department.id_department",
+                f"{IAM_SCHEMA}.tbl_department.id_organization",
+            ],
+            name="fk_tbl_department_relations_department_organization",
             ondelete="CASCADE",
             onupdate="CASCADE",
         ),
         ForeignKeyConstraint(
-            ["id_user"],
-            [f"{IAM_SCHEMA}.tbl_users.id_user"],
-            name="fk_tbl_department_relations_id_user",
+            ["id_user", "id_organization"],
+            [
+                f"{IAM_SCHEMA}.tbl_users.id_user",
+                f"{IAM_SCHEMA}.tbl_users.id_organization",
+            ],
+            name="fk_tbl_department_relations_user_organization",
             ondelete="CASCADE",
             onupdate="CASCADE",
         ),
@@ -73,3 +92,4 @@ class DepartmentRelation(TimestampMixin, Base):
     id_department_relation: Mapped[int] = mapped_column(BigInteger)
     id_department: Mapped[int] = mapped_column(BigInteger, nullable=False)
     id_user: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    id_organization: Mapped[int] = mapped_column(BigInteger, nullable=False)

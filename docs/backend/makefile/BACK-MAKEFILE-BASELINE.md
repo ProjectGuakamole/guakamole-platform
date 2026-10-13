@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Consolidar las reglas de la interfaz Makefile validadas en el punto 2 y separar la propuesta del punto 4.
+Consolidar las reglas de la interfaz Makefile validadas tras el punto 3.
 
 ## Responsabilidad del documento
 
@@ -10,11 +10,11 @@ Recoge reglas de selección de entorno, targets, ayuda y guardas. La evidencia d
 
 ## Estado actual
 
-**VALIDADO PARCIALMENTE — punto 2 completado.** La fase continúa por los puntos pendientes.
+**VALIDADO — punto 3 completado.**
 
 ## Cambios realizados
 
-Se validan la selección explícita mediante `ENV_FILE`, la base de pruebas exclusiva, las guardas operativas y la configuración efímera de CI.
+Se mantienen las reglas del punto 2 y se incorporan las guardas vigentes para el rebaseline destructivo del punto 3.
 
 ## Justificacion tecnica
 
@@ -26,23 +26,31 @@ La interfaz de comandos debe exigir el contexto correcto antes de modificar dato
 
 - Los targets seleccionan `ENV_FILE` explícitamente; no usan una plantilla de entorno como fallback.
 - `.env` es local e ignorado por Git; el fichero de ejemplo no es operativo.
-- `backend-test-db` usa exclusivamente `TEST_DATABASE_URL`, exige el sufijo `test` y exporta el entorno de pruebas.
+- `backend-test-db` usa exclusivamente `TEST_DATABASE_URL`, exige una base local con sufijo `*_test`, rechaza hosts remotos, reconstruye destructivamente el baseline IAM con confirmación explícita y después ejecuta toda la suite `db or integration`.
 - Downgrade se limita a `development` y `test` y mantiene la guarda de migración ante datos dependientes.
 - Los seeds tienen guarda de entorno; ayuda y preflight exponen las precondiciones.
 - CI genera un `.env.ci` efímero, sin depender del fichero de ejemplo.
 - La matriz de `APP_ENV` para `development`, `test`, `staging` y `production` está validada desde el punto de vista de seguridad.
+- El rebaseline exige confirmación explícita. En `test` solo se admite `TEST_DATABASE_URL` local dirigido a `*_test`; en desarrollo se exige `REBASELINE_DEVELOPMENT_DATABASE_URL` independiente, local y dirigido a `*_dev` o `*_development`. Se rechazan hosts remotos.
+- El seed conserva el preflight de `pgcrypto` y la sincronización de identidades como requisitos operativos.
+- El punto 3 no implementa targets Makefile adicionales.
 
-### Propuesta pendiente
-
-- **Punto 4:** definir un target de bootstrap futuro. No está implementado ni validado.
+No se implementa un target de bootstrap en este cambio.
 
 ## Tests ejecutados
 
-La calidad y las pruebas unitarias, de base de datos y de seguridad se registran una sola vez en el histórico Makefile.
+- `make backend-quality`: **OK** (`ruff`, formato sobre **159 archivos** y `mypy` sobre **158 archivos fuente**).
+- `make backend-test-unit`: **308 passed, 70 deselected**.
+- `make backend-test-db`: **48 passed, 330 deselected** y **2 advertencias de Alembic**.
+- `make backend-test-security`: **22 passed, 356 deselected**.
+- Suite completa con `TEST_DATABASE_URL` local dedicada: **378 passed** y **2 advertencias de Alembic**.
+- Ejecución directa de `pytest` sin URL de pruebas: **330 passed, 48 skipped**.
+
+`backend-test-db` requiere la URL y rebaselinea destructivamente la base local `*_test` antes de las pruebas. Sin URL, la ejecución directa de `pytest` omite los 48 casos de base de datos. Las advertencias de Alembic son un seguimiento no bloqueante; no se documenta una corrección no aplicada.
 
 ## Riesgos o deuda tecnica
 
-El bootstrap futuro y las validaciones de ciclo de vida posteriores permanecen pendientes.
+No existe un target de bootstrap en este alcance.
 
 ## Relacion con el backend
 

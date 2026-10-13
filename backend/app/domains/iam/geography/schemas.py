@@ -55,6 +55,7 @@ class CityBase(BaseModel):
     """Campos base del catálogo de ciudades."""
 
     id_state: int
+    id_country: int
     city_name: str = Field(..., max_length=120)
 
 
@@ -66,6 +67,7 @@ class CityUpdate(BaseModel):
     """Datos opcionales para actualizar parcialmente una ciudad."""
 
     id_state: int | None = None
+    id_country: int | None = None
     city_name: str | None = Field(default=None, max_length=120)
 
 

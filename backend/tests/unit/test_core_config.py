@@ -107,6 +107,7 @@ def test_does_not_read_environment_file(monkeypatch: pytest.MonkeyPatch) -> None
         {"DATABASE_URL": "postgresql+psycopg://test:test@localhost/application"},
         {"TEST_DATABASE_URL": "sqlite:///guakamole_test"},
         {"TEST_DATABASE_URL": "postgresql+psycopg://test:test@localhost/application"},
+        {"TEST_DATABASE_URL": "postgresql+psycopg://test:test@remote/guakamole_test"},
     ],
 )
 def test_test_database_selector_rejects_fallbacks_and_unsafe_urls(
@@ -116,9 +117,18 @@ def test_test_database_selector_rejects_fallbacks_and_unsafe_urls(
         get_test_database_url(environment)
 
 
-def test_test_database_selector_accepts_only_dedicated_postgresql_database() -> None:
-    environment = {
-        "TEST_DATABASE_URL": "postgresql+psycopg://test:test@localhost/guakamole_test"
-    }
+@pytest.mark.parametrize(
+    "database_url",
+    [
+        "postgresql+psycopg://test:test@localhost/guakamole_test",
+        "postgresql+psycopg://test:test@127.0.0.1/guakamole_test",
+        "postgresql+psycopg://test:test@[::1]/guakamole_test",
+        "postgresql+psycopg:///guakamole_test?host=/var/run/postgresql",
+    ],
+)
+def test_test_database_selector_accepts_only_dedicated_local_postgresql_database(
+    database_url: str,
+) -> None:
+    environment = {"TEST_DATABASE_URL": database_url}
 
     assert get_test_database_url(environment) == environment["TEST_DATABASE_URL"]

@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Consolidar las reglas Docker validadas en el punto 2 y distinguirlas de la operación de migraciones pendiente.
+Consolidar las reglas Docker validadas y distinguirlas de la operación de migraciones, que queda fuera de este cambio.
 
 ## Responsabilidad del documento
 
@@ -10,11 +10,11 @@ Recoge únicamente reglas de Compose y contexto de construcción del backend den
 
 ## Estado actual
 
-**VALIDADO PARCIALMENTE — punto 2 completado.** La fase continúa por puntos posteriores.
+**VALIDADO — punto 3 completado.**
 
 ## Cambios realizados
 
-Se validan la lista permitida explícita de configuración para Compose y la exclusión del material local no necesario mediante `.dockerignore` en `backend/`.
+Se mantienen las reglas de Compose y contexto del punto 2. El punto 3 solo añade implicaciones operativas del baseline, sin cambios Docker.
 
 ## Justificacion tecnica
 
@@ -26,19 +26,21 @@ Estas reglas reducen la exposición de configuración y el contenido innecesario
 
 - Compose configura el backend mediante una allowlist explícita, sin cargar el entorno completo ni incluir credenciales de PostgreSQL o configuración de pruebas.
 - El contexto de `backend/` excluye archivos de entorno, Git, cachés, entornos virtuales y pruebas, y conserva aplicación, Alembic, `alembic.ini` y scripts.
+- No hay ejecución automática de migraciones al arrancar el backend ni target Docker de migración o rebaseline.
+- Cualquier futura orquestación Docker del rebaseline deberá exigir confirmación explícita y conservar sus destinos seguros: prueba local `*_test` o desarrollo local separado `*_dev`/`*_development`; se rechazan hosts remotos.
 
-### Propuestas pendientes
-
-- **Punto 5:** crear una tarea Docker explícita para migraciones.
-- Mantener prohibida la ejecución automática de migraciones al arrancar el backend hasta que dicha tarea se diseñe y valide.
+- No se implementa una tarea Docker para migraciones.
+- Se mantiene prohibida la ejecución automática de migraciones al arrancar el backend.
 
 ## Tests ejecutados
 
-La validación de renderizado se conserva en el histórico Docker. Este baseline no duplica evidencias.
+La validación de renderizado se conserva en el histórico Docker. La evidencia final es: `make backend-quality` **OK** (`ruff`, formato sobre **159 archivos** y `mypy` sobre **158 archivos fuente**); `make backend-test-unit`, **308 passed, 70 deselected**; `make backend-test-db`, **48 passed, 330 deselected** y **2 advertencias de Alembic**; `make backend-test-security`, **22 passed, 356 deselected**; y suite completa con `TEST_DATABASE_URL` local dedicada, **378 passed** y **2 advertencias de Alembic**. La ejecución directa de `pytest` sin URL de pruebas produjo **330 passed, 48 skipped**.
+
+`backend-test-db` exige URL de pruebas, rechaza hosts remotos y rebaselinea destructivamente una base local `*_test` antes de su suite. Las advertencias son seguimiento no bloqueante; no se documenta una corrección no aplicada.
 
 ## Riesgos o deuda tecnica
 
-La tarea de migración y su validación de ciclo de vida siguen pendientes.
+La tarea Docker de migraciones no se ha implantado y queda fuera de este cambio.
 
 ## Relacion con el backend
 

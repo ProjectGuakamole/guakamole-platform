@@ -15,7 +15,7 @@ help: ## Muestra los comandos disponibles.
 	@printf '  make install               Instala/prepara dependencias del backend.\n'
 	@printf '  make backend-quality       Ejecuta lint, formato y mypy en backend.\n'
 	@printf '  make backend-test-unit     Ejecuta tests unitarios y de arquitectura en backend.\n'
-	@printf '  make backend-test-db       Ejecuta tests de base de datos e integración en backend. Requiere PostgreSQL disponible y migrado.\n'
+	@printf '  make backend-test-db       Reconstruye la DB de pruebas y ejecuta tests de base de datos e integración.\n'
 	@printf '  make backend-test-security Ejecuta tests de seguridad sin dependencia de base de datos en backend.\n'
 	@printf '  make backend-test          Ejecuta quality y grupos de tests backend alineados con CI.\n'
 	@printf '  make backend-check         Consulta health y ready del backend levantado.\n'
@@ -58,8 +58,9 @@ backend-test-unit: ## Ejecuta tests unitarios y de arquitectura del backend.
 
 backend-test-db: ## Ejecuta tests de base de datos e integración del backend.
 	@test -f "$(ENV_FILE_PATH)" || { printf 'Falta ENV_FILE.\n' >&2; exit 1; }
-	@set -a; . "$(ENV_FILE_PATH)"; set +a; test -n "$$TEST_DATABASE_URL" || { printf 'TEST_DATABASE_URL es obligatoria.\n' >&2; exit 1; }; cd $(BACKEND_DIR) && env -u JWT_SECRET APP_ENV=test DATABASE_URL="$$TEST_DATABASE_URL" TEST_DATABASE_URL="$$TEST_DATABASE_URL" uv run python -c 'from app.core.test_database import get_test_database_url; import os; get_test_database_url(os.environ)'
-	@set -a; . "$(ENV_FILE_PATH)"; set +a; cd $(BACKEND_DIR) && env -u JWT_SECRET APP_ENV=test DATABASE_URL="$$TEST_DATABASE_URL" TEST_DATABASE_URL="$$TEST_DATABASE_URL" uv run pytest -m "db or integration"
+	@set -a; . "$(ENV_FILE_PATH)"; set +a; test -n "$$TEST_DATABASE_URL" || { printf 'TEST_DATABASE_URL es obligatoria.\n' >&2; exit 1; }; cd $(BACKEND_DIR) && env -u JWT_SECRET -u DATABASE_URL APP_ENV=test TEST_DATABASE_URL="$$TEST_DATABASE_URL" uv run python -c 'from app.core.test_database import get_test_database_url; import os; get_test_database_url(os.environ)'
+	@set -a; . "$(ENV_FILE_PATH)"; set +a; cd $(BACKEND_DIR) && env -u JWT_SECRET -u DATABASE_URL APP_ENV=test TEST_DATABASE_URL="$$TEST_DATABASE_URL" uv run python -m scripts.rebaseline_iam --confirm REBASELINE_IAM
+	@set -a; . "$(ENV_FILE_PATH)"; set +a; cd $(BACKEND_DIR) && env -u JWT_SECRET -u DATABASE_URL APP_ENV=test DATABASE_URL="$$TEST_DATABASE_URL" TEST_DATABASE_URL="$$TEST_DATABASE_URL" uv run pytest -m "db or integration"
 
 backend-test-security: ## Ejecuta tests de seguridad sin dependencia de base de datos del backend.
 	cd $(BACKEND_DIR) && uv run pytest -m "security and not db"

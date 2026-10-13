@@ -4,7 +4,7 @@ from types import TracebackType
 from typing import cast
 
 import pytest
-from sqlalchemy.engine import URL, Engine, make_url
+from sqlalchemy.engine import URL, Connection, Engine, make_url
 from sqlalchemy.sql.elements import TextClause
 
 import scripts.seed_demo_iam as seed_demo_iam
@@ -251,7 +251,15 @@ def test_seed_demo_truncates_before_inserts(monkeypatch: pytest.MonkeyPatch) -> 
         return seed_demo_iam.OperationStats(created=5)
 
     monkeypatch.setattr(seed_demo_iam, "assert_schema_ready", lambda _engine: None)
+    monkeypatch.setattr(
+        seed_demo_iam, "assert_pgcrypto_available", lambda _engine: None
+    )
     monkeypatch.setattr(seed_demo_iam, "truncate_iam", fake_truncate)
+    monkeypatch.setattr(
+        seed_demo_iam,
+        "synchronize_registration_identities",
+        lambda _connection: events.append("synchronize_identities"),
+    )
     monkeypatch.setattr(seed_demo_iam, "insert_statuses", fake_insert_statuses)
     monkeypatch.setattr(
         seed_demo_iam,
@@ -303,7 +311,24 @@ def test_seed_demo_truncates_before_inserts(monkeypatch: pytest.MonkeyPatch) -> 
 
     seed_demo(cast(Engine, FakeEngine()), load_fixture())
 
-    assert events == ["truncate", "insert_statuses"]
+    assert events == ["truncate", "insert_statuses", "synchronize_identities"]
+
+
+def test_synchronize_registration_identities_uses_postgresql_sequence_lookup() -> None:
+    connection = FakeConnection()
+
+    seed_demo_iam.synchronize_registration_identities(cast(Connection, connection))
+
+    assert len(connection.statements) == 2
+    assert (
+        "pg_get_serial_sequence('sch_iam.tbl_organization', 'id_organization')"
+        in (connection.statements[0])
+    )
+    assert (
+        "pg_get_serial_sequence('sch_iam.tbl_users', 'id_user')"
+        in (connection.statements[1])
+    )
+    assert "setval" in connection.statements[0]
 
 
 def test_help_reflects_yes_and_destructive_behavior(

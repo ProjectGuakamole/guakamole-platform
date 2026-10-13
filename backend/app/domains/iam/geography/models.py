@@ -4,6 +4,9 @@ from sqlalchemy import (
     Index,
     PrimaryKeyConstraint,
     String,
+    UniqueConstraint,
+    column,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -17,6 +20,11 @@ class Country(Base):
     __tablename__ = "tbl_country"
     __table_args__ = (
         PrimaryKeyConstraint("id_country", name="pk_tbl_country"),
+        Index(
+            "uq_tbl_country_country_name_ci",
+            func.lower(column("country_name")),
+            unique=True,
+        ),
         {"schema": IAM_SCHEMA},
     )
 
@@ -37,6 +45,15 @@ class State(Base):
             ondelete="RESTRICT",
             onupdate="CASCADE",
         ),
+        UniqueConstraint(
+            "id_state", "id_country", name="uq_tbl_state_id_state_id_country"
+        ),
+        Index(
+            "uq_tbl_state_country_name_ci",
+            "id_country",
+            func.lower(column("state_name")),
+            unique=True,
+        ),
         Index("ix_tbl_state_id_country", "id_country"),
         {"schema": IAM_SCHEMA},
     )
@@ -53,11 +70,23 @@ class City(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id_city", name="pk_tbl_city"),
         ForeignKeyConstraint(
-            ["id_state"],
-            [f"{IAM_SCHEMA}.tbl_state.id_state"],
-            name="fk_tbl_city_id_state",
+            ["id_state", "id_country"],
+            [
+                f"{IAM_SCHEMA}.tbl_state.id_state",
+                f"{IAM_SCHEMA}.tbl_state.id_country",
+            ],
+            name="fk_tbl_city_id_state_country",
             ondelete="RESTRICT",
             onupdate="CASCADE",
+        ),
+        UniqueConstraint(
+            "id_city", "id_state", "id_country", name="uq_tbl_city_geo_hierarchy"
+        ),
+        Index(
+            "uq_tbl_city_state_name_ci",
+            "id_state",
+            func.lower(column("city_name")),
+            unique=True,
         ),
         Index("ix_tbl_city_id_state", "id_state"),
         {"schema": IAM_SCHEMA},
@@ -65,4 +94,5 @@ class City(Base):
 
     id_city: Mapped[int] = mapped_column(BigInteger)
     id_state: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    id_country: Mapped[int] = mapped_column(BigInteger, nullable=False)
     city_name: Mapped[str] = mapped_column(String(120), nullable=False)

@@ -271,6 +271,7 @@ def seed_catalogs(session: Session) -> None:
         City(
             id_city=TEST_CITY_ID,
             id_state=TEST_STATE_ID,
+            id_country=TEST_COUNTRY_ID,
             city_name="Repository Test City",
         )
     )

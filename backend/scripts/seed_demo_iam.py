@@ -292,6 +292,7 @@ def assert_schema_ready(engine: Engine) -> None:
 
 def seed_demo(engine: Engine, fixture: DemoFixture) -> SeedResult:
     assert_schema_ready(engine)
+    assert_pgcrypto_available(engine)
     with engine.begin() as connection:
         truncate_iam(connection)
         status_stats = insert_statuses(connection, fixture["statuses"])
@@ -324,6 +325,7 @@ def seed_demo(engine: Engine, fixture: DemoFixture) -> SeedResult:
         )
         dept_stats = upsert_departments(connection, fixture["departments"])
         relation_stats = upsert_relations(connection, fixture["department_relations"])
+        synchronize_registration_identities(connection)
     return SeedResult(
         status_stats,
         platform_role_stats,
@@ -357,8 +359,47 @@ def clear_demo(engine: Engine) -> SeedResult:
     )
 
 
+def assert_pgcrypto_available(engine: Engine) -> None:
+    """Exige la extensión sólo porque el seed demo genera UUID en SQL."""
+
+    with engine.connect() as connection:
+        installed = connection.execute(
+            text(
+                "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto')"
+            )
+        ).scalar_one()
+    if not installed:
+        raise RuntimeError(
+            "El seed demo requiere pgcrypto para generar public_id; instálala "
+            "explícitamente fuera de la migración base."
+        )
+
+
 def truncate_iam(connection: Connection) -> None:
     connection.execute(text(build_truncate_statement()))
+
+
+def synchronize_registration_identities(connection: Connection) -> None:
+    """Alinea las identidades tras insertar claves explícitas del seed demo."""
+
+    statements = (
+        """
+        SELECT setval(
+            pg_get_serial_sequence('sch_iam.tbl_organization', 'id_organization'),
+            COALESCE((SELECT MAX(id_organization) FROM sch_iam.tbl_organization), 1),
+            true
+        )
+        """,
+        """
+        SELECT setval(
+            pg_get_serial_sequence('sch_iam.tbl_users', 'id_user'),
+            COALESCE((SELECT MAX(id_user) FROM sch_iam.tbl_users), 1),
+            true
+        )
+        """,
+    )
+    for statement in statements:
+        connection.execute(text(statement))
 
 
 def load_first_geo(connection: Connection) -> Mapping[str, object]:
@@ -468,8 +509,10 @@ def insert_cities(connection: Connection, cities: list[CityFixture]) -> Operatio
         ).scalar_one()
         connection.execute(
             text("""
-            INSERT INTO sch_iam.tbl_city (id_city, id_state, city_name)
-            VALUES (:id, :state_id, :name)
+            INSERT INTO sch_iam.tbl_city (id_city, id_state, id_country, city_name)
+            SELECT :id, id_state, id_country, :name
+            FROM sch_iam.tbl_state
+            WHERE id_state = :state_id
             """),
             {"id": index, "state_id": state_id, "name": item["city_name"]},
         )
@@ -756,10 +799,15 @@ def upsert_relations(
             connection.execute(
                 text("""
                 INSERT INTO sch_iam.tbl_department_relations
-                (id_department_relation, id_department, id_user)
-                VALUES (:id, :department, :user)
+                (id_department_relation, id_department, id_user, id_organization)
+                VALUES (:id, :department, :user, :organization)
             """),
-                {"id": next_pk, "department": department_id, "user": user["id_user"]},
+                {
+                    "id": next_pk,
+                    "department": department_id,
+                    "user": user["id_user"],
+                    "organization": user["id_organization"],
+                },
             )
             created += 1
             next_pk += 1

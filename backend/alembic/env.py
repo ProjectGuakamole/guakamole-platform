@@ -4,7 +4,7 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import Connection, engine_from_config, pool
 
 import app.db.model_registry as model_registry
 from app.db.base import Base
@@ -60,6 +60,13 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Ejecuta migraciones en modo online."""
 
+    connection = config.attributes.get("connection")
+    if connection is not None:
+        if not isinstance(connection, Connection):
+            raise RuntimeError("La conexión inyectada para Alembic no es válida.")
+        _run_migrations_with_connection(connection)
+        return
+
     config.set_main_option(SQLALCHEMY_URL_OPTION, get_required_database_url())
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
@@ -68,10 +75,16 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        _run_migrations_with_connection(connection)
 
-        with context.begin_transaction():
-            context.run_migrations()
+
+def _run_migrations_with_connection(connection: Connection) -> None:
+    """Configura y ejecuta Alembic sobre una conexión ya seleccionada."""
+
+    context.configure(connection=connection, target_metadata=target_metadata)
+
+    with context.begin_transaction():
+        context.run_migrations()
 
 
 if context.is_offline_mode():
