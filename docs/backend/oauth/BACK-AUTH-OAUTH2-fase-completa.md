@@ -2543,3 +2543,86 @@ CORS + hardening + rate limiting alrededor
 La fase deja a Project Guacamole en una posición mejor para construir el resto del backend: IAM, multi-tenant, RBAC, auditoría, invitaciones, roadmaps, escenarios y laboratorios ya no parten de cero en autenticación.
 
 En resumen: **BACK-AUTH-OAUTH2-012 cierra la fase OAuth2 validando que las piezas encajan como cimiento de autenticación para el MVP. El sistema queda preparado para crecer hacia IAM y aislamiento multiempresa, pero todavía no debe considerarse un IAM completo ni una solución productiva definitiva sin las fases pendientes de RBAC, auditoría, MFA, gestión de secretos y endurecimiento operativo**.
+
+## Auditoría BACK-AUTH-OAUTH-001
+
+### 1. Estado inicial, inventario y modelo de amenazas
+
+#### Objetivo y estado inicial
+
+Este punto delimita la superficie de autenticación y las amenazas que deberán contrastarse antes de valorar la eficacia de sus controles. Es un inventario de lectura, no una certificación de seguridad ni una repetición del desarrollo histórico de la fase OAuth2.
+
+La rama de trabajo es `backend/audit/BACK-AUTH-OAUTH-001`, creada desde `main` limpio y actualizado en `ea473a2`, con la baseline hex de la PR #51 ya mergeada. La convención acordada para futuras auditorías es `backend/audit/`. Esta referencia identifica el estado de partida: **en este punto no se crea una nueva baseline**.
+
+La propuesta del punto 1 está aprobada por arquitectura y QA. El alcance es exclusivamente documental y de lectura: no se han ejecutado tests, aplicado cambios funcionales, cargado seeds, ejecutado migraciones ni realizado operaciones destructivas. Las comprobaciones de entorno comunicadas por QA se registran por separado y no se presentan como tests de autenticación.
+
+#### Inventario estático de la superficie HTTP
+
+Las seis rutas inventariadas tienen el prefijo `/api/v1`. La evidencia de este apartado procede de la lectura inicial; sus contratos y controles siguen pendientes de comprobación funcional en la auditoría.
+
+| Método y ruta | Entrada y credencial | Contrato observado | Dependencias principales |
+| --- | --- | --- | --- |
+| `POST /api/v1/organizations/register` | JSON con organización y usuario. | Respuesta `201` con IDs públicos y estados; no abre sesión. | Servicio de registro, repositorio SQLAlchemy, Argon2, settings y adaptador de auditoría. |
+| `POST /api/v1/auth/login` | Email y contraseña. | Estado `authenticated` y emisión de cookie de autenticación. | Servicio de login, repositorio SQLAlchemy, verificación Argon2, settings, JWT y auditoría. |
+| `GET /api/v1/auth/me` | Cookie de autenticación. | Identidad mínima con IDs públicos de usuario y organización. | Servicio de identidad, verificador JWT y repositorio SQLAlchemy. |
+| `GET /api/v1/auth/csrf` | Cookie de autenticación. | Token CSRF ligado a `sub` y `jti` de la sesión. | Verificación JWT, mecanismo CSRF y settings; sin consulta a DB. |
+| `POST /api/v1/auth/logout` | Cookie y cabecera `X-CSRF-Token`. | Borrado de cookie y estado `logged_out`. | Verificación JWT/CSRF y configuración de cookie; sin consulta a DB ni revocación observada. |
+| `POST /api/v1/auth/token` | Formulario `username` y `password`. | Ruta publicada; operación rechazada con `403` por defecto (`False`). Mediante opt-in devuelve JWT bearer, sin cookie. | Adaptador de credenciales, servicio de login, repositorio SQLAlchemy, Argon2, settings, JWT y auditoría. |
+
+El recorrido de credenciales separa adaptador HTTP, servicio de aplicación y repositorio SQLAlchemy. Argon2 interviene en el hash y la comprobación de contraseñas; los settings gobiernan configuración de tokens, cookies y activación del adaptador; el servicio JWT emite/verifica credenciales; los adaptadores de auditoría producen logging saneado, **no una auditoría durable**.
+
+El JWT utiliza `HS256` y exige los claims `sub`, `type`, `jti`, `iat` y `exp`. El claim `org` se emite cuando está disponible y es exigido por `/me`, no por el verificador JWT global. La cookie tiene por defecto `Secure`, `HttpOnly` y `SameSite=lax`; configurar `SameSite=none` exige `Secure`. Estos son hechos estáticos del estado inventariado, no resultados de una prueba de navegador ni una modificación de los valores descritos en etapas históricas anteriores.
+
+Hay configuración CORS explícita, pero CORS regula interacciones del navegador entre orígenes: **no autentica ni autoriza**. El rate limiting se aplica por ruta/IP con estado en memoria del proceso, sin garantía de coordinación entre procesos. IAM/users no está publicado en esta superficie y no se certifica RBAC de extremo a extremo. El adaptador password de `/auth/token` tampoco convierte la aplicación en un servidor OAuth completo.
+
+#### Evidencia de pruebas existente y comprobaciones del entorno
+
+El inventario identifica tests HTTP de login, me, register y token con overrides de servicios. Permiten aislar el contrato HTTP, pero sustituyen parte del recorrido real. También existen tests de integración de repositorios con PostgreSQL: **su existencia no equivale a un flujo HTTP E2E** que conecte router, servicio, hashing, JWT y persistencia reales. Ninguno de esos tests se ha ejecutado en el punto 1.
+
+Comprobaciones de entorno **confirmadas por QA**, distintas de la lectura estática:
+
+- El daemon Docker es accesible y se observaron cuatro contenedores en estado running. No se registran sus nombres.
+- PostgreSQL respondió `1` a `SELECT 1` dentro de una transacción `READ ONLY`, terminada con rollback. No se escribieron datos ni se incluyen credenciales.
+- Esa comprobación acredita conectividad SQL básica, no el vínculo entre la base de datos consultada y un contenedor específico, ni la validez del esquema o del flujo de autenticación.
+
+Las fixtures de DB disponen de un fallback que selecciona `DATABASE_URL` del `.env.example` de la raíz, coincidente con el destino local loopback identificado. No se reproduce la URL. El usuario ha autorizado la destrucción de datos seed/demo **locales para pruebas futuras**; esa autorización no implica que se hayan destruido datos en este punto ni permite actuar sobre otros entornos. Antes de ejecutar fixtures o pruebas destructivas deberá verificarse de nuevo el destino efectivo, incluido cualquier override del entorno: loopback por sí solo no demuestra que la base sea desechable.
+
+#### Modelo de amenazas
+
+**Activos que se deben proteger:** credenciales en tránsito y hashes persistidos; JWT y clave de firma; tokens CSRF; identidad de usuario y tenant; datos de cada organización; disponibilidad de la API y PostgreSQL; integridad y confidencialidad de la evidencia de auditoría.
+
+**Actores considerados:** cliente anónimo; usuario autenticado adversario que intenta salir de su ámbito; poseedor de un token robado; sitio externo que intenta CSRF; operador que introduce una configuración incorrecta, especialmente al seleccionar la base de pruebas. No se presupone que todo usuario autenticado sea confiable.
+
+**Fronteras de confianza:**
+
+```text
+Cliente → API → resolución de identidad en DB → autorización → logging
+Entorno/configuración de pruebas → selección de DB de pruebas
+```
+
+En la primera frontera, el backend debe validar entradas y credenciales sin confiar en el cliente. Una firma JWT válida no basta para autorizar recursos: se debe contrastar la identidad y el tenant, y aplicar permisos donde corresponda. En logging, la necesidad de trazabilidad no justifica registrar secretos. En la segunda frontera, la configuración debe impedir que una prueba con limpieza de datos alcance una base no autorizada.
+
+#### Matriz de controles y verificaciones pendientes
+
+`NO VERIFICADO` significa que se ha identificado un control o comportamiento por lectura, pero **no se ha demostrado su eficacia funcional en esta auditoría**. No significa automáticamente que el control falle. Las comprobaciones de entorno confirmadas anteriormente no cambian este estado.
+
+| Control | Amenaza | Evidencia disponible | Tests pendientes | Resultado | Deuda |
+| --- | --- | --- | --- | --- | --- |
+| Validación y Argon2 en registro/login | Contraseñas inválidas, enumeración de cuentas y fallos de hash. | Schemas, servicios y hasher inventariados; tests HTTP con overrides. | Contrastar espacios en contraseñas entre registro/login, entradas límite, errores uniformes y fallos de hash. | NO VERIFICADO | Confirmar coherencia y tratamiento seguro de errores. |
+| Firma y claims JWT | Token manipulado, expirado o de tipo incorrecto. | `HS256`; claims obligatorios `sub`, `type`, `jti`, `iat`, `exp`; `org` emitido cuando está disponible y exigido por `/me`, no por el verificador global. | Firma incorrecta, expiración, claims obligatorios ausentes/inválidos y exigencia de `org` en `/me`; errores de verificación JWT, separados de los errores del DTO de formulario de `/token`. | NO VERIFICADO | Confirmar rechazo controlado sin filtrar detalles internos. |
+| Endpoint `/auth/token` | Entradas de formulario inválidas o emisión bearer sin opt-in. | Ruta publicada; flag `False` por defecto rechaza la operación con `403`; DTO de formulario y respuesta bearer sin cookie mediante opt-in. | Errores de validación del DTO de formulario, rechazo `403` con el flag desactivado y respuesta bearer sin cookie con opt-in. | NO VERIFICADO | Confirmar contrato del adaptador y tratamiento controlado de errores del formulario. |
+| Atributos y borrado de cookie | Exposición de sesión o persistencia involuntaria de cookie. | Defaults `Secure`, `HttpOnly`, `lax`; `none` requiere `Secure`; borrado en logout. | Atributos emitidos y borrados, combinaciones de settings y comportamiento de navegador. | NO VERIFICADO | Validación por entorno y correspondencia de atributos. |
+| Resolución de `sub` + `org` y estado | Suplantación de tenant o uso de identidad/organización no activa. | Consulta de identidad; comprobación de organización `ACTIVE` no observada en login/me. | Cruce de tenant, usuario inactivo, organización inactiva y cambios de estado tras emitir token. | NO VERIFICADO | Determinar política efectiva; no certificar RBAC E2E. |
+| CSRF ligado a `sub`/`jti` | Petición forzada, token CSRF de otra sesión o replay. | Emisión CSRF y exigencia de cabecera en logout; sin DB. | Ausencia, manipulación, otra sesión y reutilización de CSRF. | NO VERIFICADO | Precisar límites de vinculación y replay. |
+| Logout mediante borrado local | Reutilización de un JWT previamente copiado. | Borrado de cookie; no revocación observada ni consulta DB. | Reutilizar token tras logout y contrastar comportamiento hasta expiración. | NO VERIFICADO | Distinguir cierre local de invalidación server-side. |
+| Rate limiting por ruta/IP | Fuerza bruta y agotamiento de recursos. | Contador en memoria de proceso. | Umbral, ventana, separación de rutas/IP, concurrencia y comportamiento con varios procesos/proxy. | NO VERIFICADO | No hay límite distribuido; revisar confianza en IP. |
+| Logging de auditoría saneado | Fuga de secretos o pérdida de trazabilidad. | Adaptadores de logging; no almacenamiento durable. | Captura de logs de éxito/error, excepciones y ausencia de contraseñas, hashes, JWT, claves y CSRF. | NO VERIFICADO | Confirmar saneamiento y definir persistencia/retención. |
+| Selección y aislamiento de DB de tests | Destrucción de datos fuera del destino autorizado. | Fixtures con fallback local; conectividad básica confirmada por QA. | Verificar destino efectivo antes de pruebas y comprobar aislamiento/limpieza de fixtures. | NO VERIFICADO | Autorización limitada a seed/demo local; falta validar ejecución segura de fixtures. |
+
+#### Decisiones, límites y cierre del punto 1
+
+Se mantiene el histórico íntegro y se añade esta fotografía inicial para separar implementación descrita, evidencia disponible y demostración pendiente. No se asignan severidades definitivas: la comprobación de organización `ACTIVE` no observada en login/me, la coherencia de contraseñas con espacios, la validación interna del token y sus errores, los fallos de hash, la seguridad de logs y los límites de replay/logout son **preguntas de verificación**, no hallazgos explotables demostrados. Los puntos 2 y 3 deberán contrastarlas.
+
+El impacto sobre el backend es de trazabilidad y preparación de la auditoría: delimita qué componentes y fronteras se deberán probar, sin alterar rutas, contratos, persistencia ni configuración. No se ha implementado código ni ejecutado tests en este punto.
+
+**Arquitectura y QA aprueban el inventario y el modelo de amenazas del punto 1; la eficacia de los controles de seguridad permanece pendiente.** No se han abordado los puntos 2–8 ni se han abierto PRs en este punto. No se crea baseline.
