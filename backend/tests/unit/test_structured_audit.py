@@ -8,6 +8,11 @@ import pytest
 
 from app.domains.auth.login.audit import StructuredLoginAuditAdapter
 from app.domains.auth.login.service import LoginFailedAuditEvent, LoginSuccessAuditEvent
+from app.domains.auth.logout.audit import (
+    LOGOUT,
+    LogoutAuditEvent,
+    StructuredLogoutAuditAdapter,
+)
 from app.domains.iam.registration.dependencies import get_registration_service
 from app.domains.iam.users.dependencies import get_list_organization_users_service
 from app.shared.audit import (
@@ -63,6 +68,27 @@ def test_login_audit_emits_safe_success_and_failure_events() -> None:
         {"email_hash": "hash"},
     ]
     assert "password" not in repr(metadata).lower()
+    assert "token" not in repr(metadata).lower()
+
+
+def test_logout_audit_emits_only_public_ids_and_nonreversible_jti_hash() -> None:
+    logger = logging.getLogger("test.audit.logout")
+    handler = CapturingHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    adapter = StructuredLogoutAuditAdapter(StructuredAuditLogger(logger))
+
+    adapter.record_logout(LogoutAuditEvent("usr_1", "org_1", "hashed-jti"))
+
+    logger.removeHandler(handler)
+    assert handler.records[0].__dict__["audit_action"] == LOGOUT
+    metadata = handler.records[0].__dict__["audit_metadata"]
+    assert metadata == {
+        "user_id": "usr_1",
+        "organization_id": "org_1",
+        "jti_hash": "hashed-jti",
+    }
+    assert "csrf" not in repr(metadata).lower()
     assert "token" not in repr(metadata).lower()
 
 

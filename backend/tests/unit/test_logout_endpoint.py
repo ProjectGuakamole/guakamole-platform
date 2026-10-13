@@ -5,17 +5,39 @@ from fastapi.testclient import TestClient
 
 from app.domains.auth.csrf.service import CsrfTokenService
 from app.domains.auth.shared.config import AuthSettings
+from app.domains.auth.shared.session_dependencies import get_auth_session_service
+from app.domains.auth.shared.session_repository import ActiveSessionIdentity
 from app.domains.auth.shared.tokens import JwtAccessTokenService
 from app.main import create_app
 
 pytestmark = pytest.mark.test_unit
 
 
+class StubSessionService:
+    def __init__(self, settings: AuthSettings) -> None:
+        self._tokens = JwtAccessTokenService(settings)
+
+    def validate(self, raw_token: str) -> tuple[object, ActiveSessionIdentity]:
+        return self._tokens.verify_access_token(raw_token), ActiveSessionIdentity(
+            "usr_123", "org_123"
+        )
+
+    def revoke(self, token: object) -> None:
+        _ = token
+
+
 def build_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv(
         "JWT_SECRET_KEY", "test-secret-not-for-production-with-safe-length"
     )
-    return TestClient(create_app())
+    app = create_app()
+    settings = AuthSettings.model_validate(
+        {"jwt_secret_key": "test-secret-not-for-production-with-safe-length"},
+    )
+    app.dependency_overrides[get_auth_session_service] = lambda: StubSessionService(
+        settings
+    )
+    return TestClient(app)
 
 
 def auth_settings() -> AuthSettings:
@@ -108,7 +130,7 @@ def test_logout_uses_cookie_settings_from_environment(
     monkeypatch.setenv("AUTH_COOKIE_SAMESITE", "strict")
     monkeypatch.setenv("AUTH_COOKIE_SECURE", "true")
     monkeypatch.setenv("AUTH_COOKIE_DOMAIN", "example.test")
-    client = TestClient(create_app())
+    client = build_client(monkeypatch)
     access_token, csrf_token = issue_access_and_csrf()
     client.cookies.set("custom_access_token", access_token)
 

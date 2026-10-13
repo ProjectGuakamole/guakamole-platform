@@ -49,7 +49,7 @@ class OrganizationRegistrationInput(BaseModel):
 
 
 class UserRegistrationInput(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid")
 
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=150)
@@ -62,6 +62,21 @@ class UserRegistrationInput(BaseModel):
     city: str = Field(min_length=1, max_length=120)
     address: str = Field(min_length=1, max_length=255)
     postal_code: str = Field(min_length=1, max_length=20)
+
+    @field_validator(
+        "first_name",
+        "last_name",
+        "email",
+        "country",
+        "state",
+        "city",
+        "address",
+        "postal_code",
+        mode="before",
+    )
+    @classmethod
+    def strip_non_secret_fields(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
 
     @field_validator("email")
     @classmethod

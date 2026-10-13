@@ -28,6 +28,8 @@ class AuthMeService:
 
         if verified_token.organization is None:
             raise NotAuthenticatedError
+        if self._repository.is_jti_revoked(verified_token.jti):
+            raise NotAuthenticatedError
 
         identity = self._repository.find_active_identity(
             user_public_id=verified_token.subject,

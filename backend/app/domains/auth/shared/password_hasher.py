@@ -3,6 +3,7 @@
 from typing import Protocol
 
 from pwdlib import PasswordHash
+from pwdlib.exceptions import UnknownHashError
 
 
 class PasswordHasher(Protocol):
@@ -25,4 +26,7 @@ class PwdlibPasswordHasher:
         return self._password_hash.hash(plain_password)
 
     def verify(self, plain_password: str, password_hash: str) -> bool:
-        return self._password_hash.verify(plain_password, password_hash)
+        try:
+            return self._password_hash.verify(plain_password, password_hash)
+        except (UnknownHashError, ValueError):
+            return False

@@ -2,14 +2,14 @@
 
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, Request, status
-from jwt import InvalidTokenError
+from fastapi import Depends, Header, HTTPException, status
 
 from app.domains.auth.csrf.exceptions import InvalidCsrfTokenError
 from app.domains.auth.csrf.service import CsrfTokenService
 from app.domains.auth.shared.config import AuthSettings
 from app.domains.auth.shared.dependencies import build_auth_settings
-from app.domains.auth.shared.tokens import JwtAccessTokenService, VerifiedAccessToken
+from app.domains.auth.shared.session_dependencies import get_active_access_token
+from app.domains.auth.shared.tokens import VerifiedAccessToken
 
 
 def unauthorized_response() -> HTTPException:
@@ -27,16 +27,12 @@ def csrf_forbidden_response() -> HTTPException:
 
 
 def get_verified_access_token_from_cookie(
-    request: Request,
-    auth_settings: Annotated[AuthSettings, Depends(build_auth_settings)],
+    verified_access_token: Annotated[
+        VerifiedAccessToken, Depends(get_active_access_token)
+    ],
 ) -> VerifiedAccessToken:
-    access_token = request.cookies.get(auth_settings.auth_cookie_name)
-    if access_token is None:
-        raise unauthorized_response()
-    try:
-        return JwtAccessTokenService(auth_settings).verify_access_token(access_token)
-    except InvalidTokenError as error:
-        raise unauthorized_response() from error
+    """Mantiene el nombre de dependencia y exige una sesión activa."""
+    return verified_access_token
 
 
 def require_valid_csrf_token(
