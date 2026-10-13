@@ -12,8 +12,8 @@ interface AppLayoutProps {
 function AppLayout({ children }: AppLayoutProps) {
   return (
     <Box
-      background="#0b1018"
-      color="white"
+      background="var(--app-bg)"
+      color="var(--app-fg)"
       display="flex"
       flexDirection="column"
       minH="100vh"

@@ -66,30 +66,30 @@ export default function LoginForm() {
       width="full"
       maxW="500px"
       mx="auto"
-      color="white"
+      color="var(--app-fg)"
       css={{
         "& label": {
-          color: "#cbd5e1",
+          color: "var(--app-text-muted)",
         },
         "& input": {
-          background: "rgba(255, 255, 255, 0.045)",
-          borderColor: "rgba(255, 255, 255, 0.16)",
-          color: "#fff",
+          background: "var(--app-input)",
+          borderColor: "var(--app-input-border)",
+          color: "var(--app-fg)",
         },
         "& input::placeholder": {
-          color: "#94a3b8",
+          color: "var(--app-input-placeholder)",
           fontWeight: "normal",
           opacity: 1,
         },
         "& input:focus": {
-          borderColor: "#5eead4",
-          boxShadow: "0 0 0 1px #5eead4",
+          borderColor: "var(--app-accent)",
+          boxShadow: "0 0 0 1px var(--app-accent)",
         },
       }}
     >
       <Stack gap={6}>
         <Box>
-          <Heading color="white" size="lg">Iniciar sesión</Heading>
+          <Heading color="var(--app-fg)" size="lg">Iniciar sesión</Heading>
         </Box>
 
         <form onSubmit={handleSubmit}>

@@ -5,9 +5,9 @@ function Footer() {
   return (
     <Box
       as="footer"
-      background="rgba(8, 12, 20, 0.96)"
+      background="var(--app-header)"
       borderTop="1px solid"
-      borderColor="rgba(255, 255, 255, 0.08)"
+      borderColor="var(--app-border)"
       py={6}
     >
       <Container maxW="7xl">
@@ -17,14 +17,14 @@ function Footer() {
           gap={3}
           flexDirection={{ base: "column", sm: "row" }}
         >
-          <Text color="gray.400" fontSize="sm">
+          <Text color="var(--app-text-subtle)" fontSize="sm">
             © Guakamole · Entrenamiento práctico en ciberseguridad.
           </Text>
           <Link
             asChild
-            color="gray.400"
+            color="var(--app-text-subtle)"
             fontSize="sm"
-            _hover={{ color: "teal.200", textDecoration: "none" }}
+            _hover={{ color: "var(--app-accent)", textDecoration: "none" }}
           >
             <RouterLink to="/#inicio">Volver al inicio ↑</RouterLink>
           </Link>

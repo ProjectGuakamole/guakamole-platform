@@ -24,7 +24,7 @@ function AuthPage({
   return (
     <Box
       as="section"
-      backgroundImage={`linear-gradient(110deg, rgba(7, 11, 19, 0.97), rgba(7, 11, 19, 0.86)), url("${landingBackground}")`}
+      backgroundImage={`var(--app-auth-overlay), url("${landingBackground}")`}
       backgroundPosition="center"
       backgroundSize="cover"
       minH="calc(100vh - 152px)"
@@ -38,7 +38,7 @@ function AuthPage({
         >
           <Stack gap={5} pt={{ lg: 10 }}>
             <Text
-              color="teal.200"
+              color="var(--app-accent)"
               fontSize="sm"
               fontWeight="bold"
               letterSpacing="wider"
@@ -48,29 +48,29 @@ function AuthPage({
             </Text>
             <Heading
               as="h1"
-              color="white"
+              color="var(--app-fg)"
               fontSize={{ base: "3xl", md: "5xl" }}
               lineHeight="1.12"
             >
               {title}
             </Heading>
-            <Text color="gray.300" fontSize="lg" lineHeight="1.8" maxW="lg">
+            <Text color="var(--app-text-muted)" fontSize="lg" lineHeight="1.8" maxW="lg">
               {description}
             </Text>
-            <Text color="gray.400" fontSize="sm">
+            <Text color="var(--app-text-subtle)" fontSize="sm">
               {alternateText}{" "}
-              <Link asChild color="teal.200" fontWeight="semibold">
+              <Link asChild color="var(--app-accent)" fontWeight="semibold">
                 <RouterLink to={alternateTo}>{alternateLabel}</RouterLink>
               </Link>
             </Text>
           </Stack>
           <Box
             backdropFilter="blur(16px)"
-            background="rgba(12, 19, 31, 0.82)"
+            background="var(--app-surface)"
             border="1px solid"
-            borderColor="rgba(255, 255, 255, 0.14)"
+            borderColor="var(--app-border)"
             borderRadius="2xl"
-            boxShadow="0 24px 80px rgba(0, 0, 0, 0.32)"
+            boxShadow="var(--app-shadow)"
             p={{ base: 5, md: 8 }}
             width="full"
           >

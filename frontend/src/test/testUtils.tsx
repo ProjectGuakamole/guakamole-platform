@@ -3,6 +3,7 @@ import { ChakraProvider, defaultSystem } from '@chakra-ui/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { render } from '@testing-library/react'
+import { ColorModeProvider } from '../components/ui/color-mode'
 
 export function renderWithProviders(
   ui: ReactElement,
@@ -17,9 +18,11 @@ export function renderWithProviders(
 
   return render(
     <ChakraProvider value={defaultSystem}>
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>
-      </QueryClientProvider>
+      <ColorModeProvider defaultTheme="light" enableSystem={false}>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>
+        </QueryClientProvider>
+      </ColorModeProvider>
     </ChakraProvider>,
   )
 }
