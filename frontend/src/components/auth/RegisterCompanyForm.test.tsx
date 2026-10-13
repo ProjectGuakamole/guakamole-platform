@@ -25,7 +25,7 @@ const authResponse: AuthResponse = {
 
 function fillRequiredFields(password: string) {
   const fields = [
-    ['Nombre de la empresa', 'Empresa de prueba'],
+    ['Nombre de la organización', 'Empresa de prueba'],
     ['Nombre', 'Jordi'],
     ['Apellidos', 'García'],
     ['Email', 'empresa@example.com'],
@@ -48,6 +48,13 @@ describe('RegisterCompanyForm', () => {
     vi.mocked(registerCompany).mockResolvedValue(authResponse)
     const user = userEvent.setup()
     renderWithProviders(<RegisterCompanyForm />)
+
+    expect(screen.getByRole('heading', { name: 'Crear cuenta' })).toBeInTheDocument()
+    expect(screen.queryByText('Datos de la empresa')).not.toBeInTheDocument()
+    expect(screen.queryByText('Datos del usuario')).not.toBeInTheDocument()
+    expect(
+      screen.getByLabelText('Nombre de la organización'),
+    ).toHaveAttribute('placeholder', 'Mi Organización')
 
     fillRequiredFields('secure-password')
     await user.click(screen.getByRole('button', { name: 'Crear cuenta' }))
