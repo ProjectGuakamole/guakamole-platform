@@ -23,19 +23,13 @@ const authResponse: AuthResponse = {
   },
 }
 
-function fillRequiredFields(password: string, confirmPassword: string) {
+function fillRequiredFields(password: string) {
   const fields = [
     ['Nombre de la empresa', 'Empresa de prueba'],
-    ['Slug', 'empresa-de-prueba'],
-    ['CIF / NIF', 'B12345678'],
-    ['ID País', '1'],
-    ['ID Estado / Provincia', '2'],
-    ['ID Ciudad', '3'],
     ['Nombre', 'Jordi'],
     ['Apellidos', 'García'],
     ['Email', 'empresa@example.com'],
     ['Contraseña', password],
-    ['Confirmar contraseña', confirmPassword],
   ]
 
   for (const [label, value] of fields) {
@@ -50,46 +44,23 @@ describe('RegisterCompanyForm', () => {
     vi.mocked(registerCompany).mockReset()
   })
 
-  it('impide enviar contraseñas distintas y registra la empresa cuando coinciden', async () => {
+  it('registra la empresa enviando sólo los datos requeridos', async () => {
     vi.mocked(registerCompany).mockResolvedValue(authResponse)
     const user = userEvent.setup()
     renderWithProviders(<RegisterCompanyForm />)
 
-    fillRequiredFields('secure-password', 'different-password')
-
-    expect(screen.getByText('Las contraseñas no coinciden.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Crear cuenta' })).toBeDisabled()
-    expect(registerCompany).not.toHaveBeenCalled()
-
-    fireEvent.change(screen.getByLabelText('Confirmar contraseña'), {
-      target: { value: 'secure-password' },
-    })
+    fillRequiredFields('secure-password')
     await user.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
     const expectedData = {
       organization: {
         name: 'Empresa de prueba',
-        slug: 'empresa-de-prueba',
-        orgRegisteredName: '',
-        orgTax: 'B12345678',
-        idCountry: '1',
-        idState: '2',
-        idCity: '3',
-        orgAddress: '',
-        orgZipcode: '',
       },
       user: {
-        email: 'empresa@example.com',
-        password: 'secure-password',
-        confirmPassword: 'secure-password',
         firstName: 'Jordi',
         lastName: 'García',
-        birthdate: '',
-        idCountry: '1',
-        idState: '2',
-        idCity: '3',
-        userAddress: '',
-        userZipcode: '',
+        email: 'empresa@example.com',
+        password: 'secure-password',
       },
     }
 
@@ -104,14 +75,35 @@ describe('RegisterCompanyForm', () => {
 
   it('muestra el error devuelto por el registro', async () => {
     vi.mocked(registerCompany).mockRejectedValue(
-      new Error('El CIF ya está registrado'),
+      new Error('El email ya está registrado'),
     )
     const user = userEvent.setup()
     renderWithProviders(<RegisterCompanyForm />)
 
-    fillRequiredFields('secure-password', 'secure-password')
+    fillRequiredFields('secure-password')
     await user.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
-    expect(await screen.findByText('El CIF ya está registrado')).toBeInTheDocument()
+    expect(await screen.findByText('El email ya está registrado')).toBeInTheDocument()
+  })
+
+  it('no envía datos con un email inválido ni con una contraseña demasiado corta', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<RegisterCompanyForm />)
+
+    fillRequiredFields('secure-password')
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'correo-no-valido' },
+    })
+    await user.click(screen.getByRole('button', { name: 'Crear cuenta' }))
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'empresa@example.com' },
+    })
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
+      target: { value: 'short' },
+    })
+    await user.click(screen.getByRole('button', { name: 'Crear cuenta' }))
+
+    expect(registerCompany).not.toHaveBeenCalled()
   })
 })

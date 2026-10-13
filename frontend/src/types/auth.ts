@@ -1,34 +1,14 @@
-// Datos de la organización.
+// Datos de la organización durante el registro.
 export interface OrganizationRegisterData {
   name: string;
-  slug: string;
-  orgRegisteredName: string;
-  orgTax: string;
-
-  idCountry: number;
-  idState: number;
-  idCity: number;
-
-  orgAddress: string;
-  orgZipcode: string;
 }
 
 // Datos del usuario durante el registro.
 export interface UserRegisterData {
-  email: string;
-  password: string;
-  confirmPassword: string;
-
   firstName: string;
   lastName: string;
-  birthdate: string;
-
-  idCountry: number;
-  idState: number;
-  idCity: number;
-
-  userAddress: string;
-  userZipcode: string;
+  email: string;
+  password: string;
 }
 
 // Datos completos del registro.
