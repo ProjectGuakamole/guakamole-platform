@@ -2730,3 +2730,29 @@ Esta sección conserva la trazabilidad exclusiva de la documentación original `
 - La evolución fue: **diseño y planificación → Auth Core → registro → sesión browser e identidad → logout y CSRF → bearer técnico y CORS → hardening de regresión → rate limiting → validación de fase → auditoría, correcciones y re-auditoría**.
 - Los resultados de QA de las tareas originales se preservan como cronología histórica: el Auth Core registró `291 passed, 56 deselected`; el registro cerró con `313 passed, 56 deselected` y `34 passed, 335 deselected` en base de datos; y la validación de fase `012` registró `381 passed, 63 deselected` y `41 passed, 403 deselected`. La evidencia más reciente y aplicable al estado auditado es la re-auditoría ya recogida arriba (`468 passed` en la suite completa), sin que ello cierre la deuda listada en este documento.
 - La documentación inicial consideraba pendientes la auditoría persistente, refresh/revocación server-side, rate limiting distribuido, trusted proxies, `CurrentUser`/tenant context, RBAC, MFA y la integración cliente. La auditoría posterior corrigió específicamente la revocación de `jti`, el control de organización activa, la semántica literal de contraseña y el fallo seguro ante hashes malformados. Permanecen abiertas las deudas expresamente enumeradas en la re-auditoría, incluidas auditoría durable, rate limiting distribuido y multi-membership/selección de organización.
+
+### 6. Consolidación documental
+
+Tras la revisión, los documentos individuales `BACK-AUTH-OAUTH2-001` a `BACK-AUTH-OAUTH2-012` han quedado absorbidos en este documento de fase completa. La documentación OAuth2 individual se ha retirado y OAuth conserva el documento de fase completa como referencia consolidada. La trazabilidad se mantiene de forma concisa en la sección **Consolidación documental histórica**: no se ha perdido ni sustituido el historial, los hechos validados, las decisiones ni las deudas abiertas.
+
+### 7. Baseline de autenticación
+
+Se ha creado una baseline viva e independiente, `BACK-AUTH-OAUTH-BASELINE`, destinada exclusivamente a los controles de autenticación vigentes. No es una baseline hex ni un sustituto del histórico de esta auditoría. Recoge cookies, JWT, revocación, CSRF, validación del endpoint de token, organización activa, semántica de contraseña, auditoría y las pruebas y deudas aplicables. No se declaran rutas ni enlaces de archivo para esa baseline en este documento.
+
+### 8. Validación global y cierre de auditoría
+
+La validación global ejecutada registra los siguientes comandos y resultados exactos:
+
+| Comando o grupo | Resultado |
+| --- | --- |
+| `make backend-quality` | Ruff correcto; formato `172 files already formatted`; mypy strict `Success: no issues found in 171 source files`. |
+| Unitarios | `396 passed, 72 deselected` (deselección intencionada). |
+| Base de datos | `50 passed, 418 deselected` (deselección intencionada). |
+| Seguridad | `22 passed, 446 deselected` (deselección intencionada). |
+| `uv run pytest` desde `backend` | `468 passed in 11.82s`, sin pruebas deseleccionadas. |
+
+La suite completa sin deselecciones es el criterio de cierre; las ejecuciones filtradas sirven para diagnóstico y no la sustituyen. Arquitectura y QA ya han aprobado las dos re-auditorías de las correcciones. La fase está preparada para una PR única, sin afirmar que dicha PR exista o haya sido integrada.
+
+### Dependencia futura: BACK-DB-MIGRATIONS-AUDIT-001
+
+La convención de rama `backend/audit/BACK-DB-MIGRATIONS-AUDIT-001` está aprobada, pero la auditoría no se ha iniciado. El ciclo de vida de Alembic y Docker continúa explícitamente fuera de este alcance: la migración de revocación se verificó de forma estructural y en ejecución contra la base de datos actual, pero no se reclama una reconciliación global de migraciones ni la reproducibilidad de la imagen. Siguen abiertas, sin contradicción con lo ya documentado, la deuda de auditoría durable, el rate limiting distribuido y el soporte de múltiples memberships con selección explícita de organización activa.
