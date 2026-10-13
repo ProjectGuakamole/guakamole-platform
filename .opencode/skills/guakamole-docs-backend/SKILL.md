@@ -7,6 +7,8 @@ description: Use when documenting backend branch, commit or PR changes in docs/b
 
 Usa esta skill para documentar cambios backend por branch, commit o PR.
 
+Toda la documentación backend debe cumplir además el estándar de la skill `guakamole-documentation-style`, incluidas sus reglas de formato Markdown/Obsidian homogéneo, castellano de España, claridad didáctica, autocontención, seguridad y separación entre hechos implantados, decisiones, deuda técnica y trabajo futuro.
+
 Ubicacion:
 
 - La documentacion backend vive en `docs/backend/`.
