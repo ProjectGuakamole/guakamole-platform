@@ -2703,3 +2703,30 @@ La re-auditoría ejecutó escenarios E2E HTTP con PostgreSQL real, sin overrides
 - El modelo de múltiples memberships y la selección explícita de organización activa pertenecen a una futura fase IAM.
 
 Estas deudas no deben interpretarse como corregidas ni cubiertas por la aprobación de esta re-auditoría.
+
+### Consolidación documental histórica
+
+Esta sección conserva la trazabilidad exclusiva de la documentación original `BACK-AUTH-OAUTH2-001` a `BACK-AUTH-OAUTH2-012`. Los documentos individuales se han consolidado y eliminado porque su contenido funcional ya estaba absorbido por este documento o era redundante; no se eliminan hechos validados ni se da por resuelta la deuda OAuth/IAM pendiente.
+
+| ID original | Propósito | Tema o decisión relevante conservada |
+| --- | --- | --- |
+| `BACK-AUTH-OAUTH2-001` | Roadmap, diseño e informe de implementación de partida. | Definió la secuencia modular (configuración, IDs públicos, hash, token, cookie, registro, sesión, CSRF, CORS y QA), routers finos, servicios testeables y repositorios SQLAlchemy. También dejó explícita la frontera entre OAuth2 Password Bearer técnico y la sesión browser. |
+| `BACK-AUTH-OAUTH2-002` | Auth Core. | Introdujo configuración tipada, Argon2id mediante `pwdlib`, JWT mínimo, value object de cookie y public IDs; no exponía rutas HTTP. |
+| `BACK-AUTH-OAUTH2-003` | Registro inicial. | Separó el alta de organización/administrador del login, añadió `public_id` único y secuencias internas de rango alto, y documentó que el readiness de PostgreSQL requería una comprobación real posterior. |
+| `BACK-AUTH-OAUTH2-004` | Login browser. | Estableció cookie `HttpOnly`, request estricta y errores genéricos; el JWT pasó a transportar `sub` y `org` públicos, sin roles ni IDs internos. |
+| `BACK-AUTH-OAUTH2-005` | Identidad actual. | Consolidó la resolución de identidad mediante `sub + org` contra PostgreSQL, sin aceptar un tenant enviado por el cliente. |
+| `BACK-AUTH-OAUTH2-006` | Logout inicial. | Nació como borrado idempotente de cookie, sin revocación server-side; esa limitación fue detectada y corregida en la auditoría posterior con revocación persistente de `jti`. |
+| `BACK-AUTH-OAUTH2-007` | CSRF. | Añadió token firmado ligado a `sub` y `access_jti`, aplicado primero a logout mediante dependencia explícita, no middleware global. |
+| `BACK-AUTH-OAUTH2-008` | Token técnico. | Añadió `/auth/token` con formulario OAuth2 y reutilización de `LoginService`, sin cookie y separada del flujo browser. |
+| `BACK-AUTH-OAUTH2-009` | CORS. | Centralizó `CORSMiddleware`, origins y headers explícitos, y separó `CorsSettings` de los secretos JWT para que el arranque de la app no los necesitase solo por CORS. |
+| `BACK-AUTH-OAUTH2-010` | Hardening de regresión. | Cubrió los cuatro origins locales, rechazo de wildcard, configuración de expiración y aislamiento de parámetros form ajenos al login; no cambió contratos HTTP. |
+| `BACK-AUTH-OAUTH2-011` | Rate limiting. | Incorporó límites in-memory antes de los servicios de login/registro y corrigió la concurrencia con `threading.Lock`; su naturaleza no distribuida se mantiene como deuda. |
+| `BACK-AUTH-OAUTH2-012` | Validación y cierre de fase. | Recopiló el flujo completo, sus garantías iniciales y las recomendaciones hacia auditoría durable, contexto de tenant, RBAC, integración cliente y limitación distribuida. |
+
+#### Decisiones iniciales y evolución relevante
+
+- La planificación inicial de `001` fijó cookie `HttpOnly`, `Argon2id`, public IDs, ausencia de tokens en el login browser, CORS sin wildcard y CSRF para mutaciones autenticadas. Estas decisiones siguen siendo el hilo conductor histórico de la fase.
+- Algunos contratos y supuestos de `001` eran diseño previo, no estado final: se propusieron respuestas más ricas para login, `/auth/me` y logout, y el diseño inicial no incorporaba `org` al JWT. La implementación consolidada adoptó contratos mínimos y el claim `org` para la resolución de sesión; la auditoría describe además el comportamiento posterior revalidado.
+- La evolución fue: **diseño y planificación → Auth Core → registro → sesión browser e identidad → logout y CSRF → bearer técnico y CORS → hardening de regresión → rate limiting → validación de fase → auditoría, correcciones y re-auditoría**.
+- Los resultados de QA de las tareas originales se preservan como cronología histórica: el Auth Core registró `291 passed, 56 deselected`; el registro cerró con `313 passed, 56 deselected` y `34 passed, 335 deselected` en base de datos; y la validación de fase `012` registró `381 passed, 63 deselected` y `41 passed, 403 deselected`. La evidencia más reciente y aplicable al estado auditado es la re-auditoría ya recogida arriba (`468 passed` en la suite completa), sin que ello cierre la deuda listada en este documento.
+- La documentación inicial consideraba pendientes la auditoría persistente, refresh/revocación server-side, rate limiting distribuido, trusted proxies, `CurrentUser`/tenant context, RBAC, MFA y la integración cliente. La auditoría posterior corrigió específicamente la revocación de `jti`, el control de organización activa, la semántica literal de contraseña y el fallo seguro ante hashes malformados. Permanecen abiertas las deudas expresamente enumeradas en la re-auditoría, incluidas auditoría durable, rate limiting distribuido y multi-membership/selección de organización.
