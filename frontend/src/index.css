@@ -1,3 +1,77 @@
+:root {
+  color-scheme: light;
+  --app-bg: #f8fafc;
+  --app-fg: #0f172a;
+  --app-text-muted: #475569;
+  --app-text-subtle: #64748b;
+  --app-surface: rgba(255, 255, 255, 0.88);
+  --app-surface-strong: rgba(255, 255, 255, 0.96);
+  --app-surface-soft: rgba(255, 255, 255, 0.72);
+  --app-border: rgba(15, 23, 42, 0.12);
+  --app-border-strong: rgba(15, 23, 42, 0.2);
+  --app-header: rgba(255, 255, 255, 0.96);
+  --app-accent: #0f766e;
+  --app-accent-soft: rgba(13, 148, 136, 0.08);
+  --app-input: rgba(255, 255, 255, 0.85);
+  --app-input-border: rgba(15, 23, 42, 0.18);
+  --app-input-placeholder: #64748b;
+  --app-hero-overlay: linear-gradient(
+    90deg,
+    rgba(248, 250, 252, 0.96) 0%,
+    rgba(248, 250, 252, 0.88) 55%,
+    rgba(248, 250, 252, 0.68) 100%
+  );
+  --app-auth-overlay: linear-gradient(
+    110deg,
+    rgba(248, 250, 252, 0.96),
+    rgba(248, 250, 252, 0.88)
+  );
+  --app-benefits-glow: linear-gradient(
+    180deg,
+    rgba(13, 148, 136, 0.08),
+    transparent 70%
+  );
+  --app-hover: rgba(15, 23, 42, 0.05);
+  --app-shadow: 0 24px 80px rgba(15, 23, 42, 0.12);
+}
+
+html.dark {
+  color-scheme: dark;
+  --app-bg: #0b1018;
+  --app-fg: #fff;
+  --app-text-muted: #cbd5e1;
+  --app-text-subtle: #94a3b8;
+  --app-surface: rgba(12, 19, 31, 0.82);
+  --app-surface-strong: rgba(12, 19, 31, 0.96);
+  --app-surface-soft: rgba(255, 255, 255, 0.035);
+  --app-border: rgba(255, 255, 255, 0.12);
+  --app-border-strong: rgba(255, 255, 255, 0.2);
+  --app-header: rgba(8, 12, 20, 0.96);
+  --app-accent: #5eead4;
+  --app-accent-soft: rgba(45, 212, 191, 0.08);
+  --app-input: rgba(255, 255, 255, 0.045);
+  --app-input-border: rgba(255, 255, 255, 0.16);
+  --app-input-placeholder: #94a3b8;
+  --app-hero-overlay: linear-gradient(
+    90deg,
+    rgba(7, 11, 19, 0.92) 0%,
+    rgba(7, 11, 19, 0.76) 55%,
+    rgba(7, 11, 19, 0.42) 100%
+  );
+  --app-auth-overlay: linear-gradient(
+    110deg,
+    rgba(7, 11, 19, 0.97),
+    rgba(7, 11, 19, 0.86)
+  );
+  --app-benefits-glow: linear-gradient(
+    180deg,
+    rgba(45, 212, 191, 0.1),
+    transparent 70%
+  );
+  --app-hover: rgba(255, 255, 255, 0.06);
+  --app-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
+}
+
 html,
 body,
 #root {
@@ -6,4 +80,6 @@ body,
 
 body {
   margin: 0;
+  background: var(--app-bg);
+  color: var(--app-fg);
 }

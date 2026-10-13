@@ -7,7 +7,7 @@ interface MainProps {
 
 function Main({ children }: MainProps) {
   return (
-    <Box as="main" background="#0b1018" flex="1">
+    <Box as="main" background="var(--app-bg)" flex="1">
       {children}
     </Box>
   );

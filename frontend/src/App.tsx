@@ -43,7 +43,7 @@ function LandingPage() {
         as="section"
         aria-labelledby="hero-title"
         id="portada"
-        backgroundImage={`linear-gradient(90deg, rgba(7, 11, 19, 0.92) 0%, rgba(7, 11, 19, 0.76) 55%, rgba(7, 11, 19, 0.42) 100%), url("${landingBackground}")`}
+        backgroundImage={`var(--app-hero-overlay), url("${landingBackground}")`}
         backgroundPosition="center"
         backgroundSize="cover"
         display="flex"
@@ -57,9 +57,9 @@ function LandingPage() {
             <Stack align="flex-start" gap={7} justify="center">
               <Text
                 border="1px solid"
-                borderColor="rgba(94, 234, 212, 0.35)"
+                borderColor="var(--app-border-strong)"
                 borderRadius="full"
-                color="teal.200"
+                color="var(--app-accent)"
                 fontSize="sm"
                 fontWeight="semibold"
                 letterSpacing="wider"
@@ -72,19 +72,19 @@ function LandingPage() {
               <Stack gap={4}>
                 <Heading
                   as="h1"
-                  color="white"
+                  color="var(--app-fg)"
                   fontSize={{ base: "4xl", md: "6xl" }}
                   id="hero-title"
                   lineHeight="1.08"
                   maxW="2xl"
                 >
                   La seguridad se construye{" "}
-                  <Text as="span" color="teal.200">
+                  <Text as="span" color="var(--app-accent)">
                     practicando.
                   </Text>
                 </Heading>
                 <Text
-                  color="gray.300"
+                  color="var(--app-text-muted)"
                   fontSize={{ base: "lg", md: "xl" }}
                   lineHeight="1.8"
                   maxW="xl"
@@ -105,11 +105,11 @@ function LandingPage() {
                 </Button>
                 <Button
                   asChild
-                  borderColor="rgba(255, 255, 255, 0.28)"
-                  color="white"
+                  borderColor="var(--app-border-strong)"
+                  color="var(--app-fg)"
                   size="lg"
                   variant="outline"
-                  _hover={{ bg: "rgba(255, 255, 255, 0.08)" }}
+                  _hover={{ bg: "var(--app-hover)" }}
                 >
                     <RouterLink to="/login">Iniciar sesión</RouterLink>
                 </Button>
@@ -119,11 +119,11 @@ function LandingPage() {
             <Box
               alignSelf="center"
               backdropFilter="blur(16px)"
-              background="rgba(12, 19, 31, 0.76)"
+              background="var(--app-surface)"
               border="1px solid"
-              borderColor="rgba(255, 255, 255, 0.14)"
+              borderColor="var(--app-border)"
               borderRadius="2xl"
-              boxShadow="0 24px 80px rgba(0, 0, 0, 0.32)"
+              boxShadow="var(--app-shadow)"
               maxW={{ base: "full", lg: "420px" }}
               ml={{ lg: "auto" }}
               p={{ base: 6, md: 8 }}
@@ -132,7 +132,7 @@ function LandingPage() {
               <Stack gap={6}>
                 <Stack align="flex-start" gap={3}>
                   <Text
-                    color="teal.200"
+                    color="var(--app-accent)"
                     fontSize="sm"
                     fontWeight="bold"
                     letterSpacing="wider"
@@ -140,30 +140,30 @@ function LandingPage() {
                   >
                     Preparados para lo inesperado
                   </Text>
-                  <Heading as="h2" color="white" fontSize="2xl">
+                  <Heading as="h2" color="var(--app-fg)" fontSize="2xl">
                     Del conocimiento a la acción
                   </Heading>
-                  <Text color="gray.300" lineHeight="1.75">
+                  <Text color="var(--app-text-muted)" lineHeight="1.75">
                     Un espacio seguro donde cada persona puede aprender,
                     equivocarse y mejorar antes de enfrentarse a una amenaza
                     real.
                   </Text>
                 </Stack>
-                <Box borderTop="1px solid" borderColor="rgba(255,255,255,0.14)" pt={5}>
+                <Box borderTop="1px solid" borderColor="var(--app-border)" pt={5}>
                   <SimpleGrid columns={2} gap={5}>
                     <Box>
-                      <Text color="white" fontSize="lg" fontWeight="bold">
+                      <Text color="var(--app-fg)" fontSize="lg" fontWeight="bold">
                         Escenarios
                       </Text>
-                      <Text color="gray.400" fontSize="sm" mt={1}>
+                      <Text color="var(--app-text-subtle)" fontSize="sm" mt={1}>
                         Práctica realista
                       </Text>
                     </Box>
                     <Box>
-                      <Text color="white" fontSize="lg" fontWeight="bold">
+                      <Text color="var(--app-fg)" fontSize="lg" fontWeight="bold">
                         Laboratorios SOC
                       </Text>
-                      <Text color="gray.400" fontSize="sm" mt={1}>
+                      <Text color="var(--app-text-subtle)" fontSize="sm" mt={1}>
                         Entornos temporales
                       </Text>
                     </Box>
@@ -186,7 +186,7 @@ function LandingPage() {
           <Stack gap={12}>
             <Stack gap={4} maxW="2xl">
               <Text
-                color="teal.300"
+                color="var(--app-accent)"
                 fontSize="sm"
                 fontWeight="bold"
                 letterSpacing="wider"
@@ -196,13 +196,13 @@ function LandingPage() {
               </Text>
               <Heading
                 as="h2"
-                color="white"
+                color="var(--app-fg)"
                 fontSize={{ base: "3xl", md: "4xl" }}
                 id="platform-title"
               >
                 De la configuración al seguimiento
               </Heading>
-              <Text color="gray.400" fontSize="lg" lineHeight="1.8">
+              <Text color="var(--app-text-subtle)" fontSize="lg" lineHeight="1.8">
                 Todo lo que necesitas para convertir la ciberseguridad en una
                 habilidad práctica para toda tu organización.
               </Text>
@@ -212,15 +212,15 @@ function LandingPage() {
               {features.map((feature) => (
                 <Box
                   key={feature.number}
-                  background="rgba(255, 255, 255, 0.035)"
+                  background="var(--app-surface-soft)"
                   border="1px solid"
-                  borderColor="rgba(255, 255, 255, 0.1)"
+                  borderColor="var(--app-border)"
                   borderRadius="xl"
                   p={{ base: 6, md: 8 }}
                 >
                   <Stack align="flex-start" gap={5}>
                     <Text
-                      color="teal.300"
+                      color="var(--app-accent)"
                       fontSize="sm"
                       fontWeight="bold"
                       letterSpacing="wider"
@@ -228,10 +228,10 @@ function LandingPage() {
                       {feature.number}
                     </Text>
                     <Stack gap={3}>
-                      <Heading as="h3" color="white" fontSize="xl">
+                      <Heading as="h3" color="var(--app-fg)" fontSize="xl">
                         {feature.title}
                       </Heading>
-                      <Text color="gray.400" lineHeight="1.75">
+                      <Text color="var(--app-text-subtle)" lineHeight="1.75">
                         {feature.description}
                       </Text>
                     </Stack>
@@ -273,7 +273,7 @@ function BenefitsPage() {
     <Box
       as="section"
       aria-labelledby="benefits-title"
-      background="linear-gradient(180deg, rgba(45, 212, 191, 0.1), transparent 70%)"
+      background="var(--app-benefits-glow)"
       minH="calc(100vh - 152px)"
       py={{ base: 16, md: 24 }}
     >
@@ -281,7 +281,7 @@ function BenefitsPage() {
         <Stack gap={{ base: 10, md: 16 }}>
           <Stack gap={5} maxW="3xl">
             <Text
-              color="teal.200"
+              color="var(--app-accent)"
               fontSize="sm"
               fontWeight="bold"
               letterSpacing="wider"
@@ -291,14 +291,14 @@ function BenefitsPage() {
             </Text>
             <Heading
               as="h1"
-              color="white"
+              color="var(--app-fg)"
               fontSize={{ base: "4xl", md: "6xl" }}
               id="benefits-title"
               lineHeight="1.1"
             >
               Convierte la preparación en una ventaja.
             </Heading>
-            <Text color="gray.300" fontSize={{ base: "lg", md: "xl" }} lineHeight="1.8">
+            <Text color="var(--app-text-muted)" fontSize={{ base: "lg", md: "xl" }} lineHeight="1.8">
               Guakamole ayuda a que las personas ganen confianza para actuar
               ante riesgos digitales y a que la organización construya hábitos
               de seguridad sostenibles.
@@ -309,16 +309,16 @@ function BenefitsPage() {
             {outcomes.map((outcome) => (
               <Box
                 key={outcome.number}
-                background="rgba(12, 19, 31, 0.76)"
+                background="var(--app-surface)"
                 border="1px solid"
-                borderColor="rgba(255, 255, 255, 0.12)"
+                borderColor="var(--app-border)"
                 borderRadius="2xl"
                 minH={{ md: "270px" }}
                 p={{ base: 6, md: 8 }}
               >
                 <Stack align="flex-start" gap={6}>
                   <Text
-                    color="teal.200"
+                    color="var(--app-accent)"
                     fontSize="sm"
                     fontWeight="bold"
                     letterSpacing="wider"
@@ -326,10 +326,10 @@ function BenefitsPage() {
                     {outcome.number}
                   </Text>
                   <Stack gap={3}>
-                    <Heading as="h2" color="white" fontSize="xl">
+                    <Heading as="h2" color="var(--app-fg)" fontSize="xl">
                       {outcome.title}
                     </Heading>
-                    <Text color="gray.400" lineHeight="1.8">
+                    <Text color="var(--app-text-subtle)" lineHeight="1.8">
                       {outcome.description}
                     </Text>
                   </Stack>
@@ -340,9 +340,9 @@ function BenefitsPage() {
 
           <Stack
             align={{ base: "flex-start", md: "center" }}
-            background="rgba(45, 212, 191, 0.08)"
+            background="var(--app-accent-soft)"
             border="1px solid"
-            borderColor="rgba(45, 212, 191, 0.2)"
+            borderColor="var(--app-border-strong)"
             borderRadius="2xl"
             direction={{ base: "column", md: "row" }}
             justify="space-between"
@@ -350,10 +350,10 @@ function BenefitsPage() {
             p={{ base: 6, md: 8 }}
           >
             <Stack gap={2} maxW="2xl">
-              <Heading as="h2" color="white" fontSize="2xl">
+              <Heading as="h2" color="var(--app-fg)" fontSize="2xl">
                 Empieza a preparar a tu organización.
               </Heading>
-              <Text color="gray.300">
+              <Text color="var(--app-text-muted)">
                 Crea tu espacio y descubre una forma práctica de fortalecer la
                 seguridad de tu equipo.
               </Text>

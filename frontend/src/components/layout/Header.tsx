@@ -11,6 +11,7 @@ import {
 } from "@chakra-ui/react";
 import { FiMenu, FiX } from "react-icons/fi";
 import { Link as RouterLink } from "react-router-dom";
+import { ColorModeButton } from "../ui/color-mode";
 
 function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -20,9 +21,9 @@ function Header() {
   return (
     <Box
       as="header"
-      background="rgba(8, 12, 20, 0.96)"
+      background="var(--app-header)"
       borderBottom="1px solid"
-      borderColor="rgba(255, 255, 255, 0.08)"
+      borderColor="var(--app-border)"
       position="sticky"
       top={0}
       zIndex={1000}
@@ -41,11 +42,11 @@ function Header() {
               <HStack gap={3}>
                 <Box
                   alignItems="center"
-                  background="rgba(45, 212, 191, 0.14)"
+                  background="var(--app-accent-soft)"
                   border="1px solid"
-                  borderColor="rgba(45, 212, 191, 0.35)"
+                  borderColor="var(--app-border-strong)"
                   borderRadius="lg"
-                  color="teal.200"
+                  color="var(--app-accent)"
                   display="flex"
                   fontSize="lg"
                   fontWeight="bold"
@@ -55,7 +56,7 @@ function Header() {
                 >
                   G
                 </Box>
-                <Text color="white" fontSize="xl" fontWeight="bold">
+                <Text color="var(--app-fg)" fontSize="xl" fontWeight="bold">
                   guakamole
                 </Text>
               </HStack>
@@ -70,29 +71,31 @@ function Header() {
           >
             <Link
               asChild
-              color="gray.300"
-              _hover={{ color: "teal.200", textDecoration: "none" }}
+              color="var(--app-text-muted)"
+              _hover={{ color: "var(--app-accent)", textDecoration: "none" }}
             >
               <RouterLink to="/#inicio">La plataforma</RouterLink>
             </Link>
             <Link
               asChild
-              color="gray.300"
-              _hover={{ color: "teal.200", textDecoration: "none" }}
+              color="var(--app-text-muted)"
+              _hover={{ color: "var(--app-accent)", textDecoration: "none" }}
             >
               <RouterLink to="/beneficios">Beneficios</RouterLink>
             </Link>
             <Link
               asChild
-              color="gray.300"
+              color="var(--app-text-muted)"
             >
               <RouterLink to="/login">Iniciar sesión</RouterLink>
             </Link>
             <Button asChild colorPalette="teal" size="sm">
               <RouterLink to="/register">Crear cuenta</RouterLink>
             </Button>
+            <ColorModeButton display={{ base: "none", md: "inline-flex" }} />
           </HStack>
 
+          <ColorModeButton display={{ base: "inline-flex", md: "none" }} />
           <IconButton
             aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
             aria-controls="mobile-navigation"
@@ -100,7 +103,7 @@ function Header() {
             display={{ base: "inline-flex", md: "none" }}
             onClick={() => setIsMenuOpen((open) => !open)}
             variant="ghost"
-            color="white"
+            color="var(--app-fg)"
           >
             {isMenuOpen ? <FiX /> : <FiMenu />}
           </IconButton>
@@ -109,7 +112,7 @@ function Header() {
           as="nav"
           aria-label="Navegación móvil"
           borderTop="1px solid"
-          borderColor="rgba(255, 255, 255, 0.08)"
+          borderColor="var(--app-border)"
           display={{ base: isMenuOpen ? "block" : "none", md: "none" }}
           id="mobile-navigation"
           pb={4}
@@ -118,31 +121,31 @@ function Header() {
           <Stack align="stretch" gap={1}>
             <Link
               asChild
-              color="gray.200"
+              color="var(--app-text-muted)"
               onClick={closeMenu}
               px={3}
               py={2}
-              _hover={{ bg: "rgba(255, 255, 255, 0.06)", textDecoration: "none" }}
+              _hover={{ bg: "var(--app-hover)", textDecoration: "none" }}
             >
               <RouterLink to="/#inicio">La plataforma</RouterLink>
             </Link>
             <Link
               asChild
-              color="gray.200"
+              color="var(--app-text-muted)"
               onClick={closeMenu}
               px={3}
               py={2}
-              _hover={{ bg: "rgba(255, 255, 255, 0.06)", textDecoration: "none" }}
+              _hover={{ bg: "var(--app-hover)", textDecoration: "none" }}
             >
               <RouterLink to="/beneficios">Beneficios</RouterLink>
             </Link>
             <Link
               asChild
-              color="gray.200"
+              color="var(--app-text-muted)"
               onClick={closeMenu}
               px={3}
               py={2}
-              _hover={{ bg: "rgba(255, 255, 255, 0.06)", textDecoration: "none" }}
+              _hover={{ bg: "var(--app-hover)", textDecoration: "none" }}
             >
               <RouterLink to="/login">Iniciar sesión</RouterLink>
             </Link>

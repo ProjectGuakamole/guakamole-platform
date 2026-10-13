@@ -112,6 +112,21 @@ describe("Landing page", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("toggles between light and dark color modes", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<App />);
+
+    expect(document.documentElement).toHaveClass("light");
+    await user.click(
+      await screen.findByRole("button", { name: "Cambiar a modo oscuro" }),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "Cambiar a modo claro" }),
+    ).toBeInTheDocument();
+    expect(document.documentElement).toHaveClass("dark");
+  });
+
   it("renders a standalone benefits route with content distinct from the landing page", () => {
     renderWithProviders(<App />, ["/beneficios"]);
 
