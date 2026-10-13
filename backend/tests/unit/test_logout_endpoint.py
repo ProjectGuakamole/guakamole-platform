@@ -12,13 +12,15 @@ pytestmark = pytest.mark.test_unit
 
 
 def build_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-not-for-production")
+    monkeypatch.setenv(
+        "JWT_SECRET_KEY", "test-secret-not-for-production-with-safe-length"
+    )
     return TestClient(create_app())
 
 
 def auth_settings() -> AuthSettings:
     return AuthSettings.model_validate(
-        {"jwt_secret_key": "test-secret-not-for-production"},
+        {"jwt_secret_key": "test-secret-not-for-production-with-safe-length"},
     )
 
 
@@ -98,7 +100,9 @@ def test_logout_response_does_not_expose_sensitive_fields(
 def test_logout_uses_cookie_settings_from_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-not-for-production")
+    monkeypatch.setenv(
+        "JWT_SECRET_KEY", "test-secret-not-for-production-with-safe-length"
+    )
     monkeypatch.setenv("AUTH_COOKIE_NAME", "custom_access_token")
     monkeypatch.setenv("AUTH_COOKIE_PATH", "/api/custom")
     monkeypatch.setenv("AUTH_COOKIE_SAMESITE", "strict")

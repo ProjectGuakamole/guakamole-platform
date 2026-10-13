@@ -1,17 +1,19 @@
 from datetime import date
 
 import pytest
-from sqlalchemy.exc import IntegrityError
 
 from app.domains.auth.shared.config import AuthSettings
-from app.domains.iam.organizations.models import Organization
+from app.domains.iam.registration.entities import (
+    RegistrationOrganization,
+    RegistrationUser,
+)
 from app.domains.iam.registration.exceptions import (
     DuplicateRegistrationError,
+    RegistrationPersistenceConflictError,
 )
 from app.domains.iam.registration.repository import GeographyReference
 from app.domains.iam.registration.schemas import RegistrationRequest
 from app.domains.iam.registration.service import RegistrationService
-from app.domains.iam.users.models import User
 
 pytestmark = pytest.mark.test_unit
 
@@ -27,17 +29,15 @@ class FakeHasher:
 class FakeRepository:
     def __init__(
         self,
-        *,
         duplicates: bool = False,
-        fail_flush: bool = False,
-        fail_commit: bool = False,
+        flush_conflict: bool = False,
+        commit_conflict: bool = False,
     ) -> None:
         self.duplicates = duplicates
-        self.fail_flush = fail_flush
-        self.fail_commit = fail_commit
-        self.organizations: list[Organization] = []
-        self.users: list[User] = []
-        self.rollback_called = False
+        self.flush_conflict = flush_conflict
+        self.commit_conflict = commit_conflict
+        self.organization: RegistrationOrganization | None = None
+        self.user: RegistrationUser | None = None
 
     def has_duplicates(self, *, email: str, slug: str, tax_id: str) -> bool:
         _ = (email, slug, tax_id)
@@ -57,29 +57,42 @@ class FakeRepository:
 
     def get_geography(
         self, *, country: str, state: str, city: str
-    ) -> GeographyReference | None:
+    ) -> GeographyReference:
         _ = (country, state, city)
         return GeographyReference(country_id=4, state_id=5, city_id=6)
 
-    def add_organization(self, organization: Organization) -> None:
-        self.organizations.append(organization)
+    def add_organization(self, organization: RegistrationOrganization) -> None:
+        self.organization = organization
 
-    def add_user(self, user: User) -> None:
-        self.users.append(user)
+    def add_user(self, user: RegistrationUser) -> None:
+        self.user = user
 
     def flush(self) -> None:
-        if self.fail_flush:
-            raise IntegrityError("insert organization", {}, Exception("duplicate"))
-        organization = self.organizations[0]
-        organization.id_organization = 99
+        if self.flush_conflict:
+            raise RegistrationPersistenceConflictError("detalle interno durante flush")
+        assert self.organization is not None
+        self.organization.id = 99
 
     def commit(self) -> None:
-        if self.fail_commit:
-            raise IntegrityError("commit", {}, Exception("duplicate"))
-        return
+        if self.commit_conflict:
+            raise RegistrationPersistenceConflictError("detalle interno durante commit")
 
     def rollback(self) -> None:
-        self.rollback_called = True
+        return
+
+
+class CapturingAuditLogger:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, dict[str, str]]] = []
+
+    def emit(self, *, action: str, metadata: dict[str, str]) -> None:
+        self.events.append((action, metadata))
+
+
+class FailingAuditLogger:
+    def emit(self, *, action: str, metadata: dict[str, str]) -> None:
+        _ = (action, metadata)
+        raise RuntimeError("fallo de auditoría")
 
 
 def build_request() -> RegistrationRequest:
@@ -114,49 +127,67 @@ def build_request() -> RegistrationRequest:
 
 
 def build_settings() -> AuthSettings:
-    return AuthSettings.model_validate({"jwt_secret_key": "test-secret"})
-
-
-def test_service_rejects_duplicates_with_generic_error() -> None:
-    service = RegistrationService(
-        FakeRepository(duplicates=True), FakeHasher(), build_settings()
+    return AuthSettings.model_validate(
+        {"jwt_secret_key": "test-secret-not-for-production-with-safe-length"}
     )
 
+
+def test_service_translates_duplicate_conflict_and_hashes_password() -> None:
     with pytest.raises(DuplicateRegistrationError):
-        service.register(build_request())
+        RegistrationService(
+            FakeRepository(duplicates=True), FakeHasher(), build_settings()
+        ).register(build_request())
 
-
-def test_service_maps_flush_integrity_error_to_duplicate_registration() -> None:
-    repository = FakeRepository(fail_flush=True)
-    service = RegistrationService(repository, FakeHasher(), build_settings())
-
-    with pytest.raises(DuplicateRegistrationError):
-        service.register(build_request())
-
-    assert repository.rollback_called is True
-    assert repository.users == []
-
-
-def test_service_maps_commit_integrity_error_to_duplicate_registration() -> None:
-    repository = FakeRepository(fail_commit=True)
-    service = RegistrationService(repository, FakeHasher(), build_settings())
-
-    with pytest.raises(DuplicateRegistrationError):
-        service.register(build_request())
-
-    assert repository.rollback_called is True
-
-
-def test_service_uses_public_ids_and_hashes_password() -> None:
     repository = FakeRepository()
-    service = RegistrationService(repository, FakeHasher(), build_settings())
-    request = build_request()
+    response = RegistrationService(repository, FakeHasher(), build_settings()).register(
+        build_request()
+    )
+    assert response.organization_id.startswith("org_")
+    assert repository.user is not None
+    assert repository.user.password_hash != build_request().user.password
 
-    response = service.register(request)
 
-    user = repository.users[0]
+def test_service_translates_persistence_conflict_during_flush() -> None:
+    with pytest.raises(DuplicateRegistrationError) as raised_error:
+        RegistrationService(
+            FakeRepository(flush_conflict=True), FakeHasher(), build_settings()
+        ).register(build_request())
+
+    assert str(raised_error.value) == ""
+    assert "detalle interno durante flush" not in str(raised_error.value)
+
+
+def test_service_translates_persistence_conflict_during_commit() -> None:
+    with pytest.raises(DuplicateRegistrationError) as raised_error:
+        RegistrationService(
+            FakeRepository(commit_conflict=True), FakeHasher(), build_settings()
+        ).register(build_request())
+
+    assert str(raised_error.value) == ""
+    assert "detalle interno durante commit" not in str(raised_error.value)
+
+
+def test_service_audits_registration_with_only_safe_identifiers() -> None:
+    audit_logger = CapturingAuditLogger()
+
+    RegistrationService(
+        FakeRepository(), FakeHasher(), build_settings(), audit_logger
+    ).register(build_request())
+
+    assert len(audit_logger.events) == 2
+    metadata = [event[1] for event in audit_logger.events]
+    assert metadata[0].keys() == {"organization_id"}
+    assert metadata[0]["organization_id"].startswith("org_")
+    assert metadata[1]["user_id"].startswith("usr_")
+    assert len(metadata[1]["email_hash"]) == 64
+    assert "password" not in repr(metadata).lower()
+    assert "token" not in repr(metadata).lower()
+
+
+def test_service_completes_registration_when_audit_logging_fails() -> None:
+    response = RegistrationService(
+        FakeRepository(), FakeHasher(), build_settings(), FailingAuditLogger()
+    ).register(build_request())
+
     assert response.organization_id.startswith("org_")
     assert response.user_id.startswith("usr_")
-    assert response.organization_id != "99"
-    assert user.password_hash.startswith("hashed:")
-    assert user.password_hash != request.user.password

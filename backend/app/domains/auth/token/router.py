@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.rate_limit import require_auth_token_rate_limit
+from app.domains.auth.login.dependencies import get_login_service
 from app.domains.auth.login.exceptions import InvalidLoginCredentialsError
-from app.domains.auth.login.router import get_login_service
 from app.domains.auth.login.schemas import LoginRequest
 from app.domains.auth.login.service import LoginService
 from app.domains.auth.shared.config import AuthSettings
@@ -30,7 +30,7 @@ def issue_password_bearer_token(
     if not auth_settings.auth_enable_password_bearer_token:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Endpoint OAuth2 deshabilitado.",
+            detail="No autorizado.",
         )
 
     try:

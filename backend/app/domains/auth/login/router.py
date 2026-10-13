@@ -3,33 +3,17 @@
 from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy.orm import Session
 
 from app.core.rate_limit import require_auth_login_rate_limit
+from app.domains.auth.login.dependencies import get_login_service
 from app.domains.auth.login.exceptions import InvalidLoginCredentialsError
-from app.domains.auth.login.repository import SqlAlchemyLoginUserRepository
 from app.domains.auth.login.schemas import LoginRequest, LoginResponse
-from app.domains.auth.login.service import LoginService, NoOpLoginAuditAdapter
+from app.domains.auth.login.service import LoginService
 from app.domains.auth.shared.config import AuthSettings
 from app.domains.auth.shared.cookies import build_auth_cookie_settings
 from app.domains.auth.shared.dependencies import build_auth_settings
-from app.domains.auth.shared.password_hasher import PwdlibPasswordHasher
-from app.domains.auth.shared.tokens import JwtAccessTokenService
-from app.domains.iam.users.dependencies import get_db_session
 
 router = APIRouter()
-
-
-def get_login_service(
-    session: Annotated[Session, Depends(get_db_session)],
-    auth_settings: Annotated[AuthSettings, Depends(build_auth_settings)],
-) -> LoginService:
-    return LoginService(
-        repository=SqlAlchemyLoginUserRepository(session),
-        password_hasher=PwdlibPasswordHasher(),
-        token_issuer=JwtAccessTokenService(auth_settings),
-        audit=NoOpLoginAuditAdapter(),
-    )
 
 
 @router.post("/login", response_model=LoginResponse)

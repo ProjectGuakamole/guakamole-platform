@@ -3,8 +3,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.domains.auth.login.dependencies import get_login_service
 from app.domains.auth.login.exceptions import InvalidLoginCredentialsError
-from app.domains.auth.login.router import get_login_service
 from app.domains.auth.login.schemas import LoginRequest, LoginTokenData
 from app.main import create_app
 
@@ -38,7 +38,9 @@ def build_client(
     bearer_enabled: bool = True,
     access_token_expire_minutes: int = 15,
 ) -> TestClient:
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-not-for-production")
+    monkeypatch.setenv(
+        "JWT_SECRET_KEY", "test-secret-not-for-production-with-safe-length"
+    )
     monkeypatch.setenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(access_token_expire_minutes))
     monkeypatch.setenv(
         "AUTH_ENABLE_PASSWORD_BEARER_TOKEN",
@@ -130,7 +132,7 @@ def test_token_endpoint_disabled_returns_403_without_authenticating(
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Endpoint OAuth2 deshabilitado."}
+    assert response.json() == {"detail": "No autorizado."}
     assert service.calls == 0
 
 

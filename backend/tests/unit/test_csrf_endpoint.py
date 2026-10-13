@@ -11,7 +11,9 @@ pytestmark = pytest.mark.test_unit
 
 
 def build_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-not-for-production")
+    monkeypatch.setenv(
+        "JWT_SECRET_KEY", "test-secret-not-for-production-with-safe-length"
+    )
     return TestClient(create_app())
 
 
@@ -31,7 +33,7 @@ def test_csrf_with_valid_access_cookie_returns_token(
 ) -> None:
     client = build_client(monkeypatch)
     settings = AuthSettings.model_validate(
-        {"jwt_secret_key": "test-secret-not-for-production"},
+        {"jwt_secret_key": "test-secret-not-for-production-with-safe-length"},
     )
     access_token = JwtAccessTokenService(settings).issue_access_token("usr_123")
     client.cookies.set("guak_access_token", access_token)

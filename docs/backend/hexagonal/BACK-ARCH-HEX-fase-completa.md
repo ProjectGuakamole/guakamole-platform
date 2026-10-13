@@ -90,25 +90,126 @@ La dirección propuesta busca mejorar la legibilidad de los flujos, la protecci�
 
 Los puntos posteriores validarán el grado de alineamiento de los módulos que se revisen, identificarán dependencias y riesgos concretos, y definirán las acciones de adopción que procedan. Hasta entonces, esta sección establece el criterio de diseño objetivo y no afirma resultados de código, configuración, pruebas o auditorías.
 
-## 2. Pendiente de incorporación
+## 2. Auditoría arquitectónica
 
-Pendiente de documentar en el punto 2 de la fase.
+### Hechos auditados
 
-## 3. Pendiente de incorporación
+La auditoría inicial revisó la organización y las dependencias de `backend/app`, la suite de tests, las migraciones de Alembic, la configuración de `pyproject` y la automatización local. No se encontró `Makefile`, por lo que no existía ese punto de entrada para estandarizar los checks del repositorio.
 
-Pendiente de documentar en el punto 3 de la fase.
+Los hallazgos describen el estado inicial revisado y sirvieron para priorizar correcciones. No deben interpretarse como una afirmación de que permanecieran presentes después de las actuaciones y reauditorías documentadas en este historial.
 
-## 4. Pendiente de incorporación
+| Hallazgo | Área | Severidad | Riesgo | Decisión | Acción | Estado |
+| --- | --- | --- | --- | --- | --- | --- |
+| Routers con dependencias directas de SQLAlchemy, repositories y factories. | Transporte y composición | Alta | Acoplamiento de HTTP con persistencia y dificultad para sustituir o probar colaboraciones. | Separar composición e infraestructura del transporte. | Mover factories fuera de routers y reforzar las fronteras mediante tests. | Corregido y reauditorizado. |
+| `RegistrationService` acoplado a ORM/SQLAlchemy. | Caso de uso y persistencia | Alta | El flujo de registro dependía de detalles de persistencia y filtraba responsabilidades de infraestructura. | Mantener el caso de uso independiente de excepciones ORM. | Traducir conflictos de persistencia en el repositorio. | Corregido y reauditorizado. |
+| Imports entre dominios desde dependencias y routers. | Límites modulares | Media | Dependencias transversales implícitas y mayor riesgo de cambios en cascada. | Definir fronteras comprobables globalmente. | Añadir controles AST para imports y paquetes mínimos. | Corregido y reauditorizado. |
+| Bearer token expuesto por defecto. | Autenticación | Alta | Ampliación innecesaria de la superficie de autenticación. | Exigir activación explícita cuando se necesite. | Deshabilitar bearer por defecto. | Corregido y reauditorizado. |
+| Auditoría runtime basada en NoOp. | Auditoría | Media | Pérdida silenciosa de trazabilidad operativa. | Incorporar una alternativa segura y no bloqueante mientras no haya persistencia. | Centralizar logging estructurado saneado. | Corregido y reauditorizado. |
+| `TenantContext` de IAM era un piloto, no un contexto efectivo de autorización. | Multiempresa e IAM | Alta | Falsa sensación de aislamiento y autorización insuficiente. | No publicar capacidades de identidad no implementadas realmente. | Retirar la ruta IAM pública piloto. | Corregido y reauditorizado. |
+| Schemas genéricos con capacidad de aceptar o exponer campos inadecuados. | DTOs y validación | Alta | Mass assignment y exposición accidental de atributos. | Usar contratos explícitos y restrictivos. | Endurecer DTOs publicados. | Corregido y reauditorizado. |
+| Cobertura arquitectónica parcial. | Calidad | Media | Regresiones en las fronteras al modificar módulos no cubiertos. | Extender los checks al árbol global. | Añadir pruebas AST globales. | Corregido y reauditorizado. |
+| Cookies con configuración insegura por defecto. | Sesión y transporte | Alta | Riesgo de exposición de cookies en contextos no TLS o configuraciones ambiguas. | Adoptar valores seguros con excepción local explícita. | Configurar cookie segura por defecto y validar combinaciones SameSite. | Corregido y reauditorizado. |
 
-Pendiente de documentar en el punto 4 de la fase.
+### Riesgo identificado
 
-## 5. Pendiente de incorporación
+La combinación de límites arquitectónicos débiles, contratos de entrada amplios y defaults de autenticación o cookies permisivos elevaba el riesgo de regresiones de seguridad y de acoplamiento. La prioridad fue eliminar los defaults inseguros sin transformar esta fase en una reescritura del backend.
 
-Pendiente de documentar en el punto 5 de la fase.
+## 3. Auditoría de QA, seguridad y calidad
 
-## 6. Pendiente de incorporación
+### Hechos verificados en el estado inicial
 
-Pendiente de documentar en el punto 6 de la fase.
+Los checks disponibles se ejecutaban correctamente y la suite inicial contabilizaba **447 tests**. La comprobación `alembic current/check` no pudo validarse sin una URL de base de datos configurada. También aparecieron alertas por claves JWT de prueba demasiado cortas.
+
+La revisión confirmó los siguientes riesgos: auditoría runtime NoOp, defaults inseguros de JWT y cookies, bearer activo, una ruta IAM publicada que respondía con `501`, DTOs con riesgo de contratos demasiado amplios, ausencia de una prueba del ciclo de migración y acoplamiento cross-domain.
+
+### Controles ya conformes en la revisión
+
+Los siguientes controles ya presentaban una base correcta y no requirieron una sustitución de su enfoque:
+
+- filtrado de tenant en repositories;
+- allowlist para paginación y ordenación;
+- protección CSRF en logout;
+- CORS restringido;
+- rate limits;
+- registro con prevención de mass assignment y hashing del secreto en servidor;
+- una única revisión head de Alembic.
+
+### Limitaciones de la validación
+
+La ausencia de URL de base de datos impidió certificar en esa ejecución el estado operativo de `alembic current/check`. La existencia de un único head reduce el riesgo de divergencia de revisiones, pero no sustituye una prueba integral de aplicar y revertir migraciones sobre una base de datos efímera.
+
+## 4. Consolidación y decisiones
+
+### Decisión de alcance
+
+Se aprobó una ampliación controlada de la fase: no se modificaría el frontend, no se crearían migraciones ni modelos ORM y no se emprendería un refactor masivo. Sí se autorizó hardening de backend mediante defaults seguros y overrides explícitos para desarrollo local, porque estos cambios reducían exposición sin ampliar indebidamente el alcance.
+
+### Decisiones adoptadas
+
+- El uso de bearer queda deshabilitado por defecto y requiere opt-in explícito.
+- Las cookies son `secure` por defecto; el desarrollo local debe habilitar de forma explícita el override que corresponda.
+- Las claves JWT deben tener al menos 32 bytes.
+- IAM users no se monta hasta disponer de una identidad real y operativa.
+- La auditoría pasa a logging estructurado, no bloqueante y sin persistencia en esta fase.
+- La composición se desacopla de los routers y el registro se desacopla de los detalles ORM.
+- Se añaden límites y testing arquitectónico global para prevenir regresiones cross-domain.
+
+### Riesgos y compromisos aceptados
+
+Los defaults más estrictos pueden provocar incompatibilidades intencionadas en HTTP local, secretos JWT cortos o clientes que esperasen bearer. El impacto se mitiga mediante overrides explícitos para desarrollo, no relajando los valores por defecto. La ruta piloto de usuarios IAM deja de responder `501` y pasa a no estar publicada, con resultado `404`. La persistencia de `AuditEvent` y el ciclo integral de Alembic se mantienen fuera de alcance y se registran como deuda técnica.
+
+## 5. Correcciones y reauditorías
+
+### Correcciones realizadas
+
+La sesión de base de datos se situó bajo un módulo neutral `app.db` y las factories se extrajeron de los routers. Como resultado, los routers dejaron de importar directamente SQLAlchemy o repositories, preservando su papel de capa de transporte.
+
+El servicio de registro se desacopló de SQLAlchemy: el repositorio es ahora quien traduce los conflictos de persistencia para que el caso de uso trate resultados propios de su responsabilidad. También se retiró IAM users del router público y se endurecieron los schemas expuestos.
+
+La auditoría se centralizó en un mecanismo de logging estructurado, saneado y no bloqueante. Se restringieron los metadatos seguros y, tras una reauditoría, el saneamiento se amplió para cubrir `private_key`, `passphrase` y sus variantes. Esta solución mejora la trazabilidad runtime sin bloquear operaciones por fallos de auditoría, pero no constituye persistencia de eventos de auditoría.
+
+En autenticación se exigió una clave JWT mínima de 32 bytes, se configuraron cookies seguras por defecto, se validó la combinación de `SameSite=None` y cookie segura, y se dejó bearer deshabilitado salvo activación explícita.
+
+### Iteraciones de reauditoría
+
+Fueron necesarias varias rondas de revisión; las aprobaciones finales no ocultan estas iteraciones. Las reauditorías detectaron y llevaron a corregir el saneamiento central de auditoría, los tests de configuración, el registro de auditoría no bloqueante, la cobertura AST global, la protección de secretos `private_key` y `passphrase`, y las pruebas de `IntegrityError` en `flush` y `commit` con rollback.
+
+Ambas auditorías finales quedaron **APROBADAS** tras verificar estas correcciones.
+
+### Trabajo futuro y deuda explícita
+
+La persistencia de `AuditEvent` no se implementó en esta fase. Tampoco se incorporó una prueba completa del ciclo de Alembic contra una base de datos efímera. Ambos elementos siguen siendo necesarios para reforzar trazabilidad y fiabilidad operativa.
+
+## 6. Tests y evidencias de calidad
+
+### Cobertura incorporada
+
+Se añadieron tests AST globales para verificar fronteras arquitectónicas, imports cross-domain, `__init__` mínimos y ausencia de un paquete `app.domain` en singular. Estos controles evitan que la corrección quede limitada a rutas concretas y detectan regresiones estructurales en el árbol auditado.
+
+También se cubrieron la configuración de autenticación, bearer opt-in, auditoría saneada y no bloqueante, mapeo de conflictos de registro y el comportamiento del repositorio ante `IntegrityError` tanto en `flush` como en `commit`, incluyendo rollback.
+
+### Resultado final ejecutado
+
+- `ruff check`: **OK**.
+- Comprobación de formato: **OK**.
+- `mypy` en modo estricto: **OK**.
+- `pytest`: **458 passed**.
+
+### Controles conformes y evidencias generales
+
+| Control | Evidencia general | Estado |
+| --- | --- | --- |
+| Fronteras de transporte e infraestructura | Tests AST globales verifican que routers no dependan directamente de SQLAlchemy ni repositories. | Conforme. |
+| Límites entre dominios | Tests AST sobre imports cross-domain y paquetes `__init__` mínimos. | Conforme. |
+| Configuración de autenticación | Tests de longitud JWT, cookie segura, validación SameSite y bearer opt-in. | Conforme. |
+| Auditoría runtime segura | Tests de saneamiento de metadatos y de comportamiento no bloqueante. | Conforme. |
+| Registro y persistencia | Tests de mapeo de conflictos y de `IntegrityError` en `flush`/`commit` con rollback. | Conforme. |
+| Calidad estática y regresión | `ruff`, formato, `mypy` estricto y suite completa de 458 tests. | Conforme. |
+
+### Deuda técnica pendiente
+
+- Implementar persistencia de `AuditEvent` con su correspondiente modelo, controles de acceso y política de retención.
+- Añadir un ciclo integral de Alembic que aplique y valide migraciones sobre una base de datos efímera.
 
 ## 7. Pendiente de incorporación
 

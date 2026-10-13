@@ -4,10 +4,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.rate_limit import reset_rate_limiter_state
-from app.domains.auth.login.router import get_login_service
+from app.domains.auth.login.dependencies import get_login_service
 from app.domains.auth.login.schemas import LoginRequest, LoginTokenData
-from app.domains.auth.me.router import get_auth_me_service
-from app.domains.iam.registration.router import get_registration_service
+from app.domains.auth.me.dependencies import get_auth_me_service
+from app.domains.iam.registration.dependencies import get_registration_service
 from app.domains.iam.registration.schemas import (
     RegistrationRequest,
     RegistrationResponse,
@@ -89,8 +89,11 @@ def build_client(
     *,
     enabled: bool = True,
 ) -> TestClient:
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-not-for-production")
+    monkeypatch.setenv(
+        "JWT_SECRET_KEY", "test-secret-not-for-production-with-safe-length"
+    )
     monkeypatch.setenv("RATE_LIMIT_ENABLED", "true" if enabled else "false")
+    monkeypatch.setenv("AUTH_ENABLE_PASSWORD_BEARER_TOKEN", "true")
     monkeypatch.setenv("AUTH_LOGIN_RATE_LIMIT_REQUESTS", "1")
     monkeypatch.setenv("AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS", "60")
     monkeypatch.setenv("AUTH_TOKEN_RATE_LIMIT_REQUESTS", "1")

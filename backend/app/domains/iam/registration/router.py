@@ -1,36 +1,20 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 
 from app.core.rate_limit import require_registration_rate_limit
-from app.domains.auth.shared.config import AuthSettings
-from app.domains.auth.shared.dependencies import build_auth_settings
-from app.domains.auth.shared.password_hasher import PwdlibPasswordHasher
+from app.domains.iam.registration.dependencies import get_registration_service
 from app.domains.iam.registration.exceptions import (
     DuplicateRegistrationError,
     InvalidRegistrationReferenceError,
 )
-from app.domains.iam.registration.repository import SqlAlchemyRegistrationRepository
 from app.domains.iam.registration.schemas import (
     RegistrationRequest,
     RegistrationResponse,
 )
 from app.domains.iam.registration.service import RegistrationService
-from app.domains.iam.users.dependencies import get_db_session
 
 router = APIRouter()
-
-
-def get_registration_service(
-    session: Annotated[Session, Depends(get_db_session)],
-    auth_settings: Annotated[AuthSettings, Depends(build_auth_settings)],
-) -> RegistrationService:
-    return RegistrationService(
-        repository=SqlAlchemyRegistrationRepository(session),
-        password_hasher=PwdlibPasswordHasher(),
-        auth_settings=auth_settings,
-    )
 
 
 @router.post(

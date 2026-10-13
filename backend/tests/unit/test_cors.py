@@ -31,7 +31,7 @@ def build_settings(
 ) -> AuthSettings:
     return AuthSettings.model_validate(
         {
-            "jwt_secret_key": "test-secret-not-for-production",
+            "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
             "cors_allow_authorization_header": cors_allow_authorization_header,
             "cors_allowed_origins": cors_allowed_origins or [ALLOWED_ORIGIN],
         },
@@ -64,7 +64,9 @@ def preflight(
 def test_preflight_from_allowed_origin_returns_expected_cors_headers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-not-for-production")
+    monkeypatch.setenv(
+        "JWT_SECRET_KEY", "test-secret-not-for-production-with-safe-length"
+    )
     client = TestClient(create_app())
 
     response = preflight(client)
@@ -79,7 +81,9 @@ def test_preflight_from_allowed_origin_returns_expected_cors_headers(
 def test_preflight_from_disallowed_origin_does_not_return_permissive_origin(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-not-for-production")
+    monkeypatch.setenv(
+        "JWT_SECRET_KEY", "test-secret-not-for-production-with-safe-length"
+    )
     client = TestClient(create_app())
 
     response = preflight(client, origin=DISALLOWED_ORIGIN)
@@ -165,7 +169,9 @@ def test_auth_endpoints_preflight_is_not_broken_by_cors(
     path: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-not-for-production")
+    monkeypatch.setenv(
+        "JWT_SECRET_KEY", "test-secret-not-for-production-with-safe-length"
+    )
     client = TestClient(create_app())
 
     response = client.options(

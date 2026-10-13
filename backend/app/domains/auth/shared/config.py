@@ -1,6 +1,6 @@
 """Configuración tipada de autenticación y seguridad."""
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ALLOWED_AUTH_COOKIE_SAMESITE_VALUES = frozenset({"lax", "strict", "none"})
@@ -49,7 +49,7 @@ class AuthSettings(CorsSettings):
 
     access_token_expire_minutes: int = Field(default=15, ge=1)
     jwt_secret_key: str = Field(
-        min_length=1,
+        min_length=32,
         validation_alias=AliasChoices("jwt_secret_key", "JWT_SECRET_KEY", "JWT_SECRET"),
     )
     jwt_algorithm: str = "HS256"
@@ -57,9 +57,9 @@ class AuthSettings(CorsSettings):
     auth_cookie_path: str = "/api"
     auth_cookie_domain: str | None = None
     auth_cookie_httponly: bool = True
-    auth_cookie_secure: bool = False
+    auth_cookie_secure: bool = True
     auth_cookie_samesite: str = "lax"
-    auth_enable_password_bearer_token: bool = True
+    auth_enable_password_bearer_token: bool = False
     default_registered_organization_status: str = "ACTIVE"
     default_registered_user_status: str = "ACTIVE"
     default_platform_role: str = "USER"
@@ -89,3 +89,10 @@ class AuthSettings(CorsSettings):
             msg = f"jwt_algorithm debe ser uno de: {allowed_values}"
             raise ValueError(msg)
         return value
+
+    @model_validator(mode="after")
+    def validate_cookie_transport_security(self) -> "AuthSettings":
+        if self.auth_cookie_samesite == "none" and not self.auth_cookie_secure:
+            msg = "SameSite=None requiere auth_cookie_secure=True"
+            raise ValueError(msg)
+        return self

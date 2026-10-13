@@ -97,6 +97,47 @@ def test_auth_settings_rejects_invalid_jwt_algorithm() -> None:
 
 
 @pytest.mark.test_unit
+def test_auth_settings_rejects_jwt_secret_shorter_than_32_characters() -> None:
+    with pytest.raises(ValidationError):
+        AuthSettings.model_validate({"jwt_secret_key": "too-short"})
+
+
+@pytest.mark.test_unit
+def test_auth_settings_rejects_samesite_none_without_secure_cookie() -> None:
+    with pytest.raises(ValidationError):
+        AuthSettings.model_validate(
+            {
+                "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
+                "auth_cookie_samesite": "none",
+                "auth_cookie_secure": False,
+            },
+        )
+
+
+@pytest.mark.test_unit
+def test_auth_settings_accepts_samesite_none_with_secure_cookie() -> None:
+    settings = AuthSettings.model_validate(
+        {
+            "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
+            "auth_cookie_samesite": "none",
+            "auth_cookie_secure": True,
+        },
+    )
+
+    assert settings.auth_cookie_samesite == "none"
+    assert settings.auth_cookie_secure is True
+
+
+@pytest.mark.test_unit
+def test_auth_settings_disables_password_bearer_token_by_default() -> None:
+    settings = AuthSettings.model_validate(
+        {"jwt_secret_key": "test-secret-not-for-production-with-safe-length"},
+    )
+
+    assert settings.auth_enable_password_bearer_token is False
+
+
+@pytest.mark.test_unit
 def test_password_hash_is_not_plain_password() -> None:
     hasher = PwdlibPasswordHasher()
     raw_credential = "PasswordSeguro123!"
@@ -203,7 +244,7 @@ def test_cookie_settings_max_age_is_derived_from_token_expiration(
     assert cookie_settings.path == "/api"
     assert cookie_settings.domain is None
     assert cookie_settings.httponly is True
-    assert cookie_settings.secure is False
+    assert cookie_settings.secure is True
     assert cookie_settings.samesite == "lax"
     assert cookie_settings.max_age == 900
 

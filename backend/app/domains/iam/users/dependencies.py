@@ -1,15 +1,12 @@
 """Dependencias FastAPI para el piloto IAM/users."""
 
-import os
-from collections.abc import Generator
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Path, Query, status
-from sqlalchemy import Engine, create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
+from app.db.session import get_db_session
 from app.domains.iam.access.tenant_context import (
     ACTIVE_STATUS,
     PLATFORM_ADMIN_ROLE,
@@ -17,6 +14,7 @@ from app.domains.iam.access.tenant_context import (
     TenantContextError,
     build_tenant_context,
 )
+from app.domains.iam.users.audit import StructuredUsersAuditLogger
 from app.domains.iam.users.repositories import SqlAlchemyOrganizationUsersRepository
 from app.domains.iam.users.schemas import (
     SortDirection,
@@ -24,8 +22,6 @@ from app.domains.iam.users.schemas import (
     UserListSortField,
 )
 from app.domains.iam.users.services import ListOrganizationUsersService
-
-DATABASE_URL_ENV_VAR = "DATABASE_URL"
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,48 +92,16 @@ def get_tenant_context(
         ) from error
 
 
-def get_required_database_url() -> str:
-    """Obtiene la URL de base de datos para dependencies HTTP."""
-
-    database_url = os.environ.get(DATABASE_URL_ENV_VAR)
-    if database_url is None or database_url == "":
-        raise RuntimeError(
-            f"La variable de entorno {DATABASE_URL_ENV_VAR} debe estar definida."
-        )
-    return database_url
-
-
-@lru_cache(maxsize=1)
-def get_engine() -> Engine:
-    """Crea el engine SQLAlchemy compartido del proceso API."""
-
-    return create_engine(get_required_database_url(), hide_parameters=True)
-
-
-@lru_cache(maxsize=1)
-def get_session_factory() -> sessionmaker[Session]:
-    """Crea la factoría de sesiones SQLAlchemy para FastAPI."""
-
-    return sessionmaker(bind=get_engine(), autoflush=False, expire_on_commit=False)
-
-
-def get_db_session() -> Generator[Session, None, None]:
-    """Proporciona una sesión SQLAlchemy por request."""
-
-    session = get_session_factory()()
-    try:
-        yield session
-    finally:
-        session.close()
-
-
 def get_list_organization_users_service(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> ListOrganizationUsersService:
     """Construye el caso de uso con el repository SQLAlchemy real."""
 
     repository = SqlAlchemyOrganizationUsersRepository(session)
-    return ListOrganizationUsersService(repository=repository)
+    return ListOrganizationUsersService(
+        repository=repository,
+        audit_logger=StructuredUsersAuditLogger(),
+    )
 
 
 __all__ = (

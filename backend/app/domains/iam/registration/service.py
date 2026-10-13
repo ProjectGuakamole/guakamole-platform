@@ -2,15 +2,17 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Protocol
 
-from sqlalchemy.exc import IntegrityError
-
 from app.domains.auth.shared.config import AuthSettings
 from app.domains.auth.shared.password_hasher import PasswordHasher
 from app.domains.auth.shared.public_ids import PublicIdPrefix, generate_public_id
-from app.domains.iam.organizations.models import Organization
+from app.domains.iam.registration.entities import (
+    RegistrationOrganization,
+    RegistrationUser,
+)
 from app.domains.iam.registration.exceptions import (
     DuplicateRegistrationError,
     InvalidRegistrationReferenceError,
+    RegistrationPersistenceConflictError,
 )
 from app.domains.iam.registration.repository import (
     GeographyReference,
@@ -20,7 +22,6 @@ from app.domains.iam.registration.schemas import (
     RegistrationRequest,
     RegistrationResponse,
 )
-from app.domains.iam.users.models import User
 
 
 class AuditLogger(Protocol):
@@ -28,6 +29,8 @@ class AuditLogger(Protocol):
 
 
 class NoOpAuditLogger:
+    """Implementación exclusiva para pruebas unitarias explícitas."""
+
     def emit(self, *, action: str, metadata: dict[str, str]) -> None:
         _ = (action, metadata)
 
@@ -46,74 +49,18 @@ class RegistrationService:
             tax_id=request.organization.tax_id,
         ):
             raise DuplicateRegistrationError
-
-        organization_status_id = self._required_status_id(
-            self.auth_settings.default_registered_organization_status,
-        )
-        user_status_id = self._required_status_id(
-            self.auth_settings.default_registered_user_status,
-        )
-        platform_role_id = self._required_platform_role_id(
-            self.auth_settings.default_platform_role
-        )
-        organization_role_id = self._required_organization_role_id(
-            self.auth_settings.default_organization_role,
-        )
-        org_geo = self._required_geography(
-            country=request.organization.country,
-            state=request.organization.state,
-            city=request.organization.city,
-        )
-        user_geo = self._required_geography(
-            country=request.user.country,
-            state=request.user.state,
-            city=request.user.city,
-        )
-
-        organization = Organization(
-            public_id=generate_public_id(PublicIdPrefix.ORGANIZATION),
-            id_country=org_geo.country_id,
-            id_state=org_geo.state_id,
-            id_city=org_geo.city_id,
-            id_status=organization_status_id,
-            name=request.organization.name,
-            slug=request.organization.slug,
-            org_registered_name=request.organization.legal_name,
-            org_tax=request.organization.tax_id,
-            org_address=request.organization.address,
-            org_zipcode=request.organization.postal_code,
-        )
+        organization = self._build_organization(request)
         self.repository.add_organization(organization)
         self._flush_organization()
-        user = User(
-            public_id=generate_public_id(PublicIdPrefix.USER),
-            id_organization=organization.id_organization,
-            id_platform_role=platform_role_id,
-            id_country=user_geo.country_id,
-            id_state=user_geo.state_id,
-            id_city=user_geo.city_id,
-            id_org_role=organization_role_id,
-            id_status=user_status_id,
-            email=request.user.email,
-            password_hash=self.password_hasher.hash(request.user.password),
-            first_name=request.user.first_name,
-            last_name=request.user.last_name,
-            birthdate=request.user.birth_date,
-            user_address=request.user.address,
-            user_zipcode=request.user.postal_code,
-        )
+        if organization.id is None:
+            raise InvalidRegistrationReferenceError
+        user = self._build_user(request, organization.id)
         self.repository.add_user(user)
         try:
             self.repository.commit()
-        except IntegrityError as error:
-            self.repository.rollback()
+        except RegistrationPersistenceConflictError as error:
             raise DuplicateRegistrationError from error
-
-        self._audit(
-            organization_public_id=organization.public_id,
-            user_public_id=user.public_id,
-            email=request.user.email,
-        )
+        self._audit(organization.public_id, user.public_id, request.user.email)
         return RegistrationResponse(
             organization_id=organization.public_id,
             user_id=user.public_id,
@@ -121,33 +68,77 @@ class RegistrationService:
             user_status=self.auth_settings.default_registered_user_status,
         )
 
+    def _build_organization(
+        self, request: RegistrationRequest
+    ) -> RegistrationOrganization:
+        geography = self._required_geography(
+            request.organization.country,
+            request.organization.state,
+            request.organization.city,
+        )
+        return RegistrationOrganization(
+            public_id=generate_public_id(PublicIdPrefix.ORGANIZATION),
+            country_id=geography.country_id,
+            state_id=geography.state_id,
+            city_id=geography.city_id,
+            status_id=self._required_status_id(
+                self.auth_settings.default_registered_organization_status
+            ),
+            name=request.organization.name,
+            slug=request.organization.slug,
+            legal_name=request.organization.legal_name,
+            tax_id=request.organization.tax_id,
+            address=request.organization.address,
+            postal_code=request.organization.postal_code,
+        )
+
+    def _build_user(
+        self, request: RegistrationRequest, organization_id: int
+    ) -> RegistrationUser:
+        geography = self._required_geography(
+            request.user.country, request.user.state, request.user.city
+        )
+        return RegistrationUser(
+            public_id=generate_public_id(PublicIdPrefix.USER),
+            organization_id=organization_id,
+            platform_role_id=self._required_platform_role_id(
+                self.auth_settings.default_platform_role
+            ),
+            country_id=geography.country_id,
+            state_id=geography.state_id,
+            city_id=geography.city_id,
+            organization_role_id=self._required_organization_role_id(
+                self.auth_settings.default_organization_role
+            ),
+            status_id=self._required_status_id(
+                self.auth_settings.default_registered_user_status
+            ),
+            email=request.user.email,
+            password_hash=self.password_hasher.hash(request.user.password),
+            first_name=request.user.first_name,
+            last_name=request.user.last_name,
+            birth_date=request.user.birth_date,
+            address=request.user.address,
+            postal_code=request.user.postal_code,
+        )
+
     def _flush_organization(self) -> None:
         try:
             self.repository.flush()
-        except IntegrityError as error:
-            self.repository.rollback()
+        except RegistrationPersistenceConflictError as error:
             raise DuplicateRegistrationError from error
 
-    def _required_status_id(self, status_name: str) -> int:
-        status_id = self.repository.get_status_id(status_name)
-        if status_id is None:
-            raise InvalidRegistrationReferenceError
-        return status_id
+    def _required_status_id(self, name: str) -> int:
+        return self._required(self.repository.get_status_id(name))
 
-    def _required_platform_role_id(self, role_name: str) -> int:
-        role_id = self.repository.get_platform_role_id(role_name)
-        if role_id is None:
-            raise InvalidRegistrationReferenceError
-        return role_id
+    def _required_platform_role_id(self, name: str) -> int:
+        return self._required(self.repository.get_platform_role_id(name))
 
-    def _required_organization_role_id(self, role_name: str) -> int:
-        role_id = self.repository.get_organization_role_id(role_name)
-        if role_id is None:
-            raise InvalidRegistrationReferenceError
-        return role_id
+    def _required_organization_role_id(self, name: str) -> int:
+        return self._required(self.repository.get_organization_role_id(name))
 
     def _required_geography(
-        self, *, country: str, state: str, city: str
+        self, country: str, state: str, city: str
     ) -> GeographyReference:
         geography = self.repository.get_geography(
             country=country, state=state, city=city
@@ -156,15 +147,28 @@ class RegistrationService:
             raise InvalidRegistrationReferenceError
         return geography
 
-    def _audit(
-        self, *, organization_public_id: str, user_public_id: str, email: str
-    ) -> None:
-        email_hash = sha256(email.encode("utf-8")).hexdigest()
-        self.audit_logger.emit(
+    @staticmethod
+    def _required(value: int | None) -> int:
+        if value is None:
+            raise InvalidRegistrationReferenceError
+        return value
+
+    def _audit(self, organization_id: str, user_id: str, email: str) -> None:
+        self._emit_audit(
             action="ORGANIZATION_REGISTERED",
-            metadata={"organization_id": organization_public_id},
+            metadata={"organization_id": organization_id},
         )
-        self.audit_logger.emit(
+        self._emit_audit(
             action="USER_REGISTERED",
-            metadata={"user_id": user_public_id, "email_hash": email_hash},
+            metadata={
+                "user_id": user_id,
+                "email_hash": sha256(email.encode()).hexdigest(),
+            },
         )
+
+    def _emit_audit(self, *, action: str, metadata: dict[str, str]) -> None:
+        try:
+            self.audit_logger.emit(action=action, metadata=metadata)
+        except Exception:
+            # La auditoría no persistente es auxiliar y no puede deshacer un registro.
+            return
