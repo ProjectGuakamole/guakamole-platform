@@ -98,11 +98,11 @@ export default function RegisterCompanyForm() {
         <form onSubmit={handleSubmit}>
           <Stack gap={6}>
             <Heading color="var(--app-fg)" size="md">
-              Datos de la empresa
+              Crear cuenta
             </Heading>
 
             <Field.Root required>
-              <Field.Label>Nombre de la empresa</Field.Label>
+              <Field.Label>Nombre de la organización</Field.Label>
               <Input
                 name="companyName"
                 value={formData.organization.name}
@@ -112,7 +112,7 @@ export default function RegisterCompanyForm() {
                     organization: { name: event.target.value },
                   }))
                 }
-                placeholder="Mi Empresa"
+                placeholder="Mi Organización"
                 autoComplete="organization"
                 maxLength={150}
                 pattern={".*\\S.*"}
@@ -120,10 +120,6 @@ export default function RegisterCompanyForm() {
                 required
               />
             </Field.Root>
-
-            <Heading color="var(--app-fg)" size="md">
-              Datos del usuario
-            </Heading>
 
             <Field.Root required>
               <Field.Label>Nombre</Field.Label>
