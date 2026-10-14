@@ -1,346 +1,143 @@
+"""Contratos de seguridad de fixture y destino del seed demo IAM."""
+
+from __future__ import annotations
+
+import copy
 import json
+from collections.abc import Callable
 from pathlib import Path
-from types import TracebackType
-from typing import cast
 
 import pytest
-from sqlalchemy.engine import URL, Connection, Engine, make_url
-from sqlalchemy.sql.elements import TextClause
 
-import scripts.seed_demo_iam as seed_demo_iam
+from app.core.iam_rebaseline import validate_safe_target
+from app.domains.auth.shared.public_ids import PublicIdPrefix, parse_public_uuid
 from scripts.seed_demo_iam import (
-    build_truncate_statement,
-    clear_demo,
+    FIXTURE_PATH,
+    Fixture,
+    _is_managed_public_id,
+    _public_id,
     load_fixture,
-    seed_demo,
-    truncate_tables,
-    validate_database_url,
     validate_fixture,
 )
 
 pytestmark = pytest.mark.test_unit
 
 
-class FakeInspector:
-    def __init__(
-        self, *, has_schema: bool = True, missing_tables: set[str] | None = None
-    ) -> None:
-        self._has_schema = has_schema
-        self._missing_tables = missing_tables or set()
-
-    def has_schema(self, schema_name: str) -> bool:
-        return self._has_schema and schema_name == seed_demo_iam.IAM_SCHEMA
-
-    def has_table(self, table_name: str, *, schema: str | None = None) -> bool:
-        return (
-            schema == seed_demo_iam.IAM_SCHEMA
-            and table_name not in self._missing_tables
-        )
-
-
-class FakeResult:
-    def __init__(self, rowcount: int) -> None:
-        self.rowcount = rowcount
-
-
-class FakeConnection:
-    def __init__(self) -> None:
-        self.statements: list[str] = []
-
-    def execute(self, statement: TextClause) -> FakeResult:
-        self.statements.append(str(statement))
-        return FakeResult(len(self.statements))
-
-
-class FakeTransaction:
-    def __init__(self, connection: FakeConnection) -> None:
-        self._connection = connection
-
-    def __enter__(self) -> FakeConnection:
-        return self._connection
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
-        return None
-
-
-class FakeEngine:
-    def __init__(self) -> None:
-        self.connection = FakeConnection()
-
-    def begin(self) -> FakeTransaction:
-        return FakeTransaction(self.connection)
-
-
-def test_validate_database_url_accepts_postgresql() -> None:
-    url = validate_database_url("postgresql+psycopg://user:pass@localhost:5432/db")
-
-    assert url.drivername == "postgresql+psycopg"
-
-
-def test_validate_database_url_rejects_non_postgresql_prefix() -> None:
-    with pytest.raises(ValueError, match="PostgreSQL"):
-        validate_database_url("postgresqlite:///demo.db")
-
-
-def test_validate_database_url_rejects_missing_value() -> None:
-    with pytest.raises(ValueError, match="DATABASE_URL"):
-        validate_database_url(None)
-
-
-def test_validate_database_url_rejects_sqlite() -> None:
-    with pytest.raises(ValueError, match="PostgreSQL"):
-        validate_database_url("sqlite:///demo.db")
-
-
-@pytest.mark.parametrize("app_env", ["staging", "production", "invalid", ""])
-def test_seed_rejects_unsafe_environment_before_engine_use(app_env: str) -> None:
-    environment = {
-        "APP_ENV": app_env,
-        "DATABASE_URL": "postgresql+psycopg://test:test@localhost/guakamole_test",
-        "JWT_SECRET_KEY": "test-secret-not-for-production-with-safe-length",
-    }
-
-    with pytest.raises((RuntimeError, ValueError)):
-        seed_demo_iam.require_safe_seed_environment(environment)
-
-
-@pytest.mark.parametrize("app_env", ["development", "test"])
-def test_seed_allows_only_explicit_local_environments(app_env: str) -> None:
-    environment = {
-        "APP_ENV": app_env,
-        "DATABASE_URL": "postgresql+psycopg://test:test@localhost/guakamole_test",
-        "JWT_SECRET_KEY": "test-secret-not-for-production-with-safe-length",
-    }
-
-    seed_demo_iam.require_safe_seed_environment(environment)
-
-
-def test_load_fixture_validates_demo_identifiers() -> None:
+def test_fixture_contiene_solo_datos_de_negocio_demo() -> None:
     fixture = load_fixture()
+    assert (
+        len(fixture["organizations"]),
+        len(fixture["users"]),
+        len(fixture["departments"]),
+        len(fixture["department_relations"]),
+    ) == (6, 8, 8, 8)
+    assert "password" not in FIXTURE_PATH.read_text(encoding="utf-8").lower()
 
-    assert len(fixture["organizations"]) == 6
-    assert all(item["slug"].startswith("demo-") for item in fixture["organizations"])
-    assert all(item["email"].endswith(".demo.test") for item in fixture["users"])
+
+@pytest.mark.parametrize("prefix", ["org", "usr"])
+def test_public_id_demo_cabe_en_la_columna(prefix: str) -> None:
+    public_id = _public_id(prefix, "demo-natural-key")
+
+    assert public_id.startswith(f"{prefix}_")
+    assert "demo" not in public_id
+    assert len(public_id) <= 40
+    assert parse_public_uuid(public_id, PublicIdPrefix(prefix))
 
 
-def test_validate_fixture_rejects_non_demo_slug(tmp_path: Path) -> None:
-    fixture = load_fixture()
-    fixture["organizations"][0]["slug"] = "acme"
-    path = tmp_path / "iam_demo_seed.json"
-    path.write_text(json.dumps(fixture), encoding="utf-8")
+@pytest.mark.parametrize("prefix", ["org", "usr"])
+def test_public_id_demo_es_determinista_desde_la_clave_estable(prefix: str) -> None:
+    assert _public_id(prefix, "stable@example.demo.test") == _public_id(
+        prefix, "stable@example.demo.test"
+    )
+    assert _public_id(prefix, "stable@example.demo.test") != _public_id(
+        prefix, "other@example.demo.test"
+    )
 
-    with pytest.raises(ValueError, match="demo-"):
+
+@pytest.mark.parametrize(
+    ("prefix", "public_id"),
+    [
+        ("org", _public_id("org", "demo-natural-key")),
+        ("usr", _public_id("usr", "demo-natural-key")),
+        ("org", _public_id("usr", "demo-natural-key")),
+        ("org", _public_id("org", "other-demo-natural-key")),
+        ("org", "org_abcdefghijklmnopqrstu"),
+        ("org", "org_abcdefghijklmnopqrstuv!"),
+        ("usr", "usr_" + "a" * 41),
+    ],
+)
+def test_id_publico_demo_exige_formato_y_tipo_exactos(
+    prefix: str, public_id: str
+) -> None:
+    assert _is_managed_public_id(prefix, "demo-natural-key", public_id) is (
+        public_id == _public_id(prefix, "demo-natural-key")
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (lambda data: data["organizations"].append(data["organizations"][0]), "6/8"),
+        (
+            lambda data: data["users"].__setitem__(
+                0, {**data["users"][0], "organization_slug": "missing"}
+            ),
+            "referencias",
+        ),
+        (
+            lambda data: data["departments"].__setitem__(
+                0, {**data["departments"][0], "name": "SOC"}
+            ),
+            "espacio demo",
+        ),
+        (
+            lambda data: data["department_relations"].__setitem__(
+                0,
+                {
+                    "department_name": "Demo SOC L1",
+                    "user_email": "julia.cyber@iam.demo.test",
+                },
+            ),
+            "misma organización",
+        ),
+    ],
+)
+def test_fixture_invalido_falla_antes_de_abrir_un_motor(
+    mutate: Callable[[Fixture], object], message: str
+) -> None:
+    fixture = copy.deepcopy(load_fixture())
+    mutate(fixture)
+    with pytest.raises(ValueError, match=message):
+        validate_fixture(fixture)
+
+
+def test_fixture_malformado_devuelve_error_controlado(tmp_path: Path) -> None:
+    path = tmp_path / "fixture.json"
+    path.write_text(json.dumps({"organizations": []}), encoding="utf-8")
+    with pytest.raises(ValueError, match="colecciones"):
         load_fixture(path)
 
 
-def test_validate_fixture_rejects_out_of_range_collections() -> None:
-    fixture = load_fixture()
-    fixture["users"] = fixture["users"][:4]
-
-    with pytest.raises(ValueError, match="entre 5 y 10"):
-        validate_fixture(fixture)
-
-
-def test_validate_fixture_requires_demo_department_name() -> None:
-    fixture = load_fixture()
-    fixture["departments"][0]["name"] = "Incident Response"
-
-    with pytest.raises(ValueError, match="departamentos demo.*Demo"):
-        validate_fixture(fixture)
+def test_destino_demo_no_usa_database_url() -> None:
+    environment = {
+        "APP_ENV": "development",
+        "DATABASE_URL": "postgresql://remote/unsafe",
+    }
+    with pytest.raises(ValueError, match="DEMO_DEVELOPMENT_DATABASE_URL"):
+        validate_safe_target(environment, "DEMO_DEVELOPMENT_DATABASE_URL")
 
 
-def test_validate_fixture_requires_existing_user_organization() -> None:
-    fixture = load_fixture()
-    fixture["users"][0]["organization_slug"] = "demo-organizacion-inexistente"
+def test_seed_demo_no_bootstrap_catalogos_implicitamente() -> None:
+    source = Path("scripts/seed_demo_iam.py").read_text(encoding="utf-8")
 
-    with pytest.raises(ValueError, match="usuario demo.*organización existente"):
-        validate_fixture(fixture)
-
-
-def test_validate_fixture_requires_existing_department_organization() -> None:
-    fixture = load_fixture()
-    fixture["departments"][0]["organization_slug"] = "demo-organizacion-inexistente"
-
-    with pytest.raises(ValueError, match="departamento demo.*organización existente"):
-        validate_fixture(fixture)
+    assert "bootstrap_iam_connection" not in source
+    assert "assert_canonical_bootstrap_catalogs(connection)" in source
 
 
-def test_validate_fixture_requires_relation_same_organization() -> None:
-    fixture = load_fixture()
-    fixture["department_relations"][0]["department_name"] = "Demo Incident Response"
-
-    with pytest.raises(ValueError, match="misma organización"):
-        validate_fixture(fixture)
-
-
-def test_truncate_statement_contains_expected_tables_and_restart_cascade() -> None:
-    statement = build_truncate_statement()
-
-    assert "TRUNCATE TABLE" in statement
-    assert "RESTART IDENTITY CASCADE" in statement
-    assert truncate_tables() == seed_demo_iam.REQUIRED_TABLES
-    for table in seed_demo_iam.REQUIRED_TABLES:
-        assert f"sch_iam.{table}" in statement
-
-
-def test_build_engine_hides_parameters(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: dict[str, object] = {}
-
-    def fake_create_engine(url: URL, *, hide_parameters: bool) -> Engine:
-        captured["url"] = url
-        captured["hide_parameters"] = hide_parameters
-        return cast(Engine, object())
-
-    monkeypatch.setattr(seed_demo_iam, "create_engine", fake_create_engine)
-
-    url = make_url("postgresql+psycopg://user:pass@localhost/db")
-
-    seed_demo_iam.build_engine(url)
-
-    assert captured == {"url": url, "hide_parameters": True}
-
-
-def test_assert_schema_ready_fails_when_schema_is_missing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        seed_demo_iam, "inspect", lambda _engine: FakeInspector(has_schema=False)
-    )
-
-    with pytest.raises(RuntimeError, match="uv run alembic upgrade head"):
-        seed_demo_iam.assert_schema_ready(cast(Engine, object()))
-
-
-def test_assert_schema_ready_fails_when_required_table_is_missing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    inspector = FakeInspector(missing_tables={"tbl_users"})
-    monkeypatch.setattr(seed_demo_iam, "inspect", lambda _engine: inspector)
-
-    with pytest.raises(RuntimeError, match="tbl_users.*uv run alembic upgrade head"):
-        seed_demo_iam.assert_schema_ready(cast(Engine, object()))
-
-
-def test_clear_demo_truncates_managed_iam_tables(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fake_engine = FakeEngine()
-    monkeypatch.setattr(seed_demo_iam, "assert_schema_ready", lambda _engine: None)
-
-    clear_demo(cast(Engine, fake_engine))
-
-    statements = fake_engine.connection.statements
-    assert statements == [build_truncate_statement()]
-
-
-def test_seed_demo_truncates_before_inserts(monkeypatch: pytest.MonkeyPatch) -> None:
-    events: list[str] = []
-
-    def fake_truncate(_connection: object) -> None:
-        events.append("truncate")
-
-    def fake_insert_statuses(
-        _connection: object, _items: object
-    ) -> seed_demo_iam.OperationStats:
-        events.append("insert_statuses")
-        return seed_demo_iam.OperationStats(created=5)
-
-    monkeypatch.setattr(seed_demo_iam, "assert_schema_ready", lambda _engine: None)
-    monkeypatch.setattr(
-        seed_demo_iam, "assert_pgcrypto_available", lambda _engine: None
-    )
-    monkeypatch.setattr(seed_demo_iam, "truncate_iam", fake_truncate)
-    monkeypatch.setattr(
-        seed_demo_iam,
-        "synchronize_registration_identities",
-        lambda _connection: events.append("synchronize_identities"),
-    )
-    monkeypatch.setattr(seed_demo_iam, "insert_statuses", fake_insert_statuses)
-    monkeypatch.setattr(
-        seed_demo_iam,
-        "insert_platform_roles",
-        lambda _connection, _items: seed_demo_iam.OperationStats(created=5),
-    )
-    monkeypatch.setattr(
-        seed_demo_iam,
-        "insert_organization_roles",
-        lambda _connection, _items: seed_demo_iam.OperationStats(created=5),
-    )
-    monkeypatch.setattr(
-        seed_demo_iam,
-        "insert_countries",
-        lambda _connection, _items: seed_demo_iam.OperationStats(created=5),
-    )
-    monkeypatch.setattr(
-        seed_demo_iam,
-        "insert_states",
-        lambda _connection, _items: seed_demo_iam.OperationStats(created=5),
-    )
-    monkeypatch.setattr(
-        seed_demo_iam,
-        "insert_cities",
-        lambda _connection, _items: seed_demo_iam.OperationStats(created=5),
-    )
-    monkeypatch.setattr(seed_demo_iam, "load_first_geo", lambda _connection: {})
-    monkeypatch.setattr(seed_demo_iam, "scalar_id", lambda *_args: 1)
-    monkeypatch.setattr(
-        seed_demo_iam,
-        "upsert_organizations",
-        lambda *_args: seed_demo_iam.OperationStats(created=6),
-    )
-    monkeypatch.setattr(
-        seed_demo_iam,
-        "upsert_users",
-        lambda *_args: seed_demo_iam.OperationStats(created=8),
-    )
-    monkeypatch.setattr(
-        seed_demo_iam,
-        "upsert_departments",
-        lambda *_args: seed_demo_iam.OperationStats(created=8),
-    )
-    monkeypatch.setattr(
-        seed_demo_iam,
-        "upsert_relations",
-        lambda *_args: seed_demo_iam.OperationStats(created=8),
-    )
-
-    seed_demo(cast(Engine, FakeEngine()), load_fixture())
-
-    assert events == ["truncate", "insert_statuses", "synchronize_identities"]
-
-
-def test_synchronize_registration_identities_uses_postgresql_sequence_lookup() -> None:
-    connection = FakeConnection()
-
-    seed_demo_iam.synchronize_registration_identities(cast(Connection, connection))
-
-    assert len(connection.statements) == 2
-    assert (
-        "pg_get_serial_sequence('sch_iam.tbl_organization', 'id_organization')"
-        in (connection.statements[0])
-    )
-    assert (
-        "pg_get_serial_sequence('sch_iam.tbl_users', 'id_user')"
-        in (connection.statements[1])
-    )
-    assert "setval" in connection.statements[0]
-
-
-def test_help_reflects_yes_and_destructive_behavior(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    with pytest.MonkeyPatch.context() as monkeypatch:
-        monkeypatch.setattr("sys.argv", ["seed_demo_iam.py", "--help"])
-        with pytest.raises(SystemExit) as exc_info:
-            seed_demo_iam.parse_args()
-
-    assert exc_info.value.code == 0
-    help_text = capsys.readouterr().out
-    assert "--yes" in help_text
-    assert "DESTRUCTIVO" in help_text
-    assert "trunca" in help_text
+def test_make_exige_confirmaciones_distintas_y_no_trunca() -> None:
+    makefile = Path("../Makefile").read_text(encoding="utf-8")
+    assert 'CONFIRM)" = "SEED_DEMO_IAM' in makefile
+    assert 'CONFIRM)" = "CLEAR_DEMO_IAM' in makefile
+    assert 'CONFIRM)" = "REBASELINE_IAM' in makefile
+    assert "ejecuta antes backend-bootstrap" in makefile
+    assert "TRUNCATE" not in makefile

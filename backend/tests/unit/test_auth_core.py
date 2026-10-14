@@ -256,4 +256,34 @@ def test_public_id_helper_generates_expected_prefix_and_valid_uuid(
     parsed_uuid = parse_public_uuid(public_id, prefix)
 
     assert public_id.startswith(expected_prefix)
+    assert len(public_id) <= 40
     assert parsed_uuid.version == 4
+
+
+@pytest.mark.test_unit
+@pytest.mark.parametrize("prefix", list(PublicIdPrefix))
+def test_public_id_parser_accepts_canonical_generated_ids(
+    prefix: PublicIdPrefix,
+) -> None:
+    public_id = generate_public_id(prefix)
+
+    assert parse_public_uuid(public_id, prefix).bytes
+
+
+@pytest.mark.test_unit
+@pytest.mark.parametrize(
+    "public_id",
+    [
+        "org_!!!!!!!!!!!!!!!!!!!!!!",
+        "org_abcdefghijklmnopqrstu",
+        "org_abcdefghijklmnopqrstuvw",
+        "org_abcdefghijklmnopqrstuv=",
+        "org_abcdefghijklmnopqrstuvextra",
+        "org_AAAAAAAAAAAAAAAAAAAAAB",
+    ],
+)
+def test_public_id_parser_rejects_noncanonical_or_malformed_values(
+    public_id: str,
+) -> None:
+    with pytest.raises(ValueError, match="UUID inválido"):
+        parse_public_uuid(public_id, PublicIdPrefix.ORGANIZATION)

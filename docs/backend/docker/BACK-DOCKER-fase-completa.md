@@ -10,7 +10,7 @@ Este histórico trata Compose y el contexto de imagen. No describe el grafo Alem
 
 ## Estado actual
 
-**VALIDADO — punto 3 aprobado y completado.** Este histórico no declara un cierre global.
+**Punto 4 documentado.** Este histórico no declara un cierre global.
 
 ## Cambios realizados
 
@@ -20,6 +20,8 @@ Este histórico trata Compose y el contexto de imagen. No describe el grafo Alem
 - No se implementa una tarea Docker específica para migraciones.
 - El rebaseline documentado en el punto 3 es destructivo y solo admite destinos locales de desarrollo o prueba explícitamente seguros; se rechazan hosts remotos. Esta condición aplica igualmente si en el futuro se orquesta desde un contenedor.
 - No se ha creado ni modificado ninguna tarea Docker para ejecutar migraciones o rebaseline.
+- El bootstrap de catálogos aprobados, la demo contenida y el rebaseline total siguen siendo operaciones explícitas fuera del arranque Docker y con destinos locales dedicados; `DATABASE_URL` no es su destino. Tras Alembic o rebaseline, el bootstrap resuelve los catálogos por claves naturales y asigna identificadores públicos estándar, válidos y deterministas antes de la demo; seed y clear no modifican catálogos.
+- Las migraciones no incorporan DML de catálogo o demo.
 
 ## Justificacion tecnica
 
@@ -29,14 +31,19 @@ La lista permitida limita la propagación accidental de configuración al conten
 
 - Mantener la configuración de Compose sin secretos documentados.
 - No iniciar migraciones automáticamente con el backend; el trabajo Docker explícito se evaluará en el punto 5.
-- No atribuir a Compose la provisión de `pgcrypto`, permisos SQL o sincronización de identidades: son precondiciones operativas del seed y de PostgreSQL, no cambios Docker realizados.
+- No atribuir a Compose la carga de catálogos, permisos SQL ni la gestión de identidades: son responsabilidades operativas explícitas del backend y de PostgreSQL, no cambios Docker realizados.
 - Conservar en la imagen únicamente los recursos requeridos para ejecutar el backend y Alembic.
+- No añadir al contenedor una migración automática, bootstrap automático ni una operación demo destructiva.
 
 ## Tests ejecutados
 
-Se validó el renderizado de las configuraciones de Compose para confirmar la selección determinista y la ausencia de secretos en la configuración resultante. La evidencia final es: `make backend-quality` **OK** (`ruff`, formato sobre **159 archivos** y `mypy` sobre **158 archivos fuente**); `make backend-test-unit` **308 passed, 70 deselected**; `make backend-test-db` **48 passed, 330 deselected** y **2 advertencias de Alembic**; `make backend-test-security` **22 passed, 356 deselected**; y suite completa con `TEST_DATABASE_URL` local dedicada **378 passed** y **2 advertencias de Alembic**. La ejecución directa de `pytest` sin URL de pruebas produjo **330 passed, 48 skipped**.
+- `make backend-quality`: Ruff y comprobación de formato correctos sobre **164** ficheros; mypy en modo estricto correcto sobre **163** ficheros fuente.
+- `make backend-test-unit`: **316 passed, 100 deselected**.
+- `make backend-test-db`: **78 passed, 338 deselected** y **62 advertencias** conocidas de deprecación de Alembic relacionadas con `path_separator`.
+- `make backend-test-security`: **22 passed, 394 deselected**.
+- `make backend-test`: **416 passed, 62 warnings**.
 
-`backend-test-db` exige `TEST_DATABASE_URL`, rechaza hosts remotos y rebaselinea destructivamente una base local `*_test` antes de la suite de base de datos. La ejecución directa de `pytest` omite las 48 pruebas que requieren dicha URL. Las advertencias de Alembic son seguimiento no bloqueante y no se inventa una corrección no aplicada.
+Los comandos que reconstruyen o validan la base de datos de pruebas deben ejecutarse secuencialmente: el rebaseline es destructivo sobre la base local de pruebas. No se dispone de resultado de renderizado de Compose ni de una suite Docker para este punto.
 
 ## Riesgos o deuda tecnica
 

@@ -10,11 +10,11 @@ Recoge reglas de migraciones y su acceso a base de datos. No duplica la selecci�
 
 ## Estado actual
 
-**VALIDADO — punto 3 completado.**
+**Punto 4 documentado.** Se preserva el baseline DDL del punto 3 y se añade la operación separada de bootstrap, demo y rebaseline.
 
 ## Cambios realizados
 
-Se mantienen las reglas del punto 2 y se incorpora el baseline `iam_baseline` DDL-only para `sch_iam`.
+Se mantienen las reglas del punto 2 y el baseline `iam_baseline` DDL-only para `sch_iam`. En el punto 4, los catálogos IAM aprobados se cargan mediante bootstrap transaccional, fuera de Alembic; la demo se limita a su espacio gestionado y el rebaseline reconstruye el esquema completo antes de aplicar el baseline.
 
 ## Justificacion tecnica
 
@@ -32,25 +32,27 @@ Una única fuente de conexión evita que una migración opere contra una base di
 - Las identidades de organización y usuario empiezan en 1; `public_id` se genera en Python.
 - El esquema preserva integridad tenant en relaciones de departamento, coherencia geográfica y unicidad insensible a mayúsculas mediante `lower(...)`.
 - Alembic usa una conexión inyectada y validada; el arranque del backend no migra la base de datos.
-- Los seeds requieren preflight de `pgcrypto` y sincronización de identidades.
+- La referencia histórica a un seed con preflight de `pgcrypto` y sincronización de identidades queda sustituida en el punto 4 por bootstrap de catálogos y demo sin esa dependencia.
 - El rebaseline es destructivo y solo se autoriza con confirmación explícita: pruebas con `TEST_DATABASE_URL` `*_test`, o desarrollo local separado con `REBASELINE_DEVELOPMENT_DATABASE_URL` `*_dev` o `*_development`.
+- Las migraciones no contienen DML de catálogos ni de demo. Tras Alembic o rebaseline, el bootstrap resuelve los catálogos canónicos mediante claves naturales, crea los que falten con identificadores públicos estándar, válidos y deterministas, y valida colisiones; debe completarse antes de la demo. Seed y clear no modifican catálogos.
+- El rebaseline elimina `sch_iam` y `public.alembic_version` en un destino validado y vuelve a aplicar `iam_baseline`; no es una limpieza parcial de datos.
+- Bootstrap y demo usan destinos dedicados (`TEST_DATABASE_URL` en pruebas y variables específicas en desarrollo), nunca `DATABASE_URL`.
 
 La orquestación Docker de migraciones no forma parte de este cambio.
 
 ## Tests ejecutados
 
-- `make backend-quality`: **OK** (`ruff`, formato sobre **159 archivos** y `mypy` sobre **158 archivos fuente**).
-- `make backend-test-unit`: **308 passed, 70 deselected**.
-- `make backend-test-db`: **48 passed, 330 deselected** y **2 advertencias de Alembic**.
-- `make backend-test-security`: **22 passed, 356 deselected**.
-- Suite completa con `TEST_DATABASE_URL` local dedicada: **378 passed** y **2 advertencias de Alembic**.
-- Ejecución directa de `pytest` sin URL de pruebas: **330 passed, 48 skipped**.
+- `make backend-quality`: Ruff y comprobación de formato correctos sobre **164** ficheros; mypy en modo estricto correcto sobre **163** ficheros fuente.
+- `make backend-test-unit`: **316 passed, 100 deselected**.
+- `make backend-test-db`: **78 passed, 338 deselected** y **62 advertencias** conocidas de Alembic relacionadas con `path_separator`.
+- `make backend-test-security`: **22 passed, 394 deselected**.
+- `make backend-test`: **416 passed, 62 warnings**.
 
-`backend-test-db` exige `TEST_DATABASE_URL` y, antes de la suite de base de datos, reconstruye destructivamente el baseline en una base local terminada en `*_test`. Se rechazan hosts remotos. La ejecución directa de `pytest` no dispone de esa URL y por ello omite las 48 pruebas que requieren base de datos.
+Los comandos que reconstruyen o validan la base de datos de pruebas deben ejecutarse secuencialmente: el rebaseline es destructivo sobre la base local de pruebas. No se documentan validaciones manuales adicionales.
 
 ## Riesgos o deuda tecnica
 
-No se admite upgrade directo desde el historial `0001`...`0014`: se necesita una base nueva o reconstruida elegible para el baseline. Las dos advertencias de Alembic son un seguimiento no bloqueante; no se documenta una corrección porque no se ha aplicado ninguna. La orquestación Docker de migraciones queda fuera de este cambio.
+No se admite upgrade directo desde el historial `0001`...`0014`: se necesita una base nueva o reconstruida elegible para el baseline. El rebaseline es necesariamente destructivo. La orquestación Docker de migraciones queda fuera de este cambio.
 
 ## Relacion con el backend
 

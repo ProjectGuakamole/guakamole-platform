@@ -79,23 +79,20 @@ Dependencias:
 
 ### `db` — Backend DB Tests
 
-Responsabilidad: ejecutar tests de integración y persistencia contra PostgreSQL real gestionado con Docker Compose del proyecto.
+Responsabilidad: ejecutar tests de integración y persistencia contra PostgreSQL real y una base de pruebas dedicada.
 
 Comandos principales:
 
 ```bash
-make postgres-up ENV_FILE=.env.example
-make db-upgrade ENV_FILE=.env.example
-cd backend && uv run pytest -m "db or integration"
-make postgres-down ENV_FILE=.env.example
+make backend-test-db ENV_FILE=.env
 ```
 
 Dependencias:
 
 - Docker Compose.
-- PostgreSQL levantado con el `Makefile` del repositorio.
-- Migraciones Alembic aplicadas.
-- No ejecuta seed.
+- `TEST_DATABASE_URL` explícita, local y terminada en `*_test`; se rechazan destinos remotos.
+- El target valida el destino y ejecuta un rebaseline IAM antes de los tests; por ello es destructivo únicamente sobre esa base de pruebas dedicada.
+- No ejecuta bootstrap ni datos demo.
 
 ### `security` — Backend Security Tests
 
@@ -122,11 +119,11 @@ Responsabilidad: validar que la configuración de Docker Compose renderiza corre
 Comandos principales:
 
 ```bash
-make docker-config ENV_FILE=.env.example
-make postgres-up ENV_FILE=.env.example
-make db-upgrade ENV_FILE=.env.example
-make db-current ENV_FILE=.env.example
-make postgres-down ENV_FILE=.env.example
+make docker-config ENV_FILE=.env.ci
+make postgres-up ENV_FILE=.env.ci
+make db-upgrade ENV_FILE=.env.ci
+make db-current ENV_FILE=.env.ci
+make postgres-down ENV_FILE=.env.ci
 ```
 
 Dependencias:
@@ -174,8 +171,10 @@ Comandos principales relacionados con Backend CI:
 | `make backend-test-db` | Ejecuta `pytest -m "db or integration"`; requiere PostgreSQL disponible y migrado. |
 | `make backend-test-security` | Ejecuta `pytest -m "security and not db"`. |
 | `make backend-test` | Agregador de quality, unit, DB y security. Requiere PostgreSQL disponible para la parte DB. |
-| `make backend-seed` | Comando destructivo para insertar seed demo tras truncar tablas gestionadas. |
-| `make backend-seed-clear` | Comando destructivo para truncar tablas gestionadas sin reinsertar datos. |
+| `make backend-bootstrap` | Carga catálogos IAM aprobados en un destino dedicado y protegido. Debe ejecutarse antes de la demo. |
+| `make backend-seed-demo CONFIRM=SEED_DEMO_IAM` | Reemplaza exclusivamente datos demo contenidos; requiere `DEMO_SEED_PASSWORD` local no versionada. |
+| `make backend-seed-clear CONFIRM=CLEAR_DEMO_IAM` | Elimina exclusivamente datos demo contenidos. |
+| `make backend-rebaseline-iam CONFIRM=REBASELINE_IAM` | Reconstruye IAM en un destino local seguro de test o desarrollo. |
 
 ## Docker y PostgreSQL
 
@@ -183,15 +182,15 @@ Comandos principales relacionados con Backend CI:
 - No se usa el servicio `postgres` de GitHub Actions.
 - En CI no se ejecuta `docker compose down -v`.
 - En CI no se borran volúmenes explícitamente.
-- El cleanup estándar de CI es `make postgres-down ENV_FILE=.env.example`.
+- El cleanup estándar de CI es `make postgres-down ENV_FILE=.env.ci`.
 
 Los runners de GitHub son efímeros, por lo que no necesitamos destruir volúmenes manualmente para garantizar limpieza entre ejecuciones.
 
-## Seeds destructivos
+## Bootstrap, demo y guardas de destino
 
-`backend-seed` y `backend-seed-clear` son comandos destructivos: truncan tablas gestionadas del backend antes de insertar o limpiar datos demo.
+El orden operativo es estricto: Alembic o rebaseline, `backend-bootstrap` y, solo después, `backend-seed-demo`. El bootstrap resuelve los catálogos aprobados por sus claves naturales y les asigna identificadores públicos estándar, válidos y deterministas. El seed y el clear no modifican catálogos y se detienen si no pueden atribuir los datos y dependencias al espacio demo gestionado.
 
-No se ejecutan automáticamente en CI. Solo deben ejecutarse manualmente en local o en entornos de demo contra una base de datos que se pueda truncar sin riesgo.
+Los targets aplican guardas de destino y eliminan `DATABASE_URL` del entorno. En test se usa exclusivamente `TEST_DATABASE_URL` local con sufijo `*_test`; en desarrollo se requieren variables dedicadas, locales y con sufijo seguro. Los comandos demo requieren sus tokens Make explícitos y no se ejecutan automáticamente en CI. No se documentan ni versionan secretos: `DEMO_SEED_PASSWORD` se configura solo en el entorno local.
 
 ## Ejecución local recomendada
 
@@ -206,14 +205,19 @@ make backend-test-security
 ### Con base de datos
 
 ```bash
-make postgres-up ENV_FILE=.env.example
-make db-upgrade ENV_FILE=.env.example
-make backend-test-db
-make backend-test
-make postgres-down ENV_FILE=.env.example
+make backend-test-db ENV_FILE=.env
+make backend-test ENV_FILE=.env
 ```
 
-Se recomienda ejecutar `make postgres-down ENV_FILE=.env.example` al finalizar las pruebas locales con PostgreSQL como limpieza operativa no destructiva. Este comando no borra volúmenes y no equivale a ejecutar `docker compose down -v`.
+Las ejecuciones DB deben ser estrictamente secuenciales: cada una reconstruye destructivamente el IAM de la base de pruebas. No se deben lanzar dos `backend-test-db` ni un `backend-test` concurrente contra el mismo destino.
+
+## Evidencia final
+
+- `make backend-quality`: Ruff y comprobación de formato correctos sobre **164** ficheros; mypy estricto correcto sobre **163** ficheros fuente.
+- `make backend-test-unit`: **316 passed, 100 deselected**.
+- `make backend-test-db`: **78 passed, 338 deselected** y **62 advertencias** conocidas de Alembic sobre `path_separator`.
+- `make backend-test-security`: **22 passed, 394 deselected**.
+- `make backend-test`: **416 passed, 62 warnings**.
 
 ## Required checks objetivo
 

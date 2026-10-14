@@ -10,7 +10,7 @@ Este histórico cubre el grafo de migraciones, su evolución estructural y las g
 
 ## Estado actual
 
-**VALIDADO — punto 3 aprobado y completado.** El nombre `fase-completa` identifica el histórico, no el cierre global.
+**Punto 4 documentado.** El nombre `fase-completa` identifica el histórico, no el cierre global.
 
 ## Cambios realizados
 
@@ -22,7 +22,10 @@ Este histórico cubre el grafo de migraciones, su evolución estructural y las g
 - El baseline no instala `pgcrypto` ni ejecuta `GRANT` o `REVOKE`. Las identidades de organizaciones y usuarios comienzan en 1 y los `public_id` se generan en Python.
 - Se documentan las restricciones de integridad tenant en las relaciones de departamento, la coherencia geográfica y las unicidades basadas en `lower(...)`.
 - Alembic recibe la conexión inyectada y validada; no ejecuta migraciones durante el arranque del backend.
-- El seed requiere un preflight de `pgcrypto` y sincroniza las secuencias de identidad tras la carga.
+- La implementación histórica del seed con preflight de `pgcrypto` y sincronización de identidades queda sustituida por la operación separada del punto 4.
+- El punto 4 retira esa dependencia operativa del seed: los catálogos y la geografía aprobados se cargan mediante un bootstrap transaccional posterior a Alembic o rebaseline, que resuelve claves naturales y usa identificadores públicos estándar, válidos y deterministas; no hay DML en migraciones. El bootstrap precede siempre a la demo y ni seed ni clear modifican catálogos.
+- El rebaseline es total: elimina el esquema IAM y el estado de Alembic del destino validado antes de recrear `iam_baseline`.
+- La demo reemplaza o elimina únicamente sus entidades gestionadas tras comprobar su contención y no usa el destino general `DATABASE_URL`.
 
 ## Justificacion tecnica
 
@@ -33,25 +36,24 @@ La diferenciación entre DML, backfill y DDL permitió auditar el histórico pre
 - Los upgrades directos desde `0001` a `0014` ya no están soportados. `iam_baseline` requiere una base de datos nueva o reconstruida que sea elegible.
 - Validar como fuente única de conexión de Alembic la configuración central `DATABASE_URL`, sin fallback del ini.
 - Reservar el rebaseline destructivo para desarrollo y pruebas, con confirmación explícita y destino seguro: en pruebas, solo `TEST_DATABASE_URL` terminado en `*_test`; en desarrollo, una `REBASELINE_DEVELOPMENT_DATABASE_URL` separada, local y terminada en `*_dev` o `*_development`.
-- No incluir extensiones ni privilegios en la revisión de esquema; el seed verifica `pgcrypto` antes de depender de ella.
+- No incluir extensiones ni privilegios en la revisión de esquema.
 - No se ha implantado una tarea Docker de migraciones en este punto; queda fuera de este cambio.
+- Mantener el baseline como DDL-only y separar los catálogos canónicos en bootstrap para que la reconstrucción de esquema no introduzca datos operativos.
 
 ## Tests ejecutados
 
-- `make backend-quality`: **OK**: `ruff`, formato sobre **159 archivos** y `mypy` sobre **158 archivos fuente**.
-- `make backend-test-unit`: **308 passed, 70 deselected**.
-- `make backend-test-db`: **48 passed, 330 deselected** y **2 advertencias de Alembic**.
-- `make backend-test-security`: **22 passed, 356 deselected**.
-- Suite completa con `TEST_DATABASE_URL` local dedicada: **378 passed** y **2 advertencias de Alembic**.
-- Ejecución directa de `pytest` sin URL de pruebas: **330 passed, 48 skipped**.
+- `make backend-quality`: Ruff y comprobación de formato correctos sobre **164** ficheros; mypy en modo estricto correcto sobre **163** ficheros fuente.
+- `make backend-test-unit`: **316 passed, 100 deselected**.
+- `make backend-test-db`: **78 passed, 338 deselected** y **62 advertencias** conocidas de Alembic relacionadas con `path_separator`.
+- `make backend-test-security`: **22 passed, 394 deselected**.
+- `make backend-test`: **416 passed, 62 warnings**.
 
-`backend-test-db` exige `TEST_DATABASE_URL`, rechaza hosts remotos y reconstituye destructivamente una base local `*_test` antes de lanzar la suite `db or integration`. La ejecución directa de `pytest` no recibe esa URL y omite las 48 pruebas dependientes de base de datos.
+Los comandos que reconstruyen o validan la base de datos de pruebas deben ejecutarse secuencialmente: el rebaseline es destructivo sobre la base local de pruebas. No se documentan validaciones manuales adicionales.
 
 ## Riesgos o deuda tecnica
 
 - La transición exige recrear una base elegible; no existe una ruta de upgrade directo desde el histórico retirado.
 - La tarea Docker de migraciones queda fuera de este cambio.
-- Las dos advertencias de Alembic son un seguimiento no bloqueante. No se ha aplicado ni se presume una corrección.
 - El downgrade protegido requiere que las futuras migraciones preserven precondiciones equivalentes cuando puedan existir datos dependientes.
 
 ## Relacion con el backend

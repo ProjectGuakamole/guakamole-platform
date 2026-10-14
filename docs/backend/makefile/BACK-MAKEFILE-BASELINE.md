@@ -10,11 +10,11 @@ Recoge reglas de selección de entorno, targets, ayuda y guardas. La evidencia d
 
 ## Estado actual
 
-**VALIDADO — punto 3 completado.**
+**Punto 4 documentado.**
 
 ## Cambios realizados
 
-Se mantienen las reglas del punto 2 y se incorporan las guardas vigentes para el rebaseline destructivo del punto 3.
+Se mantienen las reglas del punto 2 y las guardas del rebaseline. El punto 4 añade los targets explícitos de bootstrap y demo, y depreca el target histórico de seed genérico.
 
 ## Justificacion tecnica
 
@@ -32,25 +32,27 @@ La interfaz de comandos debe exigir el contexto correcto antes de modificar dato
 - CI genera un `.env.ci` efímero, sin depender del fichero de ejemplo.
 - La matriz de `APP_ENV` para `development`, `test`, `staging` y `production` está validada desde el punto de vista de seguridad.
 - El rebaseline exige confirmación explícita. En `test` solo se admite `TEST_DATABASE_URL` local dirigido a `*_test`; en desarrollo se exige `REBASELINE_DEVELOPMENT_DATABASE_URL` independiente, local y dirigido a `*_dev` o `*_development`. Se rechazan hosts remotos.
-- El seed conserva el preflight de `pgcrypto` y la sincronización de identidades como requisitos operativos.
+- El flujo histórico de seed con preflight de `pgcrypto` y sincronización de identidades queda sustituido por bootstrap y demo controlada.
 - El punto 3 no implementa targets Makefile adicionales.
+- Tras Alembic o rebaseline, `backend-bootstrap` resuelve únicamente los catálogos IAM aprobados mediante claves naturales y crea los que falten con identificadores públicos estándar, válidos y deterministas, en un destino dedicado y validado; debe completarse antes de la demo.
+- `backend-seed-demo` y `backend-seed-clear` exigen los tokens Make `CONFIRM=SEED_DEMO_IAM` y `CONFIRM=CLEAR_DEMO_IAM`, respectivamente; el seed además requiere una contraseña demo no versionada. Ninguno modifica catálogos.
+- `backend-rebaseline-iam` exige `CONFIRM=REBASELINE_IAM` y reconstruye por completo IAM en un destino de test o desarrollo local validado.
 
-No se implementa un target de bootstrap en este cambio.
+Los comandos de bootstrap, demo y rebaseline no usan `DATABASE_URL`; en pruebas usan `TEST_DATABASE_URL` y en desarrollo sus variables dedicadas.
 
 ## Tests ejecutados
 
-- `make backend-quality`: **OK** (`ruff`, formato sobre **159 archivos** y `mypy` sobre **158 archivos fuente**).
-- `make backend-test-unit`: **308 passed, 70 deselected**.
-- `make backend-test-db`: **48 passed, 330 deselected** y **2 advertencias de Alembic**.
-- `make backend-test-security`: **22 passed, 356 deselected**.
-- Suite completa con `TEST_DATABASE_URL` local dedicada: **378 passed** y **2 advertencias de Alembic**.
-- Ejecución directa de `pytest` sin URL de pruebas: **330 passed, 48 skipped**.
+- `make backend-quality`: Ruff y comprobación de formato correctos sobre **164** ficheros; mypy en modo estricto correcto sobre **163** ficheros fuente.
+- `make backend-test-unit`: **316 passed, 100 deselected**.
+- `make backend-test-db`: **78 passed, 338 deselected** y **62 advertencias** conocidas de deprecación de Alembic relacionadas con `path_separator`.
+- `make backend-test-security`: **22 passed, 394 deselected**.
+- `make backend-test`: **416 passed, 62 warnings**.
 
-`backend-test-db` requiere la URL y rebaselinea destructivamente la base local `*_test` antes de las pruebas. Sin URL, la ejecución directa de `pytest` omite los 48 casos de base de datos. Las advertencias de Alembic son un seguimiento no bloqueante; no se documenta una corrección no aplicada.
+Los comandos que reconstruyen o validan la base de datos de pruebas deben ejecutarse secuencialmente: el rebaseline es destructivo sobre la base local de pruebas.
 
 ## Riesgos o deuda tecnica
 
-No existe un target de bootstrap en este alcance.
+Los comandos destructivos siguen requiriendo una base local aislada y confirmación explícita. La operación demo rechaza datos o dependencias que no pueda atribuir de forma segura a su espacio gestionado.
 
 ## Relacion con el backend
 

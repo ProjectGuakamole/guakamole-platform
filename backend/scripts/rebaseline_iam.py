@@ -6,6 +6,8 @@ import argparse
 import os
 
 from alembic.config import Config
+from alembic.util.exc import CommandError
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.iam_rebaseline import CONFIRMATION_TOKEN, rebaseline_configured_database
 
@@ -28,12 +30,20 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
+def main() -> int:
     """Reconstruye IAM desde ``iam_baseline``; nunca se invoca al arrancar FastAPI."""
 
-    arguments = parse_arguments()
-    rebaseline_configured_database(os.environ, arguments.confirm, Config("alembic.ini"))
+    try:
+        arguments = parse_arguments()
+        rebaseline_configured_database(
+            os.environ, arguments.confirm, Config("alembic.ini")
+        )
+    except (CommandError, OSError, RuntimeError, SQLAlchemyError, ValueError):
+        print('{"event":"rebaseline.failed"}')
+        return 1
+    print('{"event":"rebaseline.complete"}')
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

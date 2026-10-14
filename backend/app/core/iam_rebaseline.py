@@ -52,6 +52,36 @@ def _parse_postgresql_url(raw_url: str, variable_name: str) -> URL:
     return url
 
 
+def validate_safe_target(environment: Mapping[str, str], variable_name: str) -> URL:
+    """Valida un destino dedicado de bootstrap/demo sin revelar su URL."""
+
+    app_env = environment.get("APP_ENV")
+    if app_env == "test":
+        if variable_name != TEST_DATABASE_URL_ENV_VAR:
+            raise ValueError("En test sólo se permite TEST_DATABASE_URL.")
+        return _validate_test_database_url(environment)
+    if app_env == "development":
+        raw_url = environment.get(variable_name)
+        if not raw_url:
+            raise ValueError(
+                f"{variable_name} es obligatoria con APP_ENV=development; "
+                "DATABASE_URL no se usa."
+            )
+        url = _parse_postgresql_url(raw_url, variable_name)
+        if url.database is None or not url.database.endswith(
+            DEVELOPMENT_DATABASE_SUFFIXES
+        ):
+            raise ValueError(
+                f"{variable_name} debe usar una base terminada en _dev o _development."
+            )
+        if not uses_local_database_host(url):
+            raise ValueError(
+                f"{variable_name} debe usar PostgreSQL local o socket Unix."
+            )
+        return url
+    raise ValueError("La operación sólo se permite con APP_ENV=development o test.")
+
+
 def _validate_test_database_url(environment: Mapping[str, str]) -> URL:
     """Acepta exclusivamente la base aislada configurada para pruebas."""
 

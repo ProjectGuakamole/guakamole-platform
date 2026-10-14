@@ -10,7 +10,7 @@ Este histórico es la fuente de detalle de configuración de la fase. No reprodu
 
 ## Estado actual
 
-**VALIDADO — punto 3 aprobado y completado.** No se declara la implementación global como terminada.
+**Punto 4 documentado.** No se declara la implementación global como terminada.
 
 ## Cambios realizados
 
@@ -22,6 +22,9 @@ Este histórico es la fuente de detalle de configuración de la fase. No reprodu
 - CI emplea un `.env.ci` efímero; no utiliza el fichero de ejemplo.
 - El rebaseline del punto 3 es destructivo y requiere confirmación explícita. En pruebas solo puede usar `TEST_DATABASE_URL` local con destino `*_test`; en desarrollo requiere `REBASELINE_DEVELOPMENT_DATABASE_URL` separado, local y con destino `*_dev` o `*_development`. Se rechazan hosts remotos.
 - No se documentan nuevos targets: el punto 3 no crea comandos Makefile.
+- Se incorporan `backend-bootstrap`, `backend-seed-demo`, `backend-seed-clear` y `backend-rebaseline-iam` para separar catálogo aprobado, datos demo y reconstrucción total. Tras Alembic o rebaseline, bootstrap resuelve los catálogos por claves naturales y crea los que falten con identificadores públicos estándar, válidos y deterministas; debe completarse antes de la demo. Seed y clear no modifican catálogos.
+- Los dos comandos demo requieren los tokens Make `CONFIRM=SEED_DEMO_IAM` y `CONFIRM=CLEAR_DEMO_IAM`; el rebaseline requiere `CONFIRM=REBASELINE_IAM`.
+- Estos comandos no usan `DATABASE_URL`: en test usan `TEST_DATABASE_URL` y en desarrollo requieren una URL dedicada, local y con sufijo seguro.
 
 ## Justificacion tecnica
 
@@ -35,23 +38,21 @@ El `.env` local está ignorado por Git. El fichero de ejemplo es una plantilla n
 - Reservar `TEST_DATABASE_URL` para operaciones de prueba y comprobar que su destino local termina en `*_test` antes de usarlo.
 - Permitir downgrade solo en `development` y `test`, sujeto a la guarda de datos de la migración.
 - Mantener las guardas de seeds y los checks previos como parte de la interfaz operativa.
-- Mantener el preflight de `pgcrypto` y la sincronización de identidades como requisitos del seed, sin asumir que los resuelva un target nuevo.
-- No implementar un target de bootstrap en este cambio.
+- Mantener bootstrap y demo como operaciones separadas del baseline, sin introducir DML en Alembic.
+- No reintroducir un seed genérico o DML en Alembic: el bootstrap y la demo son operaciones separadas.
 
 ## Tests ejecutados
 
-- `make backend-quality`: **OK** (`ruff`, formato sobre **159 archivos** y `mypy` sobre **158 archivos fuente**).
-- `make backend-test-unit`: **308 passed, 70 deselected**.
-- `make backend-test-db`: **48 passed, 330 deselected** y **2 advertencias de Alembic**.
-- `make backend-test-security`: **22 passed, 356 deselected**.
-- Suite completa con `TEST_DATABASE_URL` local dedicada: **378 passed** y **2 advertencias de Alembic**.
-- Ejecución directa de `pytest` sin URL de pruebas: **330 passed, 48 skipped**.
+- `make backend-quality`: Ruff y comprobación de formato correctos sobre **164** ficheros; mypy en modo estricto correcto sobre **163** ficheros fuente.
+- `make backend-test-unit`: **316 passed, 100 deselected**.
+- `make backend-test-db`: **78 passed, 338 deselected** y **62 advertencias** conocidas de deprecación de Alembic relacionadas con `path_separator`.
+- `make backend-test-security`: **22 passed, 394 deselected**.
+- `make backend-test`: **416 passed, 62 warnings**.
 
-`backend-test-db` exige la URL, rechaza destinos remotos y rebaselinea destructivamente una base local `*_test` antes de ejecutar las pruebas. Con ello, un esquema de migraciones anteriores no provoca deriva de ordenación en la validación PostgreSQL. La ejecución directa de `pytest` no recibe la URL y omite las 48 pruebas de base de datos. Las advertencias de Alembic son seguimiento no bloqueante; no se ha aplicado ni se presume una corrección.
+Los comandos que reconstruyen o validan la base de datos de pruebas deben ejecutarse secuencialmente: el rebaseline es destructivo sobre la base local de pruebas. No se documentan validaciones manuales adicionales.
 
 ## Riesgos o deuda tecnica
 
-- No existe un target de bootstrap en este alcance.
 - La orquestación Docker de baseline/rebaseline queda fuera de este cambio.
 
 ## Relacion con el backend

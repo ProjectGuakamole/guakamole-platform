@@ -1,4 +1,4 @@
-.PHONY: help install setup backend-install backend-lint backend-format-check backend-mypy backend-quality backend-pytest backend-test-unit backend-test-db backend-test-security backend-test backend-check backend-run backend-seed backend-seed-clear docker-config docker-up docker-down docker-ps docker-logs postgres-up postgres-logs postgres-down psql db-upgrade db-current db-history db-downgrade health-check ready-check
+.PHONY: help install setup backend-install backend-lint backend-format-check backend-mypy backend-quality backend-pytest backend-test-unit backend-test-db backend-test-security backend-test backend-check backend-run backend-seed backend-bootstrap backend-seed-demo backend-seed-clear backend-rebaseline-iam docker-config docker-up docker-down docker-ps docker-logs postgres-up postgres-logs postgres-down psql db-upgrade db-current db-history db-downgrade health-check ready-check
 
 BACKEND_DIR := backend
 ENV_FILE ?= .env
@@ -20,8 +20,10 @@ help: ## Muestra los comandos disponibles.
 	@printf '  make backend-test          Ejecuta quality y grupos de tests backend alineados con CI.\n'
 	@printf '  make backend-check         Consulta health y ready del backend levantado.\n'
 	@printf '  make backend-run           Arranca FastAPI local con recarga.\n'
-	@printf '  make backend-seed          DESTRUCTIVO: trunca sch_iam gestionado e inserta seed demo con $$(ENV_FILE).\n'
-	@printf '  make backend-seed-clear    DESTRUCTIVO: trunca sch_iam gestionado sin reinsertar con $$(ENV_FILE).\n'
+	@printf '  make backend-bootstrap     Inserta catálogos IAM canónicos en un destino dedicado.\n'
+	@printf '  make backend-seed-demo CONFIRM=SEED_DEMO_IAM     Reemplaza sólo la demo; ejecuta antes backend-bootstrap.\n'
+	@printf '  make backend-seed-clear CONFIRM=CLEAR_DEMO_IAM   Elimina sólo la demo (también requiere --yes interno).\n'
+	@printf '  make backend-rebaseline-iam CONFIRM=REBASELINE_IAM Reconstruye IAM en test/desarrollo.\n'
 	@printf '  make docker-up             Levanta Docker Compose con build.\n'
 	@printf '  make docker-down           Detiene y elimina servicios de Docker Compose.\n'
 	@printf '  make docker-logs           Muestra logs de Docker Compose.\n'
@@ -73,13 +75,27 @@ backend-run: ## Arranca el servidor FastAPI local en primer plano.
 	@test -f "$(ENV_FILE_PATH)" || (printf 'Falta ENV_FILE; crea .env desde .env.example.\n' >&2; exit 1)
 	@set -a; . "$(ENV_FILE_PATH)"; set +a; unset JWT_SECRET; cd $(BACKEND_DIR) && uv run uvicorn app.main:app --reload
 
-backend-seed: ## DESTRUCTIVO: trunca tablas IAM gestionadas e inserta datos demo usando $(ENV_FILE).
-	@test -f "$(ENV_FILE_PATH)" || (printf 'Falta ENV_FILE.\n' >&2; exit 1)
-	@set -a; . "$(ENV_FILE_PATH)"; set +a; cd $(BACKEND_DIR) && uv run python scripts/seed_demo_iam.py --yes
+backend-seed: ## Obsoleto: use backend-bootstrap y backend-seed-demo.
+	@printf 'backend-seed está obsoleto; usa backend-bootstrap y backend-seed-demo.\n' >&2; exit 1
 
-backend-seed-clear: ## DESTRUCTIVO: trunca tablas IAM gestionadas sin reinsertar usando $(ENV_FILE).
+backend-bootstrap:
+	@test -f "$(ENV_FILE_PATH)" || { printf 'Falta ENV_FILE.\n' >&2; exit 1; }
+	@set -a; . "$(ENV_FILE_PATH)"; set +a; cd $(BACKEND_DIR) && env -u DATABASE_URL -u JWT_SECRET uv run python -m scripts.bootstrap_iam
+
+backend-seed-demo:
+	@test -f "$(ENV_FILE_PATH)" || { printf 'Falta ENV_FILE.\n' >&2; exit 1; }
+	@test "$(CONFIRM)" = "SEED_DEMO_IAM" || { printf 'Confirma con CONFIRM=SEED_DEMO_IAM.\n' >&2; exit 1; }
+	@set -a; . "$(ENV_FILE_PATH)"; set +a; cd $(BACKEND_DIR) && env -u DATABASE_URL -u JWT_SECRET uv run python -m scripts.seed_demo_iam --yes
+
+backend-seed-clear: ## Elimina únicamente las claves demo gestionadas usando $(ENV_FILE).
 	@test -f "$(ENV_FILE_PATH)" || (printf 'Falta ENV_FILE.\n' >&2; exit 1)
-	@set -a; . "$(ENV_FILE_PATH)"; set +a; cd $(BACKEND_DIR) && uv run python scripts/seed_demo_iam.py --clear --yes
+	@test "$(CONFIRM)" = "CLEAR_DEMO_IAM" || { printf 'Confirma con CONFIRM=CLEAR_DEMO_IAM.\n' >&2; exit 1; }
+	@set -a; . "$(ENV_FILE_PATH)"; set +a; cd $(BACKEND_DIR) && env -u DATABASE_URL -u JWT_SECRET uv run python -m scripts.seed_demo_iam --clear --yes
+
+backend-rebaseline-iam:
+	@test -f "$(ENV_FILE_PATH)" || { printf 'Falta ENV_FILE.\n' >&2; exit 1; }
+	@test "$(CONFIRM)" = "REBASELINE_IAM" || { printf 'Confirma con CONFIRM=REBASELINE_IAM.\n' >&2; exit 1; }
+	@set -a; . "$(ENV_FILE_PATH)"; set +a; cd $(BACKEND_DIR) && env -u DATABASE_URL -u JWT_SECRET uv run python -m scripts.rebaseline_iam --confirm REBASELINE_IAM
 
 docker-config: ## Renderiza la configuración Compose usando $(ENV_FILE).
 	$(COMPOSE) config

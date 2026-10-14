@@ -10,11 +10,11 @@ Recoge únicamente reglas de Compose y contexto de construcción del backend den
 
 ## Estado actual
 
-**VALIDADO — punto 3 completado.**
+**Punto 4 documentado.** Se preservan las reglas Docker existentes; no se añade una orquestación Docker de migraciones.
 
 ## Cambios realizados
 
-Se mantienen las reglas de Compose y contexto del punto 2. El punto 3 solo añade implicaciones operativas del baseline, sin cambios Docker.
+Se mantienen las reglas de Compose y contexto del punto 2. El punto 4 documenta que bootstrap, demo y rebaseline se ejecutan contra destinos locales dedicados y no desde `DATABASE_URL`; no introduce cambios Docker.
 
 ## Justificacion tecnica
 
@@ -28,15 +28,20 @@ Estas reglas reducen la exposición de configuración y el contenido innecesario
 - El contexto de `backend/` excluye archivos de entorno, Git, cachés, entornos virtuales y pruebas, y conserva aplicación, Alembic, `alembic.ini` y scripts.
 - No hay ejecución automática de migraciones al arrancar el backend ni target Docker de migración o rebaseline.
 - Cualquier futura orquestación Docker del rebaseline deberá exigir confirmación explícita y conservar sus destinos seguros: prueba local `*_test` o desarrollo local separado `*_dev`/`*_development`; se rechazan hosts remotos.
+- Bootstrap, seed demo y rebaseline no forman parte del arranque del contenedor. Las migraciones siguen siendo DDL-only; tras Alembic o rebaseline, el bootstrap resuelve los catálogos aprobados por claves naturales y les asigna identificadores públicos estándar, válidos y deterministas antes de la demo. Seed y clear no modifican catálogos.
 
 - No se implementa una tarea Docker para migraciones.
 - Se mantiene prohibida la ejecución automática de migraciones al arrancar el backend.
 
 ## Tests ejecutados
 
-La validación de renderizado se conserva en el histórico Docker. La evidencia final es: `make backend-quality` **OK** (`ruff`, formato sobre **159 archivos** y `mypy` sobre **158 archivos fuente**); `make backend-test-unit`, **308 passed, 70 deselected**; `make backend-test-db`, **48 passed, 330 deselected** y **2 advertencias de Alembic**; `make backend-test-security`, **22 passed, 356 deselected**; y suite completa con `TEST_DATABASE_URL` local dedicada, **378 passed** y **2 advertencias de Alembic**. La ejecución directa de `pytest` sin URL de pruebas produjo **330 passed, 48 skipped**.
+- `make backend-quality`: Ruff y comprobación de formato correctos sobre **164** ficheros; mypy en modo estricto correcto sobre **163** ficheros fuente.
+- `make backend-test-unit`: **316 passed, 100 deselected**.
+- `make backend-test-db`: **78 passed, 338 deselected** y **62 advertencias** conocidas de deprecación de Alembic relacionadas con `path_separator`.
+- `make backend-test-security`: **22 passed, 394 deselected**.
+- `make backend-test`: **416 passed, 62 warnings**.
 
-`backend-test-db` exige URL de pruebas, rechaza hosts remotos y rebaselinea destructivamente una base local `*_test` antes de su suite. Las advertencias son seguimiento no bloqueante; no se documenta una corrección no aplicada.
+Los comandos que reconstruyen o validan la base de datos de pruebas deben ejecutarse secuencialmente: el rebaseline es destructivo sobre la base local de pruebas. No se ha aportado evidencia de un renderizado de Compose ni de una prueba Docker específica en este punto.
 
 ## Riesgos o deuda tecnica
 
