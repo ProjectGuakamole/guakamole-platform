@@ -2,51 +2,51 @@
 
 ## Objetivo
 
-Consolidar las reglas Docker validadas y distinguirlas de la operación de migraciones, que queda fuera de este cambio.
+Consolidar el contrato Docker validado en el punto 5.
 
 ## Responsabilidad del documento
 
-Recoge únicamente reglas de Compose y contexto de construcción del backend dentro de este alcance.
+Recoge red, imágenes, perfiles y responsabilidades de Compose. No sustituye el procedimiento de Alembic ni la interfaz Makefile.
 
 ## Estado actual
 
-**Punto 4 documentado.** Se preservan las reglas Docker existentes; no se añade una orquestación Docker de migraciones.
+**Punto 5 documentado.** Se conserva el histórico de contexto reducido y allowlist de configuración, actualizado con un migrador Docker explícito.
 
 ## Cambios realizados
 
-Se mantienen las reglas de Compose y contexto del punto 2. El punto 4 documenta que bootstrap, demo y rebaseline se ejecutan contra destinos locales dedicados y no desde `DATABASE_URL`; no introduce cambios Docker.
+- El servicio `migrate` pertenece al perfil `migration` y reutiliza la imagen del backend.
+- La imagen de aplicación y la de migración se ejecutan como usuario no root; el migrador es efímero, de solo lectura y sin capacidades adicionales.
+- El stack base no inicia migraciones. `docker-compose.yml` mantiene `backend_internal` con `internal: true` y solo Nginx publica un puerto: PostgreSQL, backend y frontend no se exponen al host.
+- `docker-compose.local.yml` es obligatorio exclusivamente para desarrollo local y CI: publica los puertos de PostgreSQL, backend y frontend y redefine `backend_internal` con `internal: false` para clientes del host, como pgAdmin.
+- La inicialización de PostgreSQL prepara roles en un volumen nuevo; `db-provision-roles` permite provisionarlos explícitamente en un volumen existente.
 
 ## Justificacion tecnica
 
-Estas reglas reducen la exposición de configuración y el contenido innecesario de la imagen sin afectar a los archivos de ejecución requeridos.
+El perfil evita mutaciones de esquema al levantar servicios normales. Mantener aislado el stack base reduce superficie de red; el override local aporta de forma explícita la conectividad necesaria para desarrollo y CI sin convertirla en comportamiento de staging.
 
 ## Decisiones tomadas
 
-### Reglas validadas
-
-- Compose configura el backend mediante una allowlist explícita, sin cargar el entorno completo ni incluir credenciales de PostgreSQL o configuración de pruebas.
-- El contexto de `backend/` excluye archivos de entorno, Git, cachés, entornos virtuales y pruebas, y conserva aplicación, Alembic, `alembic.ini` y scripts.
-- No hay ejecución automática de migraciones al arrancar el backend ni target Docker de migración o rebaseline.
-- Cualquier futura orquestación Docker del rebaseline deberá exigir confirmación explícita y conservar sus destinos seguros: prueba local `*_test` o desarrollo local separado `*_dev`/`*_development`; se rechazan hosts remotos.
-- Bootstrap, seed demo y rebaseline no forman parte del arranque del contenedor. Las migraciones siguen siendo DDL-only; tras Alembic o rebaseline, el bootstrap resuelve los catálogos aprobados por claves naturales y les asigna identificadores públicos estándar, válidos y deterministas antes de la demo. Seed y clear no modifican catálogos.
-
-- No se implementa una tarea Docker para migraciones.
-- Se mantiene prohibida la ejecución automática de migraciones al arrancar el backend.
+- `docker-up` es manual y no migra; `docker-deploy` es canónico y migra antes de levantar el stack base.
+- `docker-up` utiliza el override local; `docker-deploy` usa solo el compose base de staging y conserva el aislamiento de `backend_internal`.
+- pgAdmin solo se conecta en local mediante el override: host `localhost`, puerto `POSTGRES_PORT`, base `POSTGRES_DB`, usuario `POSTGRES_USER` y contraseña `POSTGRES_PASSWORD`.
+- Se usan `docker-db-migrate`, `docker-db-current` y `docker-db-check`; no existe Docker downgrade.
+- `docker-db-check` comprueba que la revisión actual es el `head` empaquetado; no ejecuta `alembic check` ni una comparación de deriva ORM/esquema.
+- El migrador exige las variables `MIGRATION_DATABASE_URL`, `MIGRATION_ALLOWED_HOSTS`, `MIGRATION_ALLOWED_DATABASES` y `MIGRATION_EXPECTED_DB_USER`.
+- Compose pasa una allowlist de variables a cada servicio. No se documentan secretos ni se permite registrarlos en logs.
+- Backend y migrador usan roles distintos: el primero aplica permisos de aplicación y el segundo permisos de migración.
+- La readiness requiere PostgreSQL listo y Alembic en `head`.
 
 ## Tests ejecutados
 
-- `make backend-quality`: Ruff y comprobación de formato correctos sobre **164** ficheros; mypy en modo estricto correcto sobre **163** ficheros fuente.
-- `make backend-test-unit`: **316 passed, 100 deselected**.
-- `make backend-test-db`: **78 passed, 338 deselected** y **62 advertencias** conocidas de deprecación de Alembic relacionadas con `path_separator`.
-- `make backend-test-security`: **22 passed, 394 deselected**.
-- `make backend-test`: **416 passed, 62 warnings**.
-
-Los comandos que reconstruyen o validan la base de datos de pruebas deben ejecutarse secuencialmente: el rebaseline es destructivo sobre la base local de pruebas. No se ha aportado evidencia de un renderizado de Compose ni de una prueba Docker específica en este punto.
+- `docker compose config` fue válido con la configuración de validación.
+- Se realizó el provisionamiento de roles y el baseline se aplicó con `docker-db-migrate`; la repetición informó `already_at_head`.
+- `docker-db-current` y `docker-db-check` finalizaron correctamente.
+- Los endpoints de health y ready devolvieron HTTP 200 desde el contenedor backend.
 
 ## Riesgos o deuda tecnica
 
-La tarea Docker de migraciones no se ha implantado y queda fuera de este cambio.
+La publicación de puertos del override incrementa la superficie de exposición local; no debe incluirse en staging. La conectividad con clientes del host depende de levantar el stack mediante `docker-up` y su override.
 
 ## Relacion con el backend
 
-Las reglas reducen qué configuración y qué ficheros acompañan al backend en contenedor.
+Docker proporciona a FastAPI una base migrada, con rol de aplicación y red interna; el cambio de esquema permanece separado del proceso de servicio.

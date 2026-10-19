@@ -2,58 +2,52 @@
 
 ## Objetivo
 
-Consolidar las reglas de la interfaz Makefile validadas tras el punto 3.
+Consolidar la interfaz Makefile vigente tras el punto 5.
 
 ## Responsabilidad del documento
 
-Recoge reglas de selección de entorno, targets, ayuda y guardas. La evidencia detallada permanece en el histórico Makefile.
+Recoge comandos y guardas operativas. La implementación de Compose y Alembic se documenta en sus áreas correspondientes.
 
 ## Estado actual
 
-**Punto 4 documentado.**
+**Punto 5 documentado.** Se preservan las guardas históricas de pruebas, bootstrap y demo; la migración operativa pasa a ser Docker explícito.
 
 ## Cambios realizados
 
-Se mantienen las reglas del punto 2 y las guardas del rebaseline. El punto 4 añade los targets explícitos de bootstrap y demo, y depreca el target histórico de seed genérico.
+- Se incorporan `docker-db-migrate`, `docker-db-current` y `docker-db-check` como interfaz del migrador aislado.
+- `docker-db-check` valida la revisión actual contra el `head` empaquetado; no invoca deliberadamente `alembic check` ni compara la deriva entre ORM y esquema.
+- `docker-deploy` ejecuta la migración y después levanta el stack base; `docker-up` solo levanta el entorno manual.
+- `docker-up` usa obligatoriamente `docker-compose.local.yml` en desarrollo local y CI; `docker-deploy` usa únicamente `docker-compose.yml` para staging.
+- `db-provision-roles CONFIRM=PROVISION_DATABASE_ROLES` permite aplicar explícitamente roles y privilegios sobre un volumen PostgreSQL ya existente.
+- Los comandos host históricos de Alembic no constituyen la vía Docker de migración y no se admite downgrade Docker.
 
 ## Justificacion tecnica
 
-La interfaz de comandos debe exigir el contexto correcto antes de modificar datos o esquema. Las guardas convierten esa exigencia en una precondición verificable.
+Los nombres separan consultas, validación y mutación de esquema. La confirmación para roles evita que una operación administrativa sobre un volumen persistente se ejecute de forma accidental.
 
 ## Decisiones tomadas
 
-### Reglas validadas
-
-- Los targets seleccionan `ENV_FILE` explícitamente; no usan una plantilla de entorno como fallback.
-- `.env` es local e ignorado por Git; el fichero de ejemplo no es operativo.
-- `backend-test-db` usa exclusivamente `TEST_DATABASE_URL`, exige una base local con sufijo `*_test`, rechaza hosts remotos, reconstruye destructivamente el baseline IAM con confirmación explícita y después ejecuta toda la suite `db or integration`.
-- Downgrade se limita a `development` y `test` y mantiene la guarda de migración ante datos dependientes.
-- Los seeds tienen guarda de entorno; ayuda y preflight exponen las precondiciones.
-- CI genera un `.env.ci` efímero, sin depender del fichero de ejemplo.
-- La matriz de `APP_ENV` para `development`, `test`, `staging` y `production` está validada desde el punto de vista de seguridad.
-- El rebaseline exige confirmación explícita. En `test` solo se admite `TEST_DATABASE_URL` local dirigido a `*_test`; en desarrollo se exige `REBASELINE_DEVELOPMENT_DATABASE_URL` independiente, local y dirigido a `*_dev` o `*_development`. Se rechazan hosts remotos.
-- El flujo histórico de seed con preflight de `pgcrypto` y sincronización de identidades queda sustituido por bootstrap y demo controlada.
-- El punto 3 no implementa targets Makefile adicionales.
-- Tras Alembic o rebaseline, `backend-bootstrap` resuelve únicamente los catálogos IAM aprobados mediante claves naturales y crea los que falten con identificadores públicos estándar, válidos y deterministas, en un destino dedicado y validado; debe completarse antes de la demo.
-- `backend-seed-demo` y `backend-seed-clear` exigen los tokens Make `CONFIRM=SEED_DEMO_IAM` y `CONFIRM=CLEAR_DEMO_IAM`, respectivamente; el seed además requiere una contraseña demo no versionada. Ninguno modifica catálogos.
-- `backend-rebaseline-iam` exige `CONFIRM=REBASELINE_IAM` y reconstruye por completo IAM en un destino de test o desarrollo local validado.
-
-Los comandos de bootstrap, demo y rebaseline no usan `DATABASE_URL`; en pruebas usan `TEST_DATABASE_URL` y en desarrollo sus variables dedicadas.
+- Antes de migrar se requiere una configuración `ENV_FILE` explícita.
+- El migrador exige `MIGRATION_DATABASE_URL`, `MIGRATION_ALLOWED_HOSTS`, `MIGRATION_ALLOWED_DATABASES` y `MIGRATION_EXPECTED_DB_USER`.
+- La aplicación usa el rol de aplicación y el migrador el rol de migración; no se intercambian sus responsabilidades.
+- No se imprimen URLs ni secretos. Compose limita las variables entregadas a cada servicio mediante allowlist.
+- La interfaz Docker no ofrece downgrade.
+- El compose base conserva `backend_internal` con `internal: true` y no publica PostgreSQL, backend ni frontend. El override local publica esos puertos y redefine la red como no interna para clientes del host, como pgAdmin.
+- La conexión pgAdmin local usa host `localhost`, puerto `POSTGRES_PORT`, base `POSTGRES_DB`, usuario `POSTGRES_USER` y contraseña `POSTGRES_PASSWORD`.
+- `backend-check` comprueba health y readiness; esta última requiere base de datos lista y revisión en `head`.
+- Init provisiona los roles de un volumen nuevo. Para un volumen existente debe usarse el target explícito de provisionamiento.
 
 ## Tests ejecutados
 
-- `make backend-quality`: Ruff y comprobación de formato correctos sobre **164** ficheros; mypy en modo estricto correcto sobre **163** ficheros fuente.
-- `make backend-test-unit`: **316 passed, 100 deselected**.
-- `make backend-test-db`: **78 passed, 338 deselected** y **62 advertencias** conocidas de deprecación de Alembic relacionadas con `path_separator`.
-- `make backend-test-security`: **22 passed, 394 deselected**.
-- `make backend-test`: **416 passed, 62 warnings**.
-
-Los comandos que reconstruyen o validan la base de datos de pruebas deben ejecutarse secuencialmente: el rebaseline es destructivo sobre la base local de pruebas.
+- La configuración Compose se validó correctamente.
+- Se ejecutaron provisionamiento de roles, migración del baseline, repetición en `already_at_head`, `docker-db-current` y `docker-db-check`.
+- Tests de migraciones disponibles: **21 passed**. Mypy finalizó correctamente.
+- No hay evidencia actual suficiente para declarar un resultado de suite completa.
 
 ## Riesgos o deuda tecnica
 
-Los comandos destructivos siguen requiriendo una base local aislada y confirmación explícita. La operación demo rechaza datos o dependencias que no pueda atribuir de forma segura a su espacio gestionado.
+La configuración local de Compose publica el puerto de PostgreSQL y la conexión TCP a `localhost:5432` se validó correctamente. La exposición es exclusiva del override local; el Compose base de staging conserva PostgreSQL aislado y sin publicar puertos al host.
 
 ## Relacion con el backend
 
-Estas reglas hacen que la operación de la base de datos desde el backend requiera una configuración seleccionada y un entorno autorizado.
+Makefile establece un camino repetible para dejar la base lista antes de servir FastAPI, sin incorporar migraciones al arranque normal.

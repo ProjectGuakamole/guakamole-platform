@@ -106,18 +106,14 @@ def test_env_example_exposes_only_nonoperational_database_placeholders() -> None
     assert "guakamole_user" not in env_example_content
 
 
-def test_alembic_env_reads_database_url_from_environment() -> None:
+def test_alembic_env_requires_a_connection_validated_by_the_migrator() -> None:
     alembic_env_content = Path("alembic/env.py").read_text(encoding="utf-8")
 
-    assert 'DATABASE_URL_ENV_VAR = "DATABASE_URL"' in alembic_env_content
-    assert 'SQLALCHEMY_URL_OPTION = "sqlalchemy.url"' in alembic_env_content
-    assert "MISSING_DATABASE_URL_ERROR" in alembic_env_content
-    assert "os.environ.get(DATABASE_URL_ENV_VAR)" in alembic_env_content
-    expected_set_main_option = (
-        "config.set_main_option(SQLALCHEMY_URL_OPTION, get_required_database_url())"
+    assert 'config.attributes.get("connection")' in alembic_env_content
+    assert (
+        "Alembic requiere una conexión validada por el migrador." in alembic_env_content
     )
-
-    assert expected_set_main_option in alembic_env_content
+    assert "engine_from_config" not in alembic_env_content
 
 
 def test_makefile_centralizes_environment_file_selection() -> None:
@@ -125,32 +121,57 @@ def test_makefile_centralizes_environment_file_selection() -> None:
 
     assert "ENV_FILE ?= .env" in makefile_content
     assert "ENV_FILE_PATH :=" in makefile_content
-    assert "COMPOSE := docker compose --env-file $(ENV_FILE)" in makefile_content
+    assert (
+        "COMPOSE_BASE := docker compose --env-file $(ENV_FILE) -f docker-compose.yml"
+        in makefile_content
+    )
+    assert (
+        "COMPOSE_LOCAL := $(COMPOSE_BASE) -f docker-compose.local.yml"
+        in makefile_content
+    )
     assert "docker compose --env-file .env.example" not in makefile_content
 
 
-def test_makefile_exposes_alembic_database_targets_with_env_file() -> None:
+def test_makefile_exposes_restricted_compose_migration_targets() -> None:
     makefile_content = Path("../Makefile").read_text(encoding="utf-8")
-    expected_targets = {
-        "db-upgrade:": "uv run alembic upgrade head",
-        "db-current:": "uv run alembic current",
-        "db-history:": "uv run alembic history",
-        "db-downgrade:": "uv run alembic downgrade $(REVISION)",
-    }
+    migrate_target = makefile_content.split("docker-db-migrate:", maxsplit=1)[1].split(
+        "docker-db-current:", maxsplit=1
+    )[0]
+    current_target = makefile_content.split("docker-db-current:", maxsplit=1)[1].split(
+        "docker-db-check:", maxsplit=1
+    )[0]
+    check_target = makefile_content.split("docker-db-check:", maxsplit=1)[1].split(
+        "docker-deploy:", maxsplit=1
+    )[0]
 
-    for target, command in expected_targets.items():
-        assert target in makefile_content
-        assert command in makefile_content
+    assert "--profile migration run --build --rm migrate" in migrate_target
+    assert "--profile migration run --build --rm migrate" in current_target
+    assert "--profile migration run --build --rm migrate" in check_target
+    assert "python -m scripts.migrate current" in current_target
+    assert "python -m scripts.migrate check" in check_target
+    assert "backend" not in migrate_target
+    assert "backend" not in current_target
+    assert "backend" not in check_target
+    assert "uv run alembic" not in migrate_target
+    assert "alembic history" not in makefile_content
 
-    assert 'case "$$APP_ENV" in development|test)' in makefile_content
-    assert "REVISION ?= -1" in makefile_content
 
-
-def test_makefile_blocks_downgrade_outside_explicit_local_environments() -> None:
+def test_makefile_deprecates_unsupported_migration_targets() -> None:
     makefile_content = Path("../Makefile").read_text(encoding="utf-8")
+    history_target = makefile_content.split("db-history:", maxsplit=1)[1].split(
+        "db-downgrade:", maxsplit=1
+    )[0]
+    downgrade_target = makefile_content.split("db-downgrade:", maxsplit=1)[1].split(
+        "health-check:", maxsplit=1
+    )[0]
 
-    assert "development|test" in makefile_content
-    assert "sólo se permite en development/test" in makefile_content
+    assert "está obsoleto" in history_target
+    assert "migrador seguro no admite histórico" in history_target
+    assert "exit 1" in history_target
+    assert "está obsoleto" in downgrade_target
+    assert "migrador seguro rechaza downgrades" in downgrade_target
+    assert "Docker de downgrade" in downgrade_target
+    assert "exit 1" in downgrade_target
 
 
 def test_backend_dockerignore_excludes_environment_files() -> None:
@@ -248,18 +269,26 @@ def test_makefile_help_documents_primary_commands_only() -> None:
         "make backend-check",
         "make backend-run",
         "make docker-up",
+        "make docker-db-migrate",
+        "make docker-db-current",
+        "make docker-db-check",
+        "make docker-deploy",
         "make docker-down",
         "make docker-logs",
         "make psql",
-        "make db-upgrade",
-        "make db-current",
-        "make db-history",
-        "make db-downgrade",
     }
 
-    assert "ENV_FILE ?= .env" in makefile_content
-    assert "REVISION ?= -1" in makefile_content
-    assert "API_BASE_URL ?= http://localhost:8000" in makefile_content
+    assert "ENV_FILE ?= .env" in help_block
+    assert "API_BASE_URL ?= http://localhost:8000" in help_block
+    assert "make db-history" not in help_block
+    assert "make db-downgrade" not in help_block
+    assert "Aplica upgrade head con el migrador aislado." in help_block
+    assert "Consulta la revisión Alembic con el migrador aislado." in help_block
+    assert (
+        "Verifica que la revisión Alembic actual coincide con head mediante el "
+        "migrador aislado."
+    ) in help_block
+    assert "Aplica migraciones y levanta el stack base de despliegue." in help_block
 
     for command in visible_commands:
         assert command in help_block

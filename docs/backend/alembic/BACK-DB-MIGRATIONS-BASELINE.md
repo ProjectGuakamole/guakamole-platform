@@ -2,58 +2,48 @@
 
 ## Objetivo
 
-Consolidar las reglas de Alembic vigentes tras la validación del punto 3.
+Consolidar el contrato vigente de migraciones tras el punto 5 de la auditoría.
 
 ## Responsabilidad del documento
 
-Recoge reglas de migraciones y su acceso a base de datos. No duplica la selección de entornos de Makefile ni el empaquetado Docker.
+Recoge las reglas operativas de Alembic. El detalle de Compose y de los targets está en los documentos Docker y Makefile.
 
 ## Estado actual
 
-**Punto 4 documentado.** Se preserva el baseline DDL del punto 3 y se añade la operación separada de bootstrap, demo y rebaseline.
+**Punto 5 documentado.** Se conserva el histórico del baseline `iam_baseline` DDL-only y queda sustituida la operación directa de Alembic desde el host por un migrador Docker explícito.
 
 ## Cambios realizados
 
-Se mantienen las reglas del punto 2 y el baseline `iam_baseline` DDL-only para `sch_iam`. En el punto 4, los catálogos IAM aprobados se cargan mediante bootstrap transaccional, fuera de Alembic; la demo se limita a su espacio gestionado y el rebaseline reconstruye el esquema completo antes de aplicar el baseline.
+- El baseline sigue siendo la única revisión vigente y no incorpora DML de catálogos ni demo.
+- Alembic se ejecuta mediante el perfil Compose `migration`, con los comandos `docker-db-migrate`, `docker-db-current` y `docker-db-check`.
+- `docker-db-check` valida que la revisión Alembic actual coincide con el `head` empaquetado; deliberadamente no ejecuta `alembic check` ni compara deriva con los modelos ORM.
+- El migrador recibe una URL de migración separada y validada; la aplicación usa su propia identidad y URL de aplicación.
+- El arranque normal no aplica migraciones y no existe flujo Docker de downgrade.
 
 ## Justificacion tecnica
 
-Una única fuente de conexión evita que una migración opere contra una base distinta de la seleccionada. La precondición previa a borrados hace explícito el riesgo sobre datos operativos.
+Separar la identidad que cambia el esquema de la identidad de ejecución reduce privilegios y evita que un proceso de aplicación migre accidentalmente una base de datos. El perfil explícito hace visible una operación que modifica estado.
 
 ## Decisiones tomadas
 
-### Reglas validadas
-
-- Alembic recibe `DATABASE_URL` desde la configuración central explícita.
-- Alembic no usa un fallback de configuración en `alembic.ini` ni en una plantilla de entorno.
-- Un downgrade histórico con borrados comprueba antes los datos dependientes y rechaza la operación si existen.
-- La única revisión vigente es `iam_baseline`: DDL-only, con 11 tablas en `sch_iam` y control de versión en `public.alembic_version` por defecto.
-- La revisión no instala `pgcrypto` ni modifica privilegios mediante `GRANT` o `REVOKE`.
-- Las identidades de organización y usuario empiezan en 1; `public_id` se genera en Python.
-- El esquema preserva integridad tenant en relaciones de departamento, coherencia geográfica y unicidad insensible a mayúsculas mediante `lower(...)`.
-- Alembic usa una conexión inyectada y validada; el arranque del backend no migra la base de datos.
-- La referencia histórica a un seed con preflight de `pgcrypto` y sincronización de identidades queda sustituida en el punto 4 por bootstrap de catálogos y demo sin esa dependencia.
-- El rebaseline es destructivo y solo se autoriza con confirmación explícita: pruebas con `TEST_DATABASE_URL` `*_test`, o desarrollo local separado con `REBASELINE_DEVELOPMENT_DATABASE_URL` `*_dev` o `*_development`.
-- Las migraciones no contienen DML de catálogos ni de demo. Tras Alembic o rebaseline, el bootstrap resuelve los catálogos canónicos mediante claves naturales, crea los que falten con identificadores públicos estándar, válidos y deterministas, y valida colisiones; debe completarse antes de la demo. Seed y clear no modifican catálogos.
-- El rebaseline elimina `sch_iam` y `public.alembic_version` en un destino validado y vuelve a aplicar `iam_baseline`; no es una limpieza parcial de datos.
-- Bootstrap y demo usan destinos dedicados (`TEST_DATABASE_URL` en pruebas y variables específicas en desarrollo), nunca `DATABASE_URL`.
-
-La orquestación Docker de migraciones no forma parte de este cambio.
+- El contrato anterior de ejecutar Alembic directamente en el host con `DATABASE_URL` queda reemplazado para la operación Docker.
+- Son obligatorias para el migrador `MIGRATION_DATABASE_URL`, `MIGRATION_ALLOWED_HOSTS`, `MIGRATION_ALLOWED_DATABASES` y `MIGRATION_EXPECTED_DB_USER`.
+- La URL y la identidad de migración se validan contra allowlists antes de ejecutar la operación; no se muestran secretos en salida ni en esta documentación.
+- `migrate` solo acepta `upgrade`, `current` y `check`; no se ofrece downgrade en Docker.
+- La migración utiliza la misma imagen no root que el backend, con las restricciones del servicio de migración.
+- La disponibilidad operativa exige PostgreSQL listo y revisión en `head`; la readiness de la API depende de ambas condiciones.
+- La inicialización de PostgreSQL provisiona los roles en un volumen nuevo. Para un volumen existente, el provisionamiento de roles es una operación explícita y confirmada mediante `db-provision-roles`.
 
 ## Tests ejecutados
 
-- `make backend-quality`: Ruff y comprobación de formato correctos sobre **164** ficheros; mypy en modo estricto correcto sobre **163** ficheros fuente.
-- `make backend-test-unit`: **316 passed, 100 deselected**.
-- `make backend-test-db`: **78 passed, 338 deselected** y **62 advertencias** conocidas de Alembic relacionadas con `path_separator`.
-- `make backend-test-security`: **22 passed, 394 deselected**.
-- `make backend-test`: **416 passed, 62 warnings**.
-
-Los comandos que reconstruyen o validan la base de datos de pruebas deben ejecutarse secuencialmente: el rebaseline es destructivo sobre la base local de pruebas. No se documentan validaciones manuales adicionales.
+- Evidencia del punto 5: se aplicó el baseline con `docker-db-migrate`; después `docker-db-migrate` informó que ya estaba en `head`, y `docker-db-current` y `docker-db-check` finalizaron correctamente.
+- Se ejecutaron los tests de migraciones disponibles: **21 passed**.
+- Mypy se ejecutó correctamente. No se dispone de recuento actual consolidado de la suite completa.
 
 ## Riesgos o deuda tecnica
 
-No se admite upgrade directo desde el historial `0001`...`0014`: se necesita una base nueva o reconstruida elegible para el baseline. El rebaseline es necesariamente destructivo. La orquestación Docker de migraciones queda fuera de este cambio.
+La configuración local de Compose publica el puerto de PostgreSQL y la conexión TCP a `localhost:5432` se validó correctamente. Esta exposición queda limitada al override local: el Compose base de staging mantiene PostgreSQL aislado y sin publicar puertos al host.
 
 ## Relacion con el backend
 
-Estas reglas protegen la evolución de la persistencia del backend y evitan que Alembic seleccione una conexión no prevista.
+El backend arranca con permisos de aplicación y consulta una base ya migrada. La evolución de esquema queda aislada, trazable y no forma parte del arranque automático.

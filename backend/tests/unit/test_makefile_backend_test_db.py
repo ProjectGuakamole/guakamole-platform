@@ -207,3 +207,40 @@ def test_direct_pytest_skips_database_and_integration_tests_without_test_url(
 
     assert result.returncode == 0, result.stderr
     assert "skipped" in result.stdout
+
+
+def test_database_roles_skips_without_compose_role_environment() -> None:
+    """La suite de host no debe asumir las credenciales privadas de Compose."""
+
+    environment = os.environ.copy()
+    environment["TEST_DATABASE_URL"] = (
+        "postgresql+psycopg://test:test@localhost/guakamole_test"
+    )
+    for variable in (
+        "MIGRATION_DATABASE_URL",
+        "MIGRATION_ALLOWED_HOSTS",
+        "MIGRATION_ALLOWED_DATABASES",
+        "MIGRATION_EXPECTED_DB_USER",
+        "APP_DB_PASSWORD",
+        "POSTGRES_DB",
+    ):
+        environment.pop(variable, None)
+
+    result = subprocess.run(  # noqa: S603 - controlled test command and environment.
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "-rs",
+            "tests/integration/test_database_roles.py",
+        ],
+        cwd=PROJECT_ROOT / "backend",
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Requiere el entorno de roles de Compose" in result.stdout

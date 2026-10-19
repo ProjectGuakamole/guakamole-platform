@@ -1,16 +1,21 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15-alpine@sha256:f7d23353e1b15400d22ebe31189f4d314b87a4c129cc400c8c2d8d4ca127bf81
     container_name: guakamole_postgres
     restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./infrastructure/postgres/provision-roles.sh:/opt/guakamole-postgres/provision-roles.sh:ro
+      - ./infrastructure/postgres/roles.sql:/opt/guakamole-postgres/roles.sql:ro
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "${POSTGRES_PORT}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      MIGRATION_DB_PASSWORD: ${MIGRATION_DB_PASSWORD:?MIGRATION_DB_PASSWORD es obligatoria}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD es obligatoria}
+    networks:
+      - backend_internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -25,7 +30,7 @@ services:
     container_name: guakamole_backend
     environment:
       APP_ENV: ${APP_ENV}
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DOCKER_DATABASE_URL:?DOCKER_DATABASE_URL es obligatoria}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       AUTH_COOKIE_HTTPONLY: ${AUTH_COOKIE_HTTPONLY:-true}
@@ -36,8 +41,8 @@ services:
       CORS_ALLOW_AUTHORIZATION_HEADER: ${CORS_ALLOW_AUTHORIZATION_HEADER:-true}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
-    ports:
-      - "${BACKEND_PORT}:8000"
+    networks:
+      - backend_internal
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,7 +50,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=5).read()\"",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/ready', timeout=5).read()\"",
         ]
       interval: 10s
       timeout: 5s
@@ -57,11 +62,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: guakamole_frontend
-    ports:
-      - "${FRONTEND_PORT}:80"
+    networks:
+      - backend_internal
 
   nginx:
-    image: nginx:alpine
+    image: nginx:alpine@sha256:df221db836e1754089190208cee7eeda94f233197056426eda74a43ab1abeac2
     container_name: guakamole_nginx
     ports:
       - "${NGINX_PORT}:80"
@@ -72,6 +77,8 @@ services:
         condition: service_healthy
       frontend:
         condition: service_started
+    networks:
+      - backend_internal
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1 || exit 1"]
       interval: 10s
@@ -79,5 +86,35 @@ services:
       retries: 5
       start_period: 10s
 
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    profiles: ["migration"]
+    command: ["python", "-m", "scripts.migrate", "upgrade", "head"]
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp
+    user: "guakamole"
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      APP_ENV: ${APP_ENV}
+      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL es obligatoria}
+      MIGRATION_ALLOWED_HOSTS: ${MIGRATION_ALLOWED_HOSTS:?MIGRATION_ALLOWED_HOSTS es obligatoria}
+      MIGRATION_ALLOWED_DATABASES: ${MIGRATION_ALLOWED_DATABASES:?MIGRATION_ALLOWED_DATABASES es obligatoria}
+      MIGRATION_EXPECTED_DB_USER: ${MIGRATION_EXPECTED_DB_USER:?MIGRATION_EXPECTED_DB_USER es obligatoria}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend_internal
+
 volumes:
   postgres_data:
+
+networks:
+  backend_internal:
+    internal: true
