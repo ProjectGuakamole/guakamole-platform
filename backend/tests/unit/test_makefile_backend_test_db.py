@@ -24,6 +24,8 @@ def _write_fake_uv(directory: Path) -> Path:
         '"${DATABASE_URL:-}" "${TEST_DATABASE_URL:-}" >> "$CALL_LOG"\n'
         'case "$*" in *"python -c"*) case "${TEST_DATABASE_URL:-}" in '
         '*"@remote/"*) exit 1 ;; esac ;; esac\n'
+        'case "$*" in *"test_database_roles.py"*) '
+        'if [ "${FAIL_ROLE_TEST:-}" = "1" ]; then exit 1; fi ;; esac\n'
         'case "$*" in *"scripts.rebaseline_iam"*) '
         'if [ "${FAIL_REBASELINE:-}" = "1" ]; then exit 1; fi ;; esac\n',
         encoding="utf-8",
@@ -32,10 +34,10 @@ def _write_fake_uv(directory: Path) -> Path:
     return executable
 
 
-def test_backend_test_db_rebaselines_test_database_before_pytest(
+def test_backend_test_db_checks_database_roles_before_rebaseline(
     tmp_path: Path,
 ) -> None:
-    """El target valida y reconstruye sólo la URL de pruebas antes de pytest."""
+    """El target comprueba roles antes de reconstruir y ejecutar la suite general."""
 
     environment_file = tmp_path / "test.env"
     call_log = tmp_path / "uv-calls.log"
@@ -71,16 +73,20 @@ def test_backend_test_db_rebaselines_test_database_before_pytest(
             "run python -c from app.core.test_database import "
             "get_test_database_url; import os; get_test_database_url(os.environ)"
         ),
+        "run pytest tests/integration/test_database_roles.py",
         "run python -m scripts.rebaseline_iam --confirm REBASELINE_IAM",
-        "run pytest -m db or integration",
+        (
+            "run pytest -m db or integration --deselect "
+            "tests/integration/test_database_roles.py"
+        ),
     ]
     assert all(call[1] == "test" for call in calls)
-    assert [call[2] for call in calls] == ["", "", test_url]
+    assert [call[2] for call in calls] == ["", "", "", test_url]
     assert all(call[3] == test_url for call in calls)
 
 
 def test_backend_test_db_stops_when_rebaseline_fails(tmp_path: Path) -> None:
-    """Un fallo de la reconstrucción impide que se ejecute la suite de pytest."""
+    """Un fallo de la reconstrucción impide que se ejecute la suite general."""
 
     environment_file = tmp_path / "test.env"
     call_log = tmp_path / "uv-calls.log"
@@ -116,7 +122,49 @@ def test_backend_test_db_stops_when_rebaseline_fails(tmp_path: Path) -> None:
             "run python -c from app.core.test_database import "
             "get_test_database_url; import os; get_test_database_url(os.environ)"
         ),
+        "run pytest tests/integration/test_database_roles.py",
         "run python -m scripts.rebaseline_iam --confirm REBASELINE_IAM",
+    ]
+
+
+def test_backend_test_db_stops_when_database_role_check_fails(tmp_path: Path) -> None:
+    """Un fallo de privilegios no permite reconstruir la base de pruebas."""
+
+    environment_file = tmp_path / "test.env"
+    call_log = tmp_path / "uv-calls.log"
+    environment_file.write_text(
+        "TEST_DATABASE_URL=postgresql+psycopg://test:test@localhost/guakamole_test\n",
+        encoding="utf-8",
+    )
+    _write_fake_uv(tmp_path)
+    make_executable = shutil.which("make")
+    assert make_executable is not None
+    environment = {
+        "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+        "CALL_LOG": str(call_log),
+        "FAIL_ROLE_TEST": "1",
+    }
+
+    result = subprocess.run(  # noqa: S603 - test fixture controls make and inputs.
+        [make_executable, "backend-test-db", f"ENV_FILE={environment_file}"],
+        cwd=PROJECT_ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    commands = [
+        line.split("\t", maxsplit=1)[0]
+        for line in call_log.read_text(encoding="utf-8").splitlines()
+    ]
+    assert commands == [
+        (
+            "run python -c from app.core.test_database import "
+            "get_test_database_url; import os; get_test_database_url(os.environ)"
+        ),
+        "run pytest tests/integration/test_database_roles.py",
     ]
 
 
