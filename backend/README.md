@@ -24,9 +24,17 @@ Desde la raíz del repositorio, ejecuta:
 ```bash
 make install
 make docker-up
-make db-upgrade
+make docker-db-migrate
 make backend-check
 ```
+
+`docker-up` es el flujo manual de desarrollo y no ejecuta migraciones
+automáticamente. Ejecuta el migrador explícitamente antes de comprobar la
+readiness.
+
+En desarrollo local, `docker-up` incorpora obligatoriamente
+`docker-compose.local.yml`. Este override publica los puertos de PostgreSQL,
+backend y frontend para el host. No es el compose de staging.
 
 Si todo va bien, el backend queda disponible en:
 
@@ -74,31 +82,49 @@ make docker-logs
 
 ## Base de datos y migraciones desde el punto de vista operativo
 
-Para dejar la base de datos en la versión esperada por la aplicación:
+El migrador aislado de Docker Compose y su wrapper restringido son el flujo
+canónico para despliegues Docker y de staging. Para flujos locales o de backend
+controlados se mantienen los targets de host `db-upgrade` y `db-current`,
+sujetos a sus allowlists de rol y URL. No ejecutes Alembic directamente ni
+incluyas credenciales en comandos, documentación o ficheros versionados.
+
+Para aplicar las migraciones pendientes de forma explícita:
 
 ```bash
-make db-upgrade
+make docker-db-migrate
 ```
 
-Para comprobar la versión actual:
+Para consultar si la revisión aplicada está en la versión esperada:
 
 ```bash
-make db-current
+make docker-db-current
 ```
 
-Para consultar el histórico de migraciones:
+Para comprobar que la revisión Alembic actual coincide con el `head` empaquetado,
+sin modificar la base de datos:
 
 ```bash
-make db-history
+make docker-db-check
 ```
 
-Para retroceder una revisión:
+Esta comprobación no ejecuta deliberadamente `alembic check`: no genera una
+revisión ni compara deriva entre los modelos ORM y el esquema.
+
+`db-history` no está disponible mediante el migrador seguro. El histórico no
+forma parte de la interfaz operativa expuesta. No existe un flujo de downgrade.
+
+Para un despliegue canónico, que migra antes de iniciar el stack base:
 
 ```bash
-make db-downgrade REVISION=-1
+make docker-deploy
 ```
 
-Usa `db-downgrade` con cuidado, especialmente si estás compartiendo entorno o datos de prueba con otras personas.
+`docker-deploy` no sustituye la revisión de la configuración de entorno: usa un
+fichero `ENV_FILE` adecuado y mantenlo fuera del repositorio.
+
+`docker-deploy` usa exclusivamente `docker-compose.yml`, pensado para staging:
+la red `backend_internal` continúa con `internal: true` y no publica los
+puertos de PostgreSQL, backend ni frontend.
 
 ## Ejecutar backend en modo desarrollo
 
@@ -143,6 +169,24 @@ make psql
 
 Este comando levanta PostgreSQL si hace falta y abre `psql` dentro del contenedor.
 
+### pgAdmin local
+
+Para conectar un cliente del host, como pgAdmin, usa el entorno levantado con
+`make docker-up`: el override local hace accesible PostgreSQL desde el host.
+Configura la conexión con estos valores, tomados del entorno local:
+
+| Campo de pgAdmin | Valor |
+| --- | --- |
+| Host | `localhost` |
+| Puerto | `POSTGRES_PORT` |
+| Base de datos | `POSTGRES_DB` |
+| Usuario | `POSTGRES_USER` |
+| Contraseña | `POSTGRES_PASSWORD` |
+
+No copies credenciales en este documento ni las añadas a argumentos de
+comandos. El compose base mantiene PostgreSQL aislado y no permite esta
+conexión directa desde el host.
+
 ## Ayuda de comandos
 
 Para ver la ayuda disponible del `Makefile`:
@@ -158,13 +202,13 @@ Comandos principales visibles:
 - `make backend-check`
 - `make backend-run`
 - `make docker-up`
+- `make docker-db-migrate`
+- `make docker-db-current`
+- `make docker-db-check`
+- `make docker-deploy`
 - `make docker-down`
 - `make docker-logs`
 - `make psql`
-- `make db-upgrade`
-- `make db-current`
-- `make db-history`
-- `make db-downgrade`
 
 ## Troubleshooting básico
 
@@ -178,11 +222,12 @@ make docker-logs
 
 ### La comprobación de readiness falla
 
-Comprueba que los servicios están levantados y ejecuta las migraciones operativas:
+Comprueba que los servicios están levantados y ejecuta explícitamente las
+migraciones operativas. `docker-up` no las ejecuta automáticamente:
 
 ```bash
 make docker-up
-make db-upgrade
+make docker-db-migrate
 make backend-check
 ```
 

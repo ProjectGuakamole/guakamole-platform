@@ -18,55 +18,45 @@ from app.domains.auth.shared.public_ids import (
 )
 from app.domains.auth.shared.tokens import ACCESS_CLAIM_VALUE, JwtAccessTokenService
 
+SETTINGS_INPUT = {
+    "app_env": "test",
+    "database_url": "postgresql+psycopg://test:test@localhost/test_db",
+    "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
+}
+
 
 @pytest.fixture
 def auth_settings() -> AuthSettings:
     return AuthSettings.model_validate(
-        {"jwt_secret_key": "test-secret-not-for-production-with-safe-length"},
+        SETTINGS_INPUT,
     )
 
 
 @pytest.mark.test_unit
-def test_auth_settings_requires_jwt_secret_without_input(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
-    monkeypatch.delenv("JWT_SECRET", raising=False)
-
+def test_auth_settings_requires_jwt_secret_without_input() -> None:
     with pytest.raises(ValidationError):
         AuthSettings.model_validate({})
 
 
 @pytest.mark.test_unit
-def test_auth_settings_accepts_legacy_jwt_secret_alias() -> None:
-    settings = AuthSettings.model_validate(
-        {"JWT_SECRET": "legacy-test-secret-not-for-production"},
-    )
+def test_auth_settings_uses_synthetic_context_for_isolated_collaborators() -> None:
+    settings = AuthSettings.model_validate(SETTINGS_INPUT)
 
-    configured_value = settings.jwt_secret_key
-
-    assert configured_value == "legacy-test-secret-not-for-production"
+    assert settings.app_env == "test"
 
 
 @pytest.mark.test_unit
-def test_auth_settings_prefers_jwt_secret_key_over_legacy_alias() -> None:
-    settings = AuthSettings.model_validate(
-        {
-            "JWT_SECRET_KEY": "preferred-test-secret-not-for-production",
-            "JWT_SECRET": "legacy-test-secret-not-for-production",
-        },
-    )
+def test_auth_settings_uses_explicit_jwt_secret_key() -> None:
+    settings = AuthSettings.model_validate(SETTINGS_INPUT)
 
-    configured_value = settings.jwt_secret_key
-
-    assert configured_value == "preferred-test-secret-not-for-production"
+    assert settings.jwt_secret_key == SETTINGS_INPUT["jwt_secret_key"]
 
 
 @pytest.mark.test_unit
 def test_auth_settings_normalizes_valid_cookie_samesite() -> None:
     settings = AuthSettings.model_validate(
         {
-            "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
+            **SETTINGS_INPUT,
             "auth_cookie_samesite": "Strict",
         },
     )
@@ -79,7 +69,7 @@ def test_auth_settings_rejects_invalid_cookie_samesite() -> None:
     with pytest.raises(ValidationError):
         AuthSettings.model_validate(
             {
-                "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
+                **SETTINGS_INPUT,
                 "auth_cookie_samesite": "invalid",
             },
         )
@@ -90,7 +80,7 @@ def test_auth_settings_rejects_invalid_jwt_algorithm() -> None:
     with pytest.raises(ValidationError):
         AuthSettings.model_validate(
             {
-                "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
+                **SETTINGS_INPUT,
                 "jwt_algorithm": "RS256",
             },
         )
@@ -99,7 +89,7 @@ def test_auth_settings_rejects_invalid_jwt_algorithm() -> None:
 @pytest.mark.test_unit
 def test_auth_settings_rejects_jwt_secret_shorter_than_32_characters() -> None:
     with pytest.raises(ValidationError):
-        AuthSettings.model_validate({"jwt_secret_key": "too-short"})
+        AuthSettings.model_validate({**SETTINGS_INPUT, "jwt_secret_key": "too-short"})
 
 
 @pytest.mark.test_unit
@@ -107,7 +97,7 @@ def test_auth_settings_rejects_samesite_none_without_secure_cookie() -> None:
     with pytest.raises(ValidationError):
         AuthSettings.model_validate(
             {
-                "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
+                **SETTINGS_INPUT,
                 "auth_cookie_samesite": "none",
                 "auth_cookie_secure": False,
             },
@@ -118,7 +108,7 @@ def test_auth_settings_rejects_samesite_none_without_secure_cookie() -> None:
 def test_auth_settings_accepts_samesite_none_with_secure_cookie() -> None:
     settings = AuthSettings.model_validate(
         {
-            "jwt_secret_key": "test-secret-not-for-production-with-safe-length",
+            **SETTINGS_INPUT,
             "auth_cookie_samesite": "none",
             "auth_cookie_secure": True,
         },
@@ -131,7 +121,7 @@ def test_auth_settings_accepts_samesite_none_with_secure_cookie() -> None:
 @pytest.mark.test_unit
 def test_auth_settings_disables_password_bearer_token_by_default() -> None:
     settings = AuthSettings.model_validate(
-        {"jwt_secret_key": "test-secret-not-for-production-with-safe-length"},
+        SETTINGS_INPUT,
     )
 
     assert settings.auth_enable_password_bearer_token is False
@@ -266,4 +256,34 @@ def test_public_id_helper_generates_expected_prefix_and_valid_uuid(
     parsed_uuid = parse_public_uuid(public_id, prefix)
 
     assert public_id.startswith(expected_prefix)
+    assert len(public_id) <= 40
     assert parsed_uuid.version == 4
+
+
+@pytest.mark.test_unit
+@pytest.mark.parametrize("prefix", list(PublicIdPrefix))
+def test_public_id_parser_accepts_canonical_generated_ids(
+    prefix: PublicIdPrefix,
+) -> None:
+    public_id = generate_public_id(prefix)
+
+    assert parse_public_uuid(public_id, prefix).bytes
+
+
+@pytest.mark.test_unit
+@pytest.mark.parametrize(
+    "public_id",
+    [
+        "org_!!!!!!!!!!!!!!!!!!!!!!",
+        "org_abcdefghijklmnopqrstu",
+        "org_abcdefghijklmnopqrstuvw",
+        "org_abcdefghijklmnopqrstuv=",
+        "org_abcdefghijklmnopqrstuvextra",
+        "org_AAAAAAAAAAAAAAAAAAAAAB",
+    ],
+)
+def test_public_id_parser_rejects_noncanonical_or_malformed_values(
+    public_id: str,
+) -> None:
+    with pytest.raises(ValueError, match="UUID inválido"):
+        parse_public_uuid(public_id, PublicIdPrefix.ORGANIZATION)

@@ -69,26 +69,22 @@ def test_model_registry_loads_current_iam_models() -> None:
     assert expected_tables.issubset(Base.metadata.tables.keys())
 
 
-def test_initial_iam_migration_creates_schema_without_tables() -> None:
-    migration_path = Path("alembic/versions/0001_create_schema_iam.py")
+def test_iam_baseline_creates_the_complete_schema() -> None:
+    migration_path = Path("alembic/versions/iam_baseline.py")
     migration_content = migration_path.read_text(encoding="utf-8")
 
-    assert "CREATE SCHEMA IF NOT EXISTS" in migration_content
+    assert "CREATE SCHEMA" in migration_content
     assert "sch_iam" in migration_content
-    assert "IAM_SCHEMA" not in migration_content
-    assert "REVOKE CREATE ON SCHEMA public FROM PUBLIC" in migration_content
-    assert "DROP SCHEMA IF EXISTS" in migration_content
-    assert "op.create_table" not in migration_content
+    assert migration_content.count("op.create_table(") == 11
+    assert "REVOKE" not in migration_content
     assert "DROP SCHEMA public" not in migration_content
 
 
-def test_initial_iam_migration_extends_alembic_version_length() -> None:
-    migration_path = Path("alembic/versions/0001_create_schema_iam.py")
+def test_iam_baseline_does_not_change_alembic_metadata() -> None:
+    migration_path = Path("alembic/versions/iam_baseline.py")
     migration_content = migration_path.read_text(encoding="utf-8")
 
-    assert "ALTER TABLE alembic_version" in migration_content
-    assert "version_num" in migration_content
-    assert "VARCHAR(255)" in migration_content
+    assert "alembic_version" not in migration_content
 
 
 def test_alembic_ini_does_not_store_operational_database_credentials() -> None:
@@ -103,57 +99,88 @@ def test_alembic_ini_does_not_store_operational_database_credentials() -> None:
     assert "driver://user:pass@localhost/dbname" in alembic_ini_content
 
 
-def test_env_example_exposes_development_database_url() -> None:
+def test_env_example_exposes_only_nonoperational_database_placeholders() -> None:
     env_example_content = Path("../.env.example").read_text(encoding="utf-8")
-    expected_database_url = (
-        'DATABASE_URL="postgresql+psycopg://guakamole_user:postgre@localhost:5432/'
-        'guakamole_db"'
-    )
-
-    assert expected_database_url in env_example_content
-    assert "postgresql+psycopg://" in env_example_content
+    assert "DATABASE_URL=postgresql+psycopg://<usuario>" in env_example_content
+    assert "TEST_DATABASE_URL=" in env_example_content
+    assert "guakamole_user" not in env_example_content
 
 
-def test_alembic_env_reads_database_url_from_environment() -> None:
+def test_alembic_env_requires_a_connection_validated_by_the_migrator() -> None:
     alembic_env_content = Path("alembic/env.py").read_text(encoding="utf-8")
 
-    assert 'DATABASE_URL_ENV_VAR = "DATABASE_URL"' in alembic_env_content
-    assert 'SQLALCHEMY_URL_OPTION = "sqlalchemy.url"' in alembic_env_content
-    assert "MISSING_DATABASE_URL_ERROR" in alembic_env_content
-    assert "os.environ.get(DATABASE_URL_ENV_VAR)" in alembic_env_content
-    expected_set_main_option = (
-        "config.set_main_option(SQLALCHEMY_URL_OPTION, get_required_database_url())"
+    assert 'config.attributes.get("connection")' in alembic_env_content
+    assert (
+        "Alembic requiere una conexión validada por el migrador." in alembic_env_content
     )
-
-    assert expected_set_main_option in alembic_env_content
+    assert "engine_from_config" not in alembic_env_content
 
 
 def test_makefile_centralizes_environment_file_selection() -> None:
     makefile_content = Path("../Makefile").read_text(encoding="utf-8")
 
-    assert "ENV_FILE ?= .env.example" in makefile_content
+    assert "ENV_FILE ?= .env" in makefile_content
     assert "ENV_FILE_PATH :=" in makefile_content
-    assert "COMPOSE := docker compose --env-file $(ENV_FILE)" in makefile_content
+    assert (
+        "COMPOSE_BASE := docker compose --env-file $(ENV_FILE) -f docker-compose.yml"
+        in makefile_content
+    )
+    assert (
+        "COMPOSE_LOCAL := $(COMPOSE_BASE) -f docker-compose.local.yml"
+        in makefile_content
+    )
     assert "docker compose --env-file .env.example" not in makefile_content
 
 
-def test_makefile_exposes_alembic_database_targets_with_env_file() -> None:
+def test_makefile_exposes_restricted_compose_migration_targets() -> None:
     makefile_content = Path("../Makefile").read_text(encoding="utf-8")
-    expected_targets = {
-        "db-upgrade:": "uv run alembic upgrade head",
-        "db-current:": "uv run alembic current",
-        "db-history:": "uv run alembic history",
-        "db-downgrade:": "uv run alembic downgrade $(REVISION)",
-    }
+    migrate_target = makefile_content.split("docker-db-migrate:", maxsplit=1)[1].split(
+        "docker-db-current:", maxsplit=1
+    )[0]
+    current_target = makefile_content.split("docker-db-current:", maxsplit=1)[1].split(
+        "docker-db-check:", maxsplit=1
+    )[0]
+    check_target = makefile_content.split("docker-db-check:", maxsplit=1)[1].split(
+        "docker-deploy:", maxsplit=1
+    )[0]
 
-    for target, command in expected_targets.items():
-        assert target in makefile_content
-        assert command in makefile_content
+    assert "--profile migration run --build --rm migrate" in migrate_target
+    assert "--profile migration run --build --rm migrate" in current_target
+    assert "--profile migration run --build --rm migrate" in check_target
+    assert "python -m scripts.migrate current" in current_target
+    assert "python -m scripts.migrate check" in check_target
+    assert "backend" not in migrate_target
+    assert "backend" not in current_target
+    assert "backend" not in check_target
+    assert "uv run alembic" not in migrate_target
+    assert "alembic history" not in makefile_content
 
-    assert makefile_content.count("set -a; . $(ENV_FILE_PATH); set +a;") >= len(
-        expected_targets
-    )
-    assert "REVISION ?= -1" in makefile_content
+
+def test_makefile_deprecates_unsupported_migration_targets() -> None:
+    makefile_content = Path("../Makefile").read_text(encoding="utf-8")
+    history_target = makefile_content.split("db-history:", maxsplit=1)[1].split(
+        "db-downgrade:", maxsplit=1
+    )[0]
+    downgrade_target = makefile_content.split("db-downgrade:", maxsplit=1)[1].split(
+        "health-check:", maxsplit=1
+    )[0]
+
+    assert "está obsoleto" in history_target
+    assert "migrador seguro no admite histórico" in history_target
+    assert "exit 1" in history_target
+    assert "está obsoleto" in downgrade_target
+    assert "migrador seguro rechaza downgrades" in downgrade_target
+    assert "Docker de downgrade" in downgrade_target
+    assert "exit 1" in downgrade_target
+
+
+def test_backend_dockerignore_excludes_environment_files() -> None:
+    dockerignore_content = Path(".dockerignore").read_text(encoding="utf-8")
+
+    assert ".env" in dockerignore_content
+    assert ".env.*" in dockerignore_content
+    assert "app" not in dockerignore_content
+    assert "alembic" not in dockerignore_content
 
 
 def test_makefile_groups_backend_quality_targets() -> None:
@@ -165,7 +192,7 @@ def test_makefile_groups_backend_quality_targets() -> None:
             "backend-test-db backend-test-security"
         ),
         'cd $(BACKEND_DIR) && uv run pytest -m "test_unit or architecture"',
-        'cd $(BACKEND_DIR) && uv run pytest -m "db or integration"',
+        'TEST_DATABASE_URL="$$TEST_DATABASE_URL" uv run pytest -m "db or integration"',
         'cd $(BACKEND_DIR) && uv run pytest -m "security and not db"',
     }
 
@@ -242,18 +269,26 @@ def test_makefile_help_documents_primary_commands_only() -> None:
         "make backend-check",
         "make backend-run",
         "make docker-up",
+        "make docker-db-migrate",
+        "make docker-db-current",
+        "make docker-db-check",
+        "make docker-deploy",
         "make docker-down",
         "make docker-logs",
         "make psql",
-        "make db-upgrade",
-        "make db-current",
-        "make db-history",
-        "make db-downgrade",
     }
 
-    assert "ENV_FILE ?= .env.example" in makefile_content
-    assert "REVISION ?= -1" in makefile_content
-    assert "API_BASE_URL ?= http://localhost:8000" in makefile_content
+    assert "ENV_FILE ?= .env" in help_block
+    assert "API_BASE_URL ?= http://localhost:8000" in help_block
+    assert "make db-history" not in help_block
+    assert "make db-downgrade" not in help_block
+    assert "Aplica upgrade head con el migrador aislado." in help_block
+    assert "Consulta la revisión Alembic con el migrador aislado." in help_block
+    assert (
+        "Verifica que la revisión Alembic actual coincide con head mediante el "
+        "migrador aislado."
+    ) in help_block
+    assert "Aplica migraciones y levanta el stack base de despliegue." in help_block
 
     for command in visible_commands:
         assert command in help_block

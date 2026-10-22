@@ -50,6 +50,8 @@ select = [
 ]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101"]
+"app/core/iam_bootstrap.py" = ["E501", "S608"]
+"scripts/seed_demo_iam.py" = ["E501", "S608"]
 
 [tool.ruff.format]
 quote-style = "double"

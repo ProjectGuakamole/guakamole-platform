@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session
 
+from app.core.test_database import get_test_database_url as select_test_database_url
 from app.domains.iam.access.models import OrganizationRole, PlatformRole, Status
 from app.domains.iam.departments.models import Department, DepartmentRelation
 from app.domains.iam.geography.models import City, Country, State
@@ -126,38 +127,7 @@ def get_database_url_from_environment(
 
 
 def get_test_database_url() -> str:
-    database_url = os.environ.get(TEST_DATABASE_URL_ENV_VAR)
-    if database_url:
-        return ensure_valid_test_database_url(database_url)
-
-    database_url = build_postgresql_url_from_environment(dict(os.environ))
-    if database_url:
-        return ensure_valid_test_database_url(database_url)
-
-    repository_root = get_repository_root()
-    example_environment = read_environment_file(repository_root / ".env.example")
-    database_url = example_environment.get(DATABASE_URL_ENV_VAR)
-    if database_url:
-        return ensure_valid_test_database_url(database_url)
-
-    database_url = get_database_url_from_environment(example_environment)
-    if database_url:
-        return database_url
-
-    environment = read_environment_file(repository_root / ".env")
-    database_url = get_database_url_from_environment(environment)
-    if database_url:
-        return database_url
-
-    database_url = os.environ.get(DATABASE_URL_ENV_VAR)
-    if database_url:
-        return ensure_valid_test_database_url(database_url)
-
-    raise RuntimeError(
-        f"La variable {TEST_DATABASE_URL_ENV_VAR} o una configuración POSTGRES_* "
-        "coherente debe estar definida para ejecutar los tests de repository "
-        "contra PostgreSQL real."
-    )
+    return select_test_database_url(os.environ)
 
 
 @pytest.fixture
@@ -232,7 +202,9 @@ def test_database_url_helper_rejects_sqlite() -> None:
 def test_database_url_helper_prioritizes_test_database_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    expected_url = "postgresql+psycopg://test_user:test_pass@localhost:5432/test_db"
+    expected_url = (
+        "postgresql+psycopg://test_user:test_pass@localhost:5432/test_db_test"
+    )
     monkeypatch.setenv(TEST_DATABASE_URL_ENV_VAR, expected_url)
     monkeypatch.setenv(
         DATABASE_URL_ENV_VAR,
@@ -242,7 +214,7 @@ def test_database_url_helper_prioritizes_test_database_url(
     assert get_test_database_url() == expected_url
 
 
-def test_database_url_helper_uses_postgres_environment_before_database_url(
+def test_database_url_helper_rejects_postgres_environment_without_test_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv(TEST_DATABASE_URL_ENV_VAR, raising=False)
@@ -256,9 +228,8 @@ def test_database_url_helper_uses_postgres_environment_before_database_url(
     monkeypatch.setenv("POSTGRES_USER", "guakamole_user")
     monkeypatch.setenv("POSTGRES_PASSWORD", "postgre")
 
-    assert get_test_database_url() == (
-        "postgresql+psycopg://guakamole_user:postgre@localhost:5432/guakamole_db"
-    )
+    with pytest.raises(RuntimeError, match="TEST_DATABASE_URL"):
+        get_test_database_url()
 
 
 def test_database_url_helper_rejects_placeholders() -> None:
@@ -300,6 +271,7 @@ def seed_catalogs(session: Session) -> None:
         City(
             id_city=TEST_CITY_ID,
             id_state=TEST_STATE_ID,
+            id_country=TEST_COUNTRY_ID,
             city_name="Repository Test City",
         )
     )

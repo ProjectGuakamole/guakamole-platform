@@ -22,23 +22,13 @@ class Organization(TimestampMixin, Base):
     __table_args__ = (
         PrimaryKeyConstraint("id_organization", name="pk_tbl_organization"),
         ForeignKeyConstraint(
-            ["id_country"],
-            [f"{IAM_SCHEMA}.tbl_country.id_country"],
-            name="fk_tbl_organization_id_country",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-        ),
-        ForeignKeyConstraint(
-            ["id_state"],
-            [f"{IAM_SCHEMA}.tbl_state.id_state"],
-            name="fk_tbl_organization_id_state",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-        ),
-        ForeignKeyConstraint(
-            ["id_city"],
-            [f"{IAM_SCHEMA}.tbl_city.id_city"],
-            name="fk_tbl_organization_id_city",
+            ["id_city", "id_state", "id_country"],
+            [
+                f"{IAM_SCHEMA}.tbl_city.id_city",
+                f"{IAM_SCHEMA}.tbl_city.id_state",
+                f"{IAM_SCHEMA}.tbl_city.id_country",
+            ],
+            name="fk_tbl_organization_geo_hierarchy",
             ondelete="RESTRICT",
             onupdate="CASCADE",
         ),
@@ -64,7 +54,7 @@ class Organization(TimestampMixin, Base):
         {"schema": IAM_SCHEMA},
     )
 
-    id_organization: Mapped[int] = mapped_column(BigInteger, Identity())
+    id_organization: Mapped[int] = mapped_column(BigInteger, Identity(start=1))
     public_id: Mapped[str] = mapped_column(
         String(40),
         nullable=False,

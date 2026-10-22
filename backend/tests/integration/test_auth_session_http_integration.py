@@ -152,7 +152,14 @@ def seed_active_identity(session: Session, password_hash: str | None = None) -> 
         State(id_state=STATE_ID, id_country=COUNTRY_ID, state_name="Auth HTTP State")
     )
     session.commit()
-    session.add(City(id_city=CITY_ID, id_state=STATE_ID, city_name="Auth HTTP City"))
+    session.add(
+        City(
+            id_city=CITY_ID,
+            id_state=STATE_ID,
+            id_country=COUNTRY_ID,
+            city_name="Auth HTTP City",
+        )
+    )
     session.commit()
     active_status_id = get_or_create_status(session, "ACTIVE")
     session.add(
@@ -233,7 +240,11 @@ def test_logout_revokes_session_and_rejects_reused_cookie(
     assert logout_response.status_code == 200
     assert 'guak_access_token=""' in logout_response.headers["set-cookie"]
 
-    settings = AuthSettings(jwt_secret_key=os.environ["JWT_SECRET_KEY"])
+    settings = AuthSettings(
+        app_env="test",
+        database_url="postgresql+psycopg://test:test@localhost/test_db",
+        jwt_secret_key=os.environ["JWT_SECRET_KEY"],
+    )
     verified_token = JwtAccessTokenService(settings).verify_access_token(raw_token)
     revoked = auth_http_db_session.scalar(
         select(RevokedAccessToken).where(RevokedAccessToken.jti == verified_token.jti)
@@ -390,7 +401,14 @@ def seed_registration_catalogs(session: Session) -> None:
         State(id_state=STATE_ID, id_country=COUNTRY_ID, state_name="Auth HTTP State")
     )
     session.commit()
-    session.add(City(id_city=CITY_ID, id_state=STATE_ID, city_name="Auth HTTP City"))
+    session.add(
+        City(
+            id_city=CITY_ID,
+            id_state=STATE_ID,
+            id_country=COUNTRY_ID,
+            city_name="Auth HTTP City",
+        )
+    )
     session.commit()
 
 

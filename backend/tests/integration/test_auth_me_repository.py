@@ -97,7 +97,14 @@ def seed_auth_me_data(session: Session) -> None:
         State(id_state=STATE_ID, id_country=COUNTRY_ID, state_name="Auth Me State")
     )
     session.commit()
-    session.add(City(id_city=CITY_ID, id_state=STATE_ID, city_name="Auth Me City"))
+    session.add(
+        City(
+            id_city=CITY_ID,
+            id_state=STATE_ID,
+            id_country=COUNTRY_ID,
+            city_name="Auth Me City",
+        )
+    )
     session.commit()
     session.add_all(
         [

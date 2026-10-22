@@ -38,6 +38,7 @@ class DepartmentRelationBase(BaseModel):
 
     id_department: int
     id_user: int
+    id_organization: int
 
 
 class DepartmentRelationCreate(DepartmentRelationBase):
@@ -49,6 +50,7 @@ class DepartmentRelationUpdate(BaseModel):
 
     id_department: int | None = None
     id_user: int | None = None
+    id_organization: int | None = None
 
 
 class DepartmentRelationRead(DepartmentRelationBase):
