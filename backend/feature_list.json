@@ -1,0 +1,21 @@
+{
+  "project": "backend",
+  "generated_from": "docs/plan/ (do not hand-edit; run make plan)",
+  "rules": {
+    "one_subtask_at_a_time": true,
+    "phase_by_phase": true,
+    "require_roadmap_approval": true,
+    "require_phase_approval": true,
+    "require_plan_approval": true,
+    "require_code_approval": true,
+    "require_make_check_to_close": true,
+    "valid_status": [
+      "pending",
+      "in_progress",
+      "done",
+      "blocked"
+    ]
+  },
+  "phases": [],
+  "features": []
+}
