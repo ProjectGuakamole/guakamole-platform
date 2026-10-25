@@ -1,0 +1,7 @@
+[scope]
+src_dirs = ["app", "scripts"]
+
+[git]
+branch = "feature/{ticket}-{slug}"
+commit_prefix = "{ticket} "
+setup_branch = "chore/BACK-HARNESS-001-harness-setup"
