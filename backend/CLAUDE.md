@@ -56,9 +56,9 @@ unless asked" rule — it applies only inside the harness close step, and carrie
 - Conceptual questions / exploration (read-only) → answer directly yourself.
 - Changes outside `src/` and `tests/` (docs/plan, progress, config) → you may edit them yourself.
 
-## Project context ‹filled in by the leader during discovery›
+## Project context
 
-- **Domain:** ‹what this service solves›
-- **Framework:** ‹FastAPI | Django›
-- **Persistence:** ‹SQLAlchemy 2.x async | Django ORM› on PostgreSQL
-- **Own commands:** ‹docker compose up, workers, scraping…›
+- **Domain:** backend of Project Guakamole, a multi-tenant B2B platform for practical SOC training (IAM, auth, later scenarios and labs)
+- **Framework:** FastAPI (code in `app/` and `scripts/`, not `src/`)
+- **Persistence:** SQLAlchemy 2.x (sync sessions, psycopg 3) on PostgreSQL, schema `sch_iam`, Alembic baseline run by an isolated Docker migrator
+- **Own commands:** root `Makefile` (`make docker-up`, `make docker-db-migrate`, `make backend-test-db`, `make backend-bootstrap`); backend docs in `../docs/backend/`; team git strategy in `../docs/2-development/git_strategy.md`

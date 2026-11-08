@@ -1,0 +1,8 @@
+8bd1a8e00ec36427eec2e58b65b70e126a75e9321f2ec3830f157fbddb901081  docs/plan/phase-01-backend-foundation.md
+df5aac0db8af3e7f33d0a7b74748669eafc89567da6ba7679893a6e2786bd7aa  docs/plan/phase-01-backend-foundation/1.1.1-uv-ruff-mypy-config.md
+b35f96eb309b07114330ec67021e4e02d29860a1f78568f5ead3554e0a5f35c2  docs/plan/phase-01-backend-foundation/1.1.2-pytest-markers-db-skip.md
+8a5bdf7f62dc107a8add611d83100568fe4a2248080f588839b584db2cc4b0d2  docs/plan/phase-01-backend-foundation/1.2.1-create-app-factory.md
+950fa32eef6d34ec8f0d0d9a2f09636d746620f2bb13cf5dc396963fa7ea6bae  docs/plan/phase-01-backend-foundation/1.2.2-api-v1-router.md
+b2df75397a50169c6aa97d1323aa396daca9d1856d7520a5a34827ecdf2ba895  docs/plan/phase-01-backend-foundation/1.2.3-domains-layout.md
+86c9459d305bc3a316b25ca1dfd5d2fde6dc8c55345fc40c3a0a609af4e2255d  docs/plan/phase-01-backend-foundation/1.3.1-declarative-base-mixins.md
+d7c395cc1a24e31790c31357595e9caa980f81a223c6f0a5089528a22adfd2df  docs/plan/phase-01-backend-foundation/1.3.2-model-registry.md

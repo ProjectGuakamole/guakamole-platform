@@ -1,0 +1,10 @@
+dad446f25e50c3ef995f977ed69bb4cf1424ee85f92d9bd98d0bcbb38c5fd773  docs/plan/phase-02-iam-persistence.md
+c9461552755917fb6b4b3d13e3cf059e00031cca28a06a7d80a6b23d0dafd72a  docs/plan/phase-02-iam-persistence/2.1.1-sch-iam-orm-models.md
+7755f0eaa79d836b7992d8e5132cce63599b56cb8ecf59106311ef8e11b2fe0e  docs/plan/phase-02-iam-persistence/2.2.1-alembic-iam-baseline.md
+7a70fd0b93c645351a1f63d6592c2bb042360a3e959fa1c99e8d736e8bd5ff56  docs/plan/phase-02-iam-persistence/2.3.1-migrator-target-and-commands.md
+9be094eabfbabe23d72ed4c2de0bfa94a7b52290e7873a46bed59d96601a78d7  docs/plan/phase-02-iam-persistence/2.3.2-application-role-grants.md
+7d8157991d61b2be4caee2d284df7c4be54c37856ca0e12fe648a3974d3d9456  docs/plan/phase-02-iam-persistence/2.4.1-catalog-bootstrap.md
+00047b1e86b81e319bb126eaa229f76fd8f56f36b8d22a24633d9ab80089fdc9  docs/plan/phase-02-iam-persistence/2.4.2-demo-seed.md
+a84cd9e02a00ef29b5944612cf8e9e0af91a48122f6ad6553002d9c7c573b9a5  docs/plan/phase-02-iam-persistence/2.4.3-iam-rebaseline.md
+d371f9c85359088716d98f452315df462af128a96a4e4478b0000ef864407d5c  docs/plan/phase-02-iam-persistence/2.4.4-test-database-selector.md
+0902272381beea5c9f9598aba4740db123b5f246b315b64d2b0c8083eb4b6e1e  docs/plan/phase-02-iam-persistence/2.5.1-engine-and-session-factory.md
