@@ -13,9 +13,808 @@
       "pending",
       "in_progress",
       "done",
-      "blocked"
+      "blocked",
+      "baseline"
     ]
   },
-  "phases": [],
-  "features": []
+  "phases": [
+    {
+      "id": "01",
+      "title": "Base del backend",
+      "goal": "(baseline) un toolchain reproducible (uv, ruff, mypy --strict, markers de pytest) y el esqueleto modular de la aplicación: create_app(), el router v1 normalizado, el layout app/domains/<domain>/<module> y la base de datos compartida, los mixins y el registro de modelos.",
+      "file": "docs/plan/phase-01-backend-foundation.md",
+      "status": "done",
+      "tasks": [
+        "1.1",
+        "1.2",
+        "1.3"
+      ]
+    },
+    {
+      "id": "02",
+      "title": "Persistencia IAM",
+      "goal": "(baseline) los modelos ORM de sch_iam, una baseline de Alembic solo DDL, una CLI de migración protegida que solo se ejecuta contra hosts, bases de datos y usuario de migración permitidos, y scripts protegidos para el bootstrap de catálogos, el seed demo y el rebaseline.",
+      "file": "docs/plan/phase-02-iam-persistence.md",
+      "status": "done",
+      "tasks": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "2.5"
+      ]
+    },
+    {
+      "id": "03",
+      "title": "Health y readiness",
+      "goal": "(baseline) liveness en /api/health y readiness en /api/ready, que solo está lista cuando PostgreSQL responde y Alembic está en la head empaquetada, sin filtrar detalles internos.",
+      "file": "docs/plan/phase-03-health-readiness.md",
+      "status": "in_progress",
+      "tasks": [
+        "3.1",
+        "3.2"
+      ]
+    },
+    {
+      "id": "04",
+      "title": "Entorno Docker",
+      "goal": "(baseline) un stack de Docker Compose (postgres, backend, frontend, nginx, redis, worker provisional) con red interna aislada, imágenes sin root, roles de base de datos aprovisionados por servicio, un perfil de migración que ejecuta el migrator, un healthcheck del backend basado en readiness y un override solo para local.",
+      "file": "docs/plan/phase-04-docker-environment.md",
+      "status": "pending",
+      "tasks": []
+    },
+    {
+      "id": "05",
+      "title": "CI del backend",
+      "goal": "(baseline) tests clasificados con markers estrictos de pytest y un workflow de GitHub Actions dividido en los jobs quality, unit, db, security y compose.",
+      "file": "docs/plan/phase-05-backend-ci.md",
+      "status": "pending",
+      "tasks": []
+    },
+    {
+      "id": "06",
+      "title": "Arquitectura hexagonal: piloto de usuarios IAM",
+      "goal": "(baseline) el estándar hexagonal pragmático demostrado sobre el listado de usuarios IAM (tenant context, policy, repositorio, servicio, router y auditoría mínima), con los límites entre módulos verificados por tests de arquitectura.",
+      "file": "docs/plan/phase-06-hexagonal-iam-pilot.md",
+      "status": "pending",
+      "tasks": []
+    },
+    {
+      "id": "07",
+      "title": "Autenticación (OAuth2)",
+      "goal": "(baseline) registro de organizaciones, login de navegador con cookie JWT HttpOnly, identidad actual, logout, CSRF, un endpoint de token OAuth2 separado, CORS explícito y rate limiting en los endpoints sensibles, con settings validados al arrancar y organizado como módulos de auth sobre el estándar hexagonal.",
+      "file": "docs/plan/phase-07-authentication.md",
+      "status": "pending",
+      "tasks": []
+    },
+    {
+      "id": "08",
+      "title": "RBAC y tenant context",
+      "goal": "autorización por roles y permisos sobre la identidad autenticada, y un tenant context obligatorio derivado de la sesión en cada endpoint protegido, de forma que ningún endpoint confíe en un organization id enviado por el cliente.",
+      "file": "docs/plan/phase-08-rbac-tenant-context.md",
+      "status": "pending",
+      "tasks": []
+    },
+    {
+      "id": "09",
+      "title": "Integración con el frontend y e2e",
+      "goal": "los formularios de registro de organización y de login del frontend consumen la API v1 real a través de nginx (rutas /api/v1, cookie HttpOnly y CSRF), y una suite e2e con Playwright para Python sobre pytest (marker e2e, `make e2e` y un job e2e en la CI en cada PR) verifica sobre el stack de Docker Compose el flujo completo registro → login → /me → logout, los casos negativos (credenciales incorrectas, email duplicado, petición sin CSRF, rate limit) y la autorización y el tenant context de la phase 08.",
+      "file": "docs/plan/phase-09-frontend-integration-e2e.md",
+      "status": "pending",
+      "tasks": []
+    }
+  ],
+  "features": [
+    {
+      "id": "1.1",
+      "title": "Toolchain de Python",
+      "phase": "01",
+      "layer": "infrastructure",
+      "goal": "un proyecto uv reproducible con ruff, mypy --strict y markers estrictos de pytest, en el que los tests de base de datos nunca se ejecutan contra una base de datos implícita.",
+      "status": "done",
+      "subtasks": [
+        {
+          "id": "1.1.1",
+          "title": "Configuración de uv, ruff y mypy estricto",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [],
+          "files": [
+            "pyproject.toml",
+            "uv.lock",
+            "requirements.txt"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "los targets de calidad ejecutan ruff lint, la comprobación de formato de ruff y mypy",
+              "test": "tests/integration/test_iam_orm_preparation.py::test_makefile_groups_backend_quality_targets"
+            }
+          ],
+          "spec": "docs/plan/phase-01-backend-foundation/1.1.1-uv-ruff-mypy-config.md"
+        },
+        {
+          "id": "1.1.2",
+          "title": "Markers estrictos de pytest y aislamiento de los tests de base de datos",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [
+            "1.1.1"
+          ],
+          "files": [
+            "pyproject.toml",
+            "tests/conftest.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "pytest a secas omite los tests db e integration cuando TEST_DATABASE_URL no está definida",
+              "test": "tests/unit/test_makefile_backend_test_db.py::test_direct_pytest_skips_database_and_integration_tests_without_test_url"
+            },
+            {
+              "id": "AC2",
+              "criterion": "los targets de calidad seleccionan los tests por marker (unit/architecture, db/integration, security)",
+              "test": "tests/integration/test_iam_orm_preparation.py::test_makefile_groups_backend_quality_targets"
+            }
+          ],
+          "spec": "docs/plan/phase-01-backend-foundation/1.1.2-pytest-markers-db-skip.md"
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "title": "Esqueleto de la aplicación",
+      "phase": "01",
+      "layer": "interfaces",
+      "goal": "la factoría create_app() que monta el router operativo /api y un único router normalizado /api/v1, sobre el layout app/domains/<domain>/<module>.",
+      "status": "done",
+      "subtasks": [
+        {
+          "id": "1.2.1",
+          "title": "Factoría de la aplicación",
+          "status": "baseline",
+          "layer": "interfaces",
+          "depends": [
+            "1.1.1"
+          ],
+          "files": [
+            "app/main.py",
+            "app/api/health.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "la app construida por create_app() sirve el health operativo bajo /api",
+              "test": "tests/unit/test_health.py::test_operational_health_check_returns_ok"
+            },
+            {
+              "id": "AC2",
+              "criterion": "la app construida por create_app() sirve el health versionado bajo /api/v1",
+              "test": "tests/unit/test_health.py::test_versioned_health_check_returns_ok"
+            }
+          ],
+          "spec": "docs/plan/phase-01-backend-foundation/1.2.1-create-app-factory.md"
+        },
+        {
+          "id": "1.2.2",
+          "title": "Router v1 normalizado",
+          "status": "baseline",
+          "layer": "interfaces",
+          "depends": [
+            "1.2.1"
+          ],
+          "files": [
+            "app/api/v1/router.py",
+            "app/api/v1/health.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "cada ruta y método públicos de v1 se montan exactamente una vez",
+              "test": "tests/architecture/test_api_v1_router.py::test_api_v1_public_contract_routes_are_mounted_once"
+            },
+            {
+              "id": "AC2",
+              "criterion": "ninguna ruta y método de /api/v1 se monta más de una vez en toda la app",
+              "test": "tests/architecture/test_api_v1_router.py::test_api_v1_is_the_only_versioned_public_mount"
+            }
+          ],
+          "spec": "docs/plan/phase-01-backend-foundation/1.2.2-api-v1-router.md"
+        },
+        {
+          "id": "1.2.3",
+          "title": "Layout de paquetes de dominio",
+          "status": "baseline",
+          "layer": "interfaces",
+          "depends": [
+            "1.2.1"
+          ],
+          "files": [
+            "app/domains/__init__.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "los __init__ de los dominios se mantienen mínimos",
+              "test": "tests/architecture/test_domains_global_boundaries.py::test_domain_init_modules_are_minimal"
+            },
+            {
+              "id": "AC2",
+              "criterion": "los dominios usan los nombres de paquete en plural, no los singulares heredados",
+              "test": "tests/architecture/test_domains_global_boundaries.py::test_domains_do_not_use_legacy_singular_package"
+            }
+          ],
+          "spec": "docs/plan/phase-01-backend-foundation/1.2.3-domains-layout.md"
+        }
+      ]
+    },
+    {
+      "id": "1.3",
+      "title": "Capa de base de datos compartida",
+      "phase": "01",
+      "layer": "infrastructure",
+      "goal": "la base declarativa compartida, el mixin de timestamps y un registro central de modelos que carga todos los modelos ORM en una única metadata.",
+      "status": "done",
+      "subtasks": [
+        {
+          "id": "1.3.1",
+          "title": "Base declarativa y mixin de timestamps",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [
+            "1.1.1"
+          ],
+          "files": [
+            "app/db/base.py",
+            "app/db/mixins.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "la base declarativa compartida expone su metadata",
+              "test": "tests/integration/test_iam_orm_preparation.py::test_base_metadata_is_available"
+            },
+            {
+              "id": "AC2",
+              "criterion": "el mixin de timestamps mapea create_at y update_at como columnas con zona horaria",
+              "test": "tests/integration/test_iam_orm_preparation.py::test_timestamp_mixin_maps_expected_columns"
+            }
+          ],
+          "spec": "docs/plan/phase-01-backend-foundation/1.3.1-declarative-base-mixins.md"
+        },
+        {
+          "id": "1.3.2",
+          "title": "Registro central de modelos",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [
+            "1.3.1"
+          ],
+          "files": [
+            "app/db/model_registry.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "importar el registro carga en la metadata todos los modelos IAM actuales",
+              "test": "tests/integration/test_iam_orm_preparation.py::test_model_registry_loads_current_iam_models"
+            }
+          ],
+          "spec": "docs/plan/phase-01-backend-foundation/1.3.2-model-registry.md"
+        }
+      ]
+    },
+    {
+      "id": "2.1",
+      "title": "Modelos ORM de IAM",
+      "phase": "02",
+      "layer": "infrastructure",
+      "goal": "las once tablas de sch_iam mapeadas como modelos SQLAlchemy dentro de sus módulos de dominio, de acuerdo con el contrato de la baseline.",
+      "status": "done",
+      "subtasks": [
+        {
+          "id": "2.1.1",
+          "title": "Modelos ORM de sch_iam",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [],
+          "files": [
+            "app/domains/iam/access/models.py",
+            "app/domains/iam/geography/models.py",
+            "app/domains/iam/organizations/models.py",
+            "app/domains/iam/departments/models.py",
+            "app/domains/iam/users/models.py",
+            "app/domains/auth/shared/models.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "los modelos exponen exactamente las once tablas de sch_iam del contrato",
+              "test": "tests/unit/test_iam_baseline_contract.py::test_iam_contract_exposes_exactly_eleven_tables"
+            },
+            {
+              "id": "AC2",
+              "criterion": "los índices insensibles a mayúsculas compilan igual que en la baseline",
+              "test": "tests/unit/test_iam_models.py::test_case_insensitive_indexes_compile_like_baseline"
+            },
+            {
+              "id": "AC3",
+              "criterion": "las relaciones de departamento están acotadas a su organización",
+              "test": "tests/unit/test_iam_baseline_contract.py::test_department_relation_is_scoped_to_its_organization"
+            },
+            {
+              "id": "AC4",
+              "criterion": "el jti de revocación de tokens es único y está indexado",
+              "test": "tests/unit/test_iam_baseline_contract.py::test_revocation_jti_is_unique_and_indexed"
+            }
+          ],
+          "spec": "docs/plan/phase-02-iam-persistence/2.1.1-sch-iam-orm-models.md"
+        }
+      ]
+    },
+    {
+      "id": "2.2",
+      "title": "Baseline de Alembic solo DDL",
+      "phase": "02",
+      "layer": "infrastructure",
+      "goal": "una única revisión raíz de Alembic que crea el esquema sch_iam solo con DDL y mantiene la metadata de Alembic fuera de sch_iam.",
+      "status": "done",
+      "subtasks": [
+        {
+          "id": "2.2.1",
+          "title": "Revisión iam_baseline de Alembic",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [
+            "2.1.1"
+          ],
+          "files": [
+            "alembic/versions/iam_baseline.py",
+            "alembic/env.py",
+            "alembic.ini"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "la baseline contiene solo operaciones DDL",
+              "test": "tests/unit/test_iam_baseline_contract.py::test_baseline_contains_only_ddl_operations"
+            },
+            {
+              "id": "AC2",
+              "criterion": "iam_baseline es la única revisión raíz",
+              "test": "tests/integration/test_iam_seed_initial_catalogs.py::test_iam_baseline_is_single_root_revision_with_only_ddl"
+            },
+            {
+              "id": "AC3",
+              "criterion": "la tabla de versiones de Alembic queda fuera de sch_iam",
+              "test": "tests/integration/test_iam_seed_initial_catalogs.py::test_iam_baseline_keeps_alembic_metadata_outside_iam_schema"
+            },
+            {
+              "id": "AC4",
+              "criterion": "aplicada sobre PostgreSQL, la baseline hace cumplir sus restricciones y su contrato de identidad",
+              "test": "tests/integration/test_iam_baseline_postgresql.py::test_baseline_constraints_and_identity_contract"
+            }
+          ],
+          "spec": "docs/plan/phase-02-iam-persistence/2.2.1-alembic-iam-baseline.md"
+        }
+      ]
+    },
+    {
+      "id": "2.3",
+      "title": "CLI de migración protegida",
+      "phase": "02",
+      "layer": "infrastructure",
+      "goal": "una CLI de migración que solo acepta comandos seguros contra un host, una base de datos y un usuario de migración permitidos, y que da al rol de la aplicación acceso a los datos de IAM más acceso de solo lectura a public.alembic_version para readiness.",
+      "status": "done",
+      "subtasks": [
+        {
+          "id": "2.3.1",
+          "title": "Validación del destino y de los comandos del migrator",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [
+            "2.2.1"
+          ],
+          "files": [
+            "app/core/migrations.py",
+            "scripts/migrate.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "solo se aceptan upgrade head, current y check",
+              "test": "tests/unit/test_migrations.py::test_parse_command_accepts_only_safe_commands"
+            },
+            {
+              "id": "AC2",
+              "criterion": "se rechazan revisiones arbitrarias",
+              "test": "tests/unit/test_migrations.py::test_parse_command_rejects_arbitrary_revisions"
+            },
+            {
+              "id": "AC3",
+              "criterion": "se rechaza un destino fuera del host, la base de datos o el usuario permitidos",
+              "test": "tests/unit/test_migrations.py::test_target_rejects_unapproved_configuration"
+            },
+            {
+              "id": "AC4",
+              "criterion": "un destino inválido termina con un JSON controlado antes de crear un engine",
+              "test": "tests/unit/test_migrations.py::test_invalid_target_exits_with_controlled_json_without_creating_an_engine"
+            },
+            {
+              "id": "AC5",
+              "criterion": "la CLI nunca muestra el secreto de la base de datos",
+              "test": "tests/unit/test_migrations.py::test_cli_does_not_emit_the_database_secret"
+            }
+          ],
+          "spec": "docs/plan/phase-02-iam-persistence/2.3.1-migrator-target-and-commands.md"
+        },
+        {
+          "id": "2.3.2",
+          "title": "Permisos del rol de la aplicación",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [
+            "2.3.1"
+          ],
+          "files": [
+            "app/core/migrations.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "el rol de la aplicación recibe acceso a datos (sin DDL) sobre las tablas y secuencias de sch_iam, y solo SELECT sobre public.alembic_version",
+              "test": "tests/unit/test_migrations.py::test_operational_grants_are_limited_to_iam_data_access"
+            },
+            {
+              "id": "AC2",
+              "criterion": "en PostgreSQL, los roles del migrator y de la aplicación mantienen accesos separados",
+              "test": "tests/integration/test_database_roles.py::test_migrator_and_application_roles_have_separate_operational_access"
+            }
+          ],
+          "spec": "docs/plan/phase-02-iam-persistence/2.3.2-application-role-grants.md"
+        }
+      ]
+    },
+    {
+      "id": "2.4",
+      "title": "Scripts de datos IAM protegidos",
+      "phase": "02",
+      "layer": "infrastructure",
+      "goal": "scripts de bootstrap de catálogos, seed demo y rebaseline que solo se ejecutan contra bases de datos dedicadas locales o de test, nunca recurren a DATABASE_URL y fallan con una salida saneada.",
+      "status": "done",
+      "subtasks": [
+        {
+          "id": "2.4.1",
+          "title": "Bootstrap de catálogos canónicos",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [
+            "2.2.1"
+          ],
+          "files": [
+            "app/core/iam_bootstrap.py",
+            "scripts/bootstrap_iam.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "los catálogos canónicos son los aprobados",
+              "test": "tests/unit/test_iam_bootstrap.py::test_catalogos_canonicos_aprobados"
+            },
+            {
+              "id": "AC2",
+              "criterion": "bootstraps concurrentes no duplican catálogos",
+              "test": "tests/integration/test_iam_demo_seed_postgresql.py::test_bootstrap_concurrente_no_duplica_catalogos"
+            },
+            {
+              "id": "AC3",
+              "criterion": "las CLIs muestran un fallo saneado ante errores operativos",
+              "test": "tests/unit/test_iam_cli_failures.py::test_iam_clis_emit_sanitized_failure_for_operational_errors"
+            }
+          ],
+          "spec": "docs/plan/phase-02-iam-persistence/2.4.1-catalog-bootstrap.md"
+        },
+        {
+          "id": "2.4.2",
+          "title": "Seed demo de IAM",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [
+            "2.4.1"
+          ],
+          "files": [
+            "scripts/seed_demo_iam.py",
+            "scripts/data/iam_demo_seed.json"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "el destino demo nunca usa DATABASE_URL",
+              "test": "tests/unit/test_seed_demo_iam.py::test_destino_demo_no_usa_database_url"
+            },
+            {
+              "id": "AC2",
+              "criterion": "el seed no hace el bootstrap de catálogos de forma implícita",
+              "test": "tests/unit/test_seed_demo_iam.py::test_seed_demo_no_bootstrap_catalogos_implicitamente"
+            },
+            {
+              "id": "AC3",
+              "criterion": "bootstrap y seed son idempotentes y los ids públicos caben en su columna",
+              "test": "tests/integration/test_iam_demo_seed_postgresql.py::test_bootstrap_and_seed_are_idempotent_and_public_ids_fit"
+            },
+            {
+              "id": "AC4",
+              "criterion": "un seed concurrente no modifica datos que no son demo",
+              "test": "tests/integration/test_iam_demo_seed_postgresql.py::test_seed_concurrente_no_modifica_datos_no_demo"
+            }
+          ],
+          "spec": "docs/plan/phase-02-iam-persistence/2.4.2-demo-seed.md"
+        },
+        {
+          "id": "2.4.3",
+          "title": "Rebaseline de IAM",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [
+            "2.2.1"
+          ],
+          "files": [
+            "app/core/iam_rebaseline.py",
+            "scripts/rebaseline_iam.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "el rebaseline exige la confirmación explícita",
+              "test": "tests/unit/test_iam_rebaseline.py::test_rebaseline_requires_the_explicit_confirmation"
+            },
+            {
+              "id": "AC2",
+              "criterion": "se rechazan los entornos protegidos y los desconocidos",
+              "test": "tests/unit/test_iam_rebaseline.py::test_rebaseline_rejects_protected_and_unknown_environments"
+            },
+            {
+              "id": "AC3",
+              "criterion": "el rebaseline de test nunca recurre a DATABASE_URL",
+              "test": "tests/unit/test_iam_rebaseline.py::test_test_rebaseline_never_falls_back_to_database_url"
+            },
+            {
+              "id": "AC4",
+              "criterion": "un destino de test remoto se rechaza antes de crear un engine",
+              "test": "tests/unit/test_iam_rebaseline.py::test_test_rebaseline_rejects_remote_target_before_creating_an_engine"
+            },
+            {
+              "id": "AC5",
+              "criterion": "el rebaseline nunca se ejecuta al arrancar la aplicación",
+              "test": "tests/unit/test_iam_rebaseline.py::test_rebaseline_does_not_run_during_application_startup"
+            }
+          ],
+          "spec": "docs/plan/phase-02-iam-persistence/2.4.3-iam-rebaseline.md"
+        },
+        {
+          "id": "2.4.4",
+          "title": "Selector de la base de datos de test",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [],
+          "files": [
+            "app/core/test_database.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "se rechazan los valores de respaldo y las URLs inseguras",
+              "test": "tests/unit/test_core_config.py::test_test_database_selector_rejects_fallbacks_and_unsafe_urls"
+            },
+            {
+              "id": "AC2",
+              "criterion": "solo se acepta una base PostgreSQL local dedicada cuyo nombre termina en _test",
+              "test": "tests/unit/test_core_config.py::test_test_database_selector_accepts_only_dedicated_local_postgresql_database"
+            }
+          ],
+          "spec": "docs/plan/phase-02-iam-persistence/2.4.4-test-database-selector.md"
+        }
+      ]
+    },
+    {
+      "id": "2.5",
+      "title": "Sesión de base de datos en runtime",
+      "phase": "02",
+      "layer": "infrastructure",
+      "goal": "el engine y la factoría de sesiones cacheados, construidos a partir de los settings validados, que entregan una sesión por petición que se cierra siempre al terminar.",
+      "status": "done",
+      "subtasks": [
+        {
+          "id": "2.5.1",
+          "title": "Engine y factoría de sesiones",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [
+            "2.1.1"
+          ],
+          "files": [
+            "app/db/session.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "las peticiones HTTP escriben y leen a través de la dependencia de sesión real sobre PostgreSQL",
+              "test": "tests/integration/test_auth_session_http_integration.py::test_registration_preserves_password_spaces_for_real_login"
+            }
+          ],
+          "spec": "docs/plan/phase-02-iam-persistence/2.5.1-engine-and-session-factory.md"
+        }
+      ]
+    },
+    {
+      "id": "3.1",
+      "title": "Contratos y comprobaciones de readiness",
+      "phase": "03",
+      "layer": "infrastructure",
+      "goal": "los esquemas estables de health y readiness y la comprobación de PostgreSQL y de la revisión de Alembic, que solo devuelve estados enumerados sin detalles internos.",
+      "status": "in_progress",
+      "subtasks": [
+        {
+          "id": "3.1.1",
+          "title": "Esquemas de health y readiness",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [],
+          "files": [
+            "app/core/health/schemas.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "la respuesta de health se serializa como {\"status\": \"ok\"}",
+              "test": "tests/unit/test_health_schemas.py::test_health_response_serializes_status_ok"
+            },
+            {
+              "id": "AC2",
+              "criterion": "la respuesta de readiness se serializa con el estado de cada dependencia",
+              "test": "tests/unit/test_health_schemas.py::test_readiness_response_serializes_ready_dependencies"
+            },
+            {
+              "id": "AC3",
+              "criterion": "una dependencia caída se serializa como \"failed\"",
+              "test": "tests/unit/test_health_schemas.py::test_readiness_response_serializes_failed_dependency"
+            },
+            {
+              "id": "AC4",
+              "criterion": "los valores de los enumerados de estado son estables",
+              "test": "tests/unit/test_health_schemas.py::test_readiness_status_values_are_stable"
+            }
+          ],
+          "spec": "docs/plan/phase-03-health-readiness/3.1.1-health-schemas.md"
+        },
+        {
+          "id": "3.1.2",
+          "title": "Comprobación de PostgreSQL y de la revisión de Alembic",
+          "status": "baseline",
+          "layer": "infrastructure",
+          "depends": [
+            "3.1.1"
+          ],
+          "files": [
+            "app/core/health/checks.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "la comprobación devuelve \"ok\" cuando la sonda de base de datos tiene éxito",
+              "test": "tests/unit/test_health_checks.py::test_check_database_returns_ok_when_probe_succeeds"
+            },
+            {
+              "id": "AC2",
+              "criterion": "cualquier excepción de la sonda se convierte en \"failed\" sin propagar el mensaje",
+              "test": "tests/unit/test_health_checks.py::test_check_database_returns_failed_when_probe_raises"
+            },
+            {
+              "id": "AC3",
+              "criterion": "sin una base de datos accesible, la sonda real devuelve \"failed\"",
+              "test": "tests/unit/test_health_checks.py::test_check_database_returns_failed_when_probe_is_not_configured_by_default"
+            },
+            {
+              "id": "AC4",
+              "criterion": "readiness está \"ready\" solo si la base de datos está \"ok\"",
+              "test": "tests/unit/test_health_checks.py::test_get_readiness_status_returns_ready_when_database_is_ok"
+            },
+            {
+              "id": "AC5",
+              "criterion": "readiness está \"not_ready\" si la base de datos falla",
+              "test": "tests/unit/test_health_checks.py::test_get_readiness_status_returns_not_ready_when_database_fails"
+            },
+            {
+              "id": "AC6",
+              "criterion": "con el rol de la aplicación y el esquema en la head, la sonda real devuelve \"ok\"",
+              "test": "tests/integration/test_database_roles.py::test_migrator_and_application_roles_have_separate_operational_access"
+            }
+          ],
+          "spec": "docs/plan/phase-03-health-readiness/3.1.2-database-readiness-check.md"
+        },
+        {
+          "id": "3.1.3",
+          "title": "Readiness rechaza una revisión de Alembic distinta de la head",
+          "status": "pending",
+          "layer": "infrastructure",
+          "depends": [
+            "3.1.2"
+          ],
+          "files": [
+            "app/core/health/checks.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "con PostgreSQL accesible y public.alembic_version en una revisión distinta de la head empaquetada, la sonda real hace que check_database devuelva \"failed\"",
+              "test": "tests/acceptance/test_3.1.3.py::test_ac1_mismatched_revision_fails"
+            },
+            {
+              "id": "AC2",
+              "criterion": "con PostgreSQL accesible y sin ninguna fila en public.alembic_version, check_database devuelve \"failed\"",
+              "test": "tests/acceptance/test_3.1.3.py::test_ac2_missing_revision_fails"
+            },
+            {
+              "id": "AC3",
+              "criterion": "en ese estado /api/ready responde 503 con exactamente {\"status\": \"not_ready\", \"dependencies\": {\"database\": \"failed\"}}, sin incluir la revisión actual ni la head",
+              "test": "tests/acceptance/test_3.1.3.py::test_ac3_ready_503_without_revision_details"
+            }
+          ],
+          "spec": "docs/plan/phase-03-health-readiness/3.1.3-readiness-rejects-revision-mismatch.md"
+        }
+      ],
+      "ticket": "BACK-HEALTH-001"
+    },
+    {
+      "id": "3.2",
+      "title": "Endpoints operativos",
+      "phase": "03",
+      "layer": "interfaces",
+      "goal": "liveness en /api/health (y /api/v1/health) que nunca consulta dependencias, y readiness en /api/ready que responde 503 cuando una dependencia falla.",
+      "status": "done",
+      "subtasks": [
+        {
+          "id": "3.2.1",
+          "title": "Endpoints de liveness y readiness",
+          "status": "baseline",
+          "layer": "interfaces",
+          "depends": [
+            "3.1.2"
+          ],
+          "files": [
+            "app/api/health.py",
+            "app/api/v1/health.py"
+          ],
+          "acceptance": [
+            {
+              "id": "AC1",
+              "criterion": "/api/health responde 200 {\"status\": \"ok\"}",
+              "test": "tests/unit/test_health.py::test_operational_health_check_returns_ok"
+            },
+            {
+              "id": "AC2",
+              "criterion": "/api/health nunca consulta readiness ni la base de datos",
+              "test": "tests/unit/test_health.py::test_operational_health_check_does_not_call_readiness"
+            },
+            {
+              "id": "AC3",
+              "criterion": "/api/v1/health responde 200 {\"status\": \"ok\"}",
+              "test": "tests/unit/test_health.py::test_versioned_health_check_returns_ok"
+            },
+            {
+              "id": "AC4",
+              "criterion": "/api/ready responde 200 con el estado de las dependencias cuando todo está listo",
+              "test": "tests/unit/test_health.py::test_readiness_check_returns_ready_when_database_is_ok"
+            },
+            {
+              "id": "AC5",
+              "criterion": "/api/ready responde 503 con un cuerpo que solo contiene estados enumerados cuando la base de datos falla",
+              "test": "tests/unit/test_health.py::test_readiness_check_returns_service_unavailable_when_database_fails"
+            }
+          ],
+          "spec": "docs/plan/phase-03-health-readiness/3.2.1-health-and-ready-endpoints.md"
+        }
+      ]
+    }
+  ]
 }

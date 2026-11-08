@@ -1,0 +1,2 @@
+# Phase 09 — Integración con el frontend y e2e
+- goal: los formularios de registro de organización y de login del frontend consumen la API v1 real a través de nginx (rutas /api/v1, cookie HttpOnly y CSRF), y una suite e2e con Playwright para Python sobre pytest (marker e2e, `make e2e` y un job e2e en la CI en cada PR) verifica sobre el stack de Docker Compose el flujo completo registro → login → /me → logout, los casos negativos (credenciales incorrectas, email duplicado, petición sin CSRF, rate limit) y la autorización y el tenant context de la phase 08.

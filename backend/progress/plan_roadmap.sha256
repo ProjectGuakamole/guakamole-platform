@@ -1,0 +1,10 @@
+bfbcf33feb066e476802f72379840ecf3b3863b0b0dfdff26935184987cc8306  docs/plan/PLAN.md
+f89e955b73ecc0edcab144c1576bfd3d4dff65b2a5b2c65b38b606dba02f1255  docs/plan/phase-01-backend-foundation.md
+14f578521dd1879fd49af18beaa3bdee5ac888e2090578a3b1cd264de6792f16  docs/plan/phase-02-iam-persistence.md
+d9a17c5c45dc29878630e514748629bb032de4101259df198bc990d95081ed14  docs/plan/phase-03-health-readiness.md
+4897e34162dc121e167dde11a6c264024fbc16c7c6aa4b0ca706cfb464e498ee  docs/plan/phase-04-docker-environment.md
+8e6dc53874c497744915cdd15e6bf690a9d823f0b04edfd4d453fd05f2299687  docs/plan/phase-05-backend-ci.md
+f656805436c5a85e66780a965ee5e99a579f2060792926869be22839080944ca  docs/plan/phase-06-hexagonal-iam-pilot.md
+47c0dfe62250a5f01254e6014e294354f97cf83132846a2f02d68e41cde85666  docs/plan/phase-07-authentication.md
+3213a28aeb0f0e680796977b71e22f05d5668919d332370ad1fc50ef3ec96dc5  docs/plan/phase-08-rbac-tenant-context.md
+36f70f0adb404506a9358cd39a1473b0988e15640174dc7b94a551dccad5f29d  docs/plan/phase-09-frontend-integration-e2e.md

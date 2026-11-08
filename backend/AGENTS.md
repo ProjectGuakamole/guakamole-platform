@@ -6,10 +6,24 @@
 ## 1. Before starting (mandatory)
 
 1. Run `make check`. If it fails, **stop** and fix the harness before touching anything.
+   **Codex** does not run it: its sandbox blocks the local sockets test clients
+   need, so the harness runs it outside the sandbox and the prompt gives Codex
+   the exit code and log.
    Exception — **plan gate**: once Codex has written the acceptance tests for the
    subtask, they are intentionally **red**, so `make verify`/`make check` are
    expected to fail on *those* tests. That is the correct state at the plan phase,
    not a harness failure. Green is required at session start, the code gate, and close.
+   Exception — **re-review of a sealed plan**: when an approved roadmap or phase
+   breakdown is changed on purpose, `make check` fails on the plan seals
+   (`... changed/added after the roadmap|phase NN was approved`) and, while the
+   roadmap is not approved, on the phases already broken down (`phase NN is broken
+   down but the roadmap is not ROADMAP_APPROVED`). A phase header lives in both the
+   roadmap seal and its phase seal, so these failures cannot be fixed one gate at a
+   time. In `roadmap` and `phase` gates, failures of **any plan seal** (roadmap or
+   phases) and the broken-down-phase check do not block the review; every other part
+   of `make check` (tests, lint, types, plan sync, sealed acceptance tests) must be
+   green. Each changed seal must be re-approved by its own gate (roadmap first, then
+   each phase) before any subtask work continues; until then `make check` stays red.
 2. Read `progress/current.md` (where the last session left off).
 3. Run `make status`: the whole plan, every gate verdict and the **next step**.
 
