@@ -1,0 +1,524 @@
+{
+  "commit": "ac5aadcb960d9685da6c7b6180036a1353e82556",
+  "created_at": "2026-11-08T13:02:53+00:00",
+  "install_root": "backend",
+  "issue_draft": null,
+  "issues": {},
+  "leaves": {
+    "1.1.1": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "pyproject.toml",
+        "uv.lock",
+        "requirements.txt"
+      ],
+      "id": "1.1.1",
+      "issue": null,
+      "phase": "01",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-01-backend-foundation/1.1.1-uv-ruff-mypy-config.md",
+        "sha256": "df5aac0db8af3e7f33d0a7b74748669eafc89567da6ba7679893a6e2786bd7aa"
+      },
+      "status": "baseline"
+    },
+    "1.1.2": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "pyproject.toml",
+        "tests/conftest.py"
+      ],
+      "id": "1.1.2",
+      "issue": null,
+      "phase": "01",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-01-backend-foundation/1.1.2-pytest-markers-db-skip.md",
+        "sha256": "b35f96eb309b07114330ec67021e4e02d29860a1f78568f5ead3554e0a5f35c2"
+      },
+      "status": "baseline"
+    },
+    "1.2.1": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/main.py",
+        "app/api/health.py"
+      ],
+      "id": "1.2.1",
+      "issue": null,
+      "phase": "01",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-01-backend-foundation/1.2.1-create-app-factory.md",
+        "sha256": "8a5bdf7f62dc107a8add611d83100568fe4a2248080f588839b584db2cc4b0d2"
+      },
+      "status": "baseline"
+    },
+    "1.2.2": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/api/v1/router.py",
+        "app/api/v1/health.py"
+      ],
+      "id": "1.2.2",
+      "issue": null,
+      "phase": "01",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-01-backend-foundation/1.2.2-api-v1-router.md",
+        "sha256": "950fa32eef6d34ec8f0d0d9a2f09636d746620f2bb13cf5dc396963fa7ea6bae"
+      },
+      "status": "baseline"
+    },
+    "1.2.3": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/domains/__init__.py"
+      ],
+      "id": "1.2.3",
+      "issue": null,
+      "phase": "01",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-01-backend-foundation/1.2.3-domains-layout.md",
+        "sha256": "b2df75397a50169c6aa97d1323aa396daca9d1856d7520a5a34827ecdf2ba895"
+      },
+      "status": "baseline"
+    },
+    "1.3.1": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/db/base.py",
+        "app/db/mixins.py"
+      ],
+      "id": "1.3.1",
+      "issue": null,
+      "phase": "01",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-01-backend-foundation/1.3.1-declarative-base-mixins.md",
+        "sha256": "86c9459d305bc3a316b25ca1dfd5d2fde6dc8c55345fc40c3a0a609af4e2255d"
+      },
+      "status": "baseline"
+    },
+    "1.3.2": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/db/model_registry.py"
+      ],
+      "id": "1.3.2",
+      "issue": null,
+      "phase": "01",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-01-backend-foundation/1.3.2-model-registry.md",
+        "sha256": "d7c395cc1a24e31790c31357595e9caa980f81a223c6f0a5089528a22adfd2df"
+      },
+      "status": "baseline"
+    },
+    "2.1.1": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/domains/iam/access/models.py",
+        "app/domains/iam/geography/models.py",
+        "app/domains/iam/organizations/models.py",
+        "app/domains/iam/departments/models.py",
+        "app/domains/iam/users/models.py",
+        "app/domains/auth/shared/models.py"
+      ],
+      "id": "2.1.1",
+      "issue": null,
+      "phase": "02",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-02-iam-persistence/2.1.1-sch-iam-orm-models.md",
+        "sha256": "c9461552755917fb6b4b3d13e3cf059e00031cca28a06a7d80a6b23d0dafd72a"
+      },
+      "status": "baseline"
+    },
+    "2.2.1": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "alembic/versions/iam_baseline.py",
+        "alembic/env.py",
+        "alembic.ini"
+      ],
+      "id": "2.2.1",
+      "issue": null,
+      "phase": "02",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-02-iam-persistence/2.2.1-alembic-iam-baseline.md",
+        "sha256": "7755f0eaa79d836b7992d8e5132cce63599b56cb8ecf59106311ef8e11b2fe0e"
+      },
+      "status": "baseline"
+    },
+    "2.3.1": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/core/migrations.py",
+        "scripts/migrate.py"
+      ],
+      "id": "2.3.1",
+      "issue": null,
+      "phase": "02",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-02-iam-persistence/2.3.1-migrator-target-and-commands.md",
+        "sha256": "7a70fd0b93c645351a1f63d6592c2bb042360a3e959fa1c99e8d736e8bd5ff56"
+      },
+      "status": "baseline"
+    },
+    "2.3.2": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/core/migrations.py"
+      ],
+      "id": "2.3.2",
+      "issue": null,
+      "phase": "02",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-02-iam-persistence/2.3.2-application-role-grants.md",
+        "sha256": "9be094eabfbabe23d72ed4c2de0bfa94a7b52290e7873a46bed59d96601a78d7"
+      },
+      "status": "baseline"
+    },
+    "2.4.1": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/core/iam_bootstrap.py",
+        "scripts/bootstrap_iam.py"
+      ],
+      "id": "2.4.1",
+      "issue": null,
+      "phase": "02",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-02-iam-persistence/2.4.1-catalog-bootstrap.md",
+        "sha256": "7d8157991d61b2be4caee2d284df7c4be54c37856ca0e12fe648a3974d3d9456"
+      },
+      "status": "baseline"
+    },
+    "2.4.2": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "scripts/seed_demo_iam.py",
+        "scripts/data/iam_demo_seed.json"
+      ],
+      "id": "2.4.2",
+      "issue": null,
+      "phase": "02",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-02-iam-persistence/2.4.2-demo-seed.md",
+        "sha256": "00047b1e86b81e319bb126eaa229f76fd8f56f36b8d22a24633d9ab80089fdc9"
+      },
+      "status": "baseline"
+    },
+    "2.4.3": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/core/iam_rebaseline.py",
+        "scripts/rebaseline_iam.py"
+      ],
+      "id": "2.4.3",
+      "issue": null,
+      "phase": "02",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-02-iam-persistence/2.4.3-iam-rebaseline.md",
+        "sha256": "a84cd9e02a00ef29b5944612cf8e9e0af91a48122f6ad6553002d9c7c573b9a5"
+      },
+      "status": "baseline"
+    },
+    "2.4.4": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/core/test_database.py"
+      ],
+      "id": "2.4.4",
+      "issue": null,
+      "phase": "02",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-02-iam-persistence/2.4.4-test-database-selector.md",
+        "sha256": "d371f9c85359088716d98f452315df462af128a96a4e4478b0000ef864407d5c"
+      },
+      "status": "baseline"
+    },
+    "2.5.1": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/db/session.py"
+      ],
+      "id": "2.5.1",
+      "issue": null,
+      "phase": "02",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-02-iam-persistence/2.5.1-engine-and-session-factory.md",
+        "sha256": "0902272381beea5c9f9598aba4740db123b5f246b315b64d2b0c8083eb4b6e1e"
+      },
+      "status": "baseline"
+    },
+    "3.1.1": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/core/health/schemas.py"
+      ],
+      "id": "3.1.1",
+      "issue": null,
+      "phase": "03",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-03-health-readiness/3.1.1-health-schemas.md",
+        "sha256": "f52542bba853262cdc295cdb0b88611f19f2e9028341be4d1aa9b7591db221d9"
+      },
+      "status": "baseline"
+    },
+    "3.1.2": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/core/health/checks.py"
+      ],
+      "id": "3.1.2",
+      "issue": null,
+      "phase": "03",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-03-health-readiness/3.1.2-database-readiness-check.md",
+        "sha256": "c94dac99e2c17ca264a89259250a822781dd0790d15eaf991a6ea87e04cd6653"
+      },
+      "status": "baseline"
+    },
+    "3.1.3": {
+      "acceptance": [],
+      "baseline": false,
+      "declared_files": [
+        "app/core/health/checks.py"
+      ],
+      "id": "3.1.3",
+      "issue": null,
+      "phase": "03",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-03-health-readiness/3.1.3-readiness-rejects-revision-mismatch.md",
+        "sha256": "bc31f289f0986d78ad28d07a4fe7abdd30e840ea770cb15fd8d3a9889d8e5e39"
+      },
+      "status": "pending"
+    },
+    "3.2.1": {
+      "acceptance": [],
+      "baseline": true,
+      "declared_files": [
+        "app/api/health.py",
+        "app/api/v1/health.py"
+      ],
+      "id": "3.2.1",
+      "issue": null,
+      "phase": "03",
+      "plan_review": null,
+      "review": null,
+      "seal": null,
+      "spec": {
+        "path": "docs/plan/phase-03-health-readiness/3.2.1-health-and-ready-endpoints.md",
+        "sha256": "2281d733bc7a72bfa46d55521374948dc0d9d15a99873b20756ec53dc66e7464"
+      },
+      "status": "baseline"
+    }
+  },
+  "phases": {
+    "01": {
+      "approved": {
+        "docs/plan/phase-01-backend-foundation.md": "8bd1a8e00ec36427eec2e58b65b70e126a75e9321f2ec3830f157fbddb901081",
+        "docs/plan/phase-01-backend-foundation/1.1.1-uv-ruff-mypy-config.md": "df5aac0db8af3e7f33d0a7b74748669eafc89567da6ba7679893a6e2786bd7aa",
+        "docs/plan/phase-01-backend-foundation/1.1.2-pytest-markers-db-skip.md": "b35f96eb309b07114330ec67021e4e02d29860a1f78568f5ead3554e0a5f35c2",
+        "docs/plan/phase-01-backend-foundation/1.2.1-create-app-factory.md": "8a5bdf7f62dc107a8add611d83100568fe4a2248080f588839b584db2cc4b0d2",
+        "docs/plan/phase-01-backend-foundation/1.2.2-api-v1-router.md": "950fa32eef6d34ec8f0d0d9a2f09636d746620f2bb13cf5dc396963fa7ea6bae",
+        "docs/plan/phase-01-backend-foundation/1.2.3-domains-layout.md": "b2df75397a50169c6aa97d1323aa396daca9d1856d7520a5a34827ecdf2ba895",
+        "docs/plan/phase-01-backend-foundation/1.3.1-declarative-base-mixins.md": "86c9459d305bc3a316b25ca1dfd5d2fde6dc8c55345fc40c3a0a609af4e2255d",
+        "docs/plan/phase-01-backend-foundation/1.3.2-model-registry.md": "d7c395cc1a24e31790c31357595e9caa980f81a223c6f0a5089528a22adfd2df"
+      },
+      "review": {
+        "path": "progress/phase_review_01.md",
+        "sha256": "80c37b1f294e8ff13fa4f17dc36595a242b3aade2e9c3d675501c5fe931fcc55"
+      },
+      "seal": {
+        "path": "progress/plan_phase_01.sha256",
+        "sha256": "0dd7998132b7c264e18f56565e64dcd40748163afc565b9fd9a009cd9ce1c1c6"
+      },
+      "verdict": "PHASE_APPROVED"
+    },
+    "02": {
+      "approved": {
+        "docs/plan/phase-02-iam-persistence.md": "dad446f25e50c3ef995f977ed69bb4cf1424ee85f92d9bd98d0bcbb38c5fd773",
+        "docs/plan/phase-02-iam-persistence/2.1.1-sch-iam-orm-models.md": "c9461552755917fb6b4b3d13e3cf059e00031cca28a06a7d80a6b23d0dafd72a",
+        "docs/plan/phase-02-iam-persistence/2.2.1-alembic-iam-baseline.md": "7755f0eaa79d836b7992d8e5132cce63599b56cb8ecf59106311ef8e11b2fe0e",
+        "docs/plan/phase-02-iam-persistence/2.3.1-migrator-target-and-commands.md": "7a70fd0b93c645351a1f63d6592c2bb042360a3e959fa1c99e8d736e8bd5ff56",
+        "docs/plan/phase-02-iam-persistence/2.3.2-application-role-grants.md": "9be094eabfbabe23d72ed4c2de0bfa94a7b52290e7873a46bed59d96601a78d7",
+        "docs/plan/phase-02-iam-persistence/2.4.1-catalog-bootstrap.md": "7d8157991d61b2be4caee2d284df7c4be54c37856ca0e12fe648a3974d3d9456",
+        "docs/plan/phase-02-iam-persistence/2.4.2-demo-seed.md": "00047b1e86b81e319bb126eaa229f76fd8f56f36b8d22a24633d9ab80089fdc9",
+        "docs/plan/phase-02-iam-persistence/2.4.3-iam-rebaseline.md": "a84cd9e02a00ef29b5944612cf8e9e0af91a48122f6ad6553002d9c7c573b9a5",
+        "docs/plan/phase-02-iam-persistence/2.4.4-test-database-selector.md": "d371f9c85359088716d98f452315df462af128a96a4e4478b0000ef864407d5c",
+        "docs/plan/phase-02-iam-persistence/2.5.1-engine-and-session-factory.md": "0902272381beea5c9f9598aba4740db123b5f246b315b64d2b0c8083eb4b6e1e"
+      },
+      "review": {
+        "path": "progress/phase_review_02.md",
+        "sha256": "0fb057be2cafc2074134b7d00b6b2842257963d0871ec425f7267481fcd5dff0"
+      },
+      "seal": {
+        "path": "progress/plan_phase_02.sha256",
+        "sha256": "6ec4cc0dc016ac1cad1bd27dc8df1e6eb1c6f029afb40037efd6eeceae082e3d"
+      },
+      "verdict": "PHASE_APPROVED"
+    },
+    "03": {
+      "approved": {
+        "docs/plan/phase-03-health-readiness.md": "0cfc461d3d31506f72904d17058fc97a4dadc7c4441d2952e0c529a2aab0b4b1",
+        "docs/plan/phase-03-health-readiness/3.1.1-health-schemas.md": "f52542bba853262cdc295cdb0b88611f19f2e9028341be4d1aa9b7591db221d9",
+        "docs/plan/phase-03-health-readiness/3.1.2-database-readiness-check.md": "c94dac99e2c17ca264a89259250a822781dd0790d15eaf991a6ea87e04cd6653",
+        "docs/plan/phase-03-health-readiness/3.1.3-readiness-rejects-revision-mismatch.md": "003453f42232c059acd43f40369e55fbcc029167efee207da17c5d14330416c0",
+        "docs/plan/phase-03-health-readiness/3.2.1-health-and-ready-endpoints.md": "2281d733bc7a72bfa46d55521374948dc0d9d15a99873b20756ec53dc66e7464"
+      },
+      "review": {
+        "path": "progress/phase_review_03.md",
+        "sha256": "90700272b9d4dfe5a86670bd9e96f54f94a7562b2faffcd1a89b20197e51c0b7"
+      },
+      "seal": {
+        "path": "progress/plan_phase_03.sha256",
+        "sha256": "0916c1e5b737c293f09cc90c50f28ca8ad355f7919d77376908dc6817f143030"
+      },
+      "verdict": "PHASE_APPROVED"
+    },
+    "04": {
+      "approved": {
+        "docs/plan/phase-04-docker-environment.md": "4897e34162dc121e167dde11a6c264024fbc16c7c6aa4b0ca706cfb464e498ee"
+      },
+      "review": null,
+      "seal": null,
+      "verdict": null
+    },
+    "05": {
+      "approved": {
+        "docs/plan/phase-05-backend-ci.md": "8e6dc53874c497744915cdd15e6bf690a9d823f0b04edfd4d453fd05f2299687"
+      },
+      "review": null,
+      "seal": null,
+      "verdict": null
+    },
+    "06": {
+      "approved": {
+        "docs/plan/phase-06-hexagonal-iam-pilot.md": "f656805436c5a85e66780a965ee5e99a579f2060792926869be22839080944ca"
+      },
+      "review": null,
+      "seal": null,
+      "verdict": null
+    },
+    "07": {
+      "approved": {
+        "docs/plan/phase-07-authentication.md": "47c0dfe62250a5f01254e6014e294354f97cf83132846a2f02d68e41cde85666"
+      },
+      "review": null,
+      "seal": null,
+      "verdict": null
+    },
+    "08": {
+      "approved": {
+        "docs/plan/phase-08-rbac-tenant-context.md": "3213a28aeb0f0e680796977b71e22f05d5668919d332370ad1fc50ef3ec96dc5"
+      },
+      "review": null,
+      "seal": null,
+      "verdict": null
+    },
+    "09": {
+      "approved": {
+        "docs/plan/phase-09-frontend-integration-e2e.md": "36f70f0adb404506a9358cd39a1473b0988e15640174dc7b94a551dccad5f29d"
+      },
+      "review": null,
+      "seal": null,
+      "verdict": null
+    }
+  },
+  "roadmap": {
+    "approved": {
+      "docs/plan/PLAN.md": "bfbcf33feb066e476802f72379840ecf3b3863b0b0dfdff26935184987cc8306",
+      "docs/plan/phase-01-backend-foundation.md": "f89e955b73ecc0edcab144c1576bfd3d4dff65b2a5b2c65b38b606dba02f1255",
+      "docs/plan/phase-02-iam-persistence.md": "14f578521dd1879fd49af18beaa3bdee5ac888e2090578a3b1cd264de6792f16",
+      "docs/plan/phase-03-health-readiness.md": "d9a17c5c45dc29878630e514748629bb032de4101259df198bc990d95081ed14",
+      "docs/plan/phase-04-docker-environment.md": "4897e34162dc121e167dde11a6c264024fbc16c7c6aa4b0ca706cfb464e498ee",
+      "docs/plan/phase-05-backend-ci.md": "8e6dc53874c497744915cdd15e6bf690a9d823f0b04edfd4d453fd05f2299687",
+      "docs/plan/phase-06-hexagonal-iam-pilot.md": "f656805436c5a85e66780a965ee5e99a579f2060792926869be22839080944ca",
+      "docs/plan/phase-07-authentication.md": "47c0dfe62250a5f01254e6014e294354f97cf83132846a2f02d68e41cde85666",
+      "docs/plan/phase-08-rbac-tenant-context.md": "3213a28aeb0f0e680796977b71e22f05d5668919d332370ad1fc50ef3ec96dc5",
+      "docs/plan/phase-09-frontend-integration-e2e.md": "36f70f0adb404506a9358cd39a1473b0988e15640174dc7b94a551dccad5f29d"
+    },
+    "review": {
+      "path": "progress/roadmap_review.md",
+      "sha256": "17af48761f7c3d21066e6c75490b26d74a9bf98b5118de8295df60a025d4dd5e"
+    },
+    "seal": {
+      "path": "progress/plan_roadmap.sha256",
+      "sha256": "b56aaf200f5384ce7cb061d72218517dadd978108c45077c9b329b0d090fef12"
+    },
+    "verdict": "ROADMAP_APPROVED"
+  },
+  "toolkit": "99cc834",
+  "version": 1
+}
